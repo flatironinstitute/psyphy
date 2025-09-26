@@ -30,6 +30,7 @@ plugins:
             inherited_members: true
             members_order: source
 
+
 markdown_extensions:
   - admonition
   - toc:
