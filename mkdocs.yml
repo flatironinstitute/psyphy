@@ -6,7 +6,7 @@ repo_name: hmd101/psyphy
 
 theme:
   name: material
-  logo: images/psyphy_logo_draft.png    
+  logo: reference/images/psyphy_logo_draft.png    
   features:
     - navigation.tabs
     - navigation.sections
