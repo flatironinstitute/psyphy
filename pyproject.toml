@@ -24,3 +24,9 @@ Homepage = "https://github.com/hmd101/psyphy"
 Repository = "https://github.com/hmd101/psyphy"
 Issues = "https://github.com/hmd101/psyphy/issues"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/psyphy"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/psyphy", "README.md", "requirements.txt", "tests"]
+
