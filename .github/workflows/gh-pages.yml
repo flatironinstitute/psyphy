@@ -2,7 +2,7 @@ name: docs
 
 on:
   push:
-    branches: [ main ]   
+  branches: [ main, mkdoc ]   
   workflow_dispatch:
 
 permissions:
@@ -22,11 +22,12 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install -e .
           pip install mkdocs mkdocs-material mkdocstrings[python]
 
