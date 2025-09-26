@@ -7,6 +7,11 @@ build/
 *.egg-info/
 .venv/
 
+# MkDocs build output and caches
+site/
+.cache/
+.mkdocs-cache/
+
 # Ignore apple macOS system files
 .DS_Store
 # Ignore Jupyter Notebook checkpoints
@@ -14,4 +19,14 @@ build/
 
 # Ignore VSCode settings
 .vscode/
+
+# common Python tooling artifacts
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.env
+env/
+venv/
+.python-version
 
