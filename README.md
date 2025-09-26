@@ -85,3 +85,28 @@ This package implements methods described in:
 While the paper above  used AEPsych (a Gaussian Process–based trial placer),
 `psyphy` integrates trial placement directly with the WPPM posterior (e.g. via InfoGain/EAVC),
 making the  adaptive trial placement model-aware.
+
+## Docs
+
+Build and preview the documentation locally:
+
+```bash
+# from repo root
+source .venv/bin/activate
+pip install mkdocs mkdocs-material 'mkdocstrings[python]'
+mkdocs serve
+```
+
+Build the static site:
+
+```bash
+mkdocs build
+```
+
+Deploy to GitHub Pages (manual):
+
+```bash
+mkdocs gh-deploy --clean
+```
+
+For contributors, see CONTRIBUTING.md for full doc guidelines and NumPy-style docstrings.

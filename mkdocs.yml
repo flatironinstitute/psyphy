@@ -1,0 +1,53 @@
+site_name: psyphy
+site_description: Psychophysical modeling and adaptive trial placement
+site_url: https://hmd101.github.io/psyphy/
+repo_url: https://github.com/hmd101/psyphy
+repo_name: hmd101/psyphy
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+    - toc.integrate
+  palette:
+    - scheme: default
+      primary: blue
+      accent: indigo
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_toc_entry: false
+            separate_signature: true
+            inherited_members: true
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+
+nav:
+  - Home: index.md
+  - Usage: usage.md
+  - Reference:
+      - Overview: reference/overview.md
+      - Data: reference/data.md
+      - Model: reference/model.md
+      - Inference: reference/inference.md
+      - Posterior: reference/posterior.md
+      - Trial Placement: reference/trial_placement.md
+      - Session: reference/session.md
+      - Utils: reference/utils.md
