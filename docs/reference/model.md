@@ -4,7 +4,7 @@
 
 ::: psyphy.model
 
-## WPPM
+## Wishart Psyochophysical Process Model (WPPM)
 
 ::: psyphy.model.wppm
 

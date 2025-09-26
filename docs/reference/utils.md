@@ -12,6 +12,6 @@
 
 ::: psyphy.utils.math
 
-## Candidates
+## Stimulus candidates
 
 ::: psyphy.utils.candidates

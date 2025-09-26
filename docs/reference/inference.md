@@ -12,10 +12,10 @@
 
 ::: psyphy.inference.map_optimizer
 
-## Langevin
+## Langevin Samplers
 
 ::: psyphy.inference.langevin
 
-## Laplace
+## Laplace Approximation
 
 ::: psyphy.inference.laplace

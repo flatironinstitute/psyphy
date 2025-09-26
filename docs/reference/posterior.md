@@ -4,7 +4,7 @@
 
 ::: psyphy.posterior
 
-## Core
+## Posterior Representation
 
 ::: psyphy.posterior.posterior
 
