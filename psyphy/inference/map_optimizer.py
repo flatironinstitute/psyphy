@@ -1,39 +1,68 @@
 """
-inference/map_optimizer.py
---------------------------
+map_optimizer.py
+----------------
 
-MAP (Maximum A Posteriori) optimizer with Optax.
+MAP (Maximum A Posteriori) optimizer using Optax.
 
-Provides:
-- MAPOptimizer: gradient-based optimization of WPPM log posterior
-- Supports explicit choice of optimizer (SGD, Adam, etc.)
-- Steps argument = number of parameter update iterations
+MVP implementation:
+- Uses gradient ascent on log posterior.
+- Defaults to SGD with momentum, but any Optax optimizer can be passed in.
 
-Returns a Posterior with MAP_params set.
+Connections
+-----------
+- Calls WPPM.log_posterior_from_data(params, data) as the objective.
+- Returns a Posterior object wrapping the MAP estimate.
 """
 
+from __future__ import annotations
+
 import jax
-import jax.numpy as jnp
 import optax
 
+from psyphy.inference.base import InferenceEngine
 from psyphy.posterior.posterior import Posterior
-
-from .base import InferenceEngine
 
 
 class MAPOptimizer(InferenceEngine):
+    """
+    MAP (Maximum A Posteriori) optimizer.
+
+    Parameters
+    ----------
+    steps : int, default=500
+        Number of optimization steps.
+    optimizer : optax.GradientTransformation, optional
+        Optax optimizer to use. Default: SGD with momentum.
+
+    Notes
+    -----
+    - Loss function = negative log posterior.
+    - Gradients computed with jax.grad.
+    """
+
+
     def __init__(self, steps: int = 500, optimizer: optax.GradientTransformation | None = None):
         self.steps = steps
-        # default to SGD with momentum
-        self.optimizer = optimizer or optax.sgd(learning_rate=1e-2, momentum=0.9)
+        self.optimizer = optimizer or optax.sgd(learning_rate=5e-5, momentum=0.9)
 
-    def fit(self, model, data):
+    def fit(self, model, data) -> Posterior:
         """
-        Optimize log posterior using gradient ascent.
+        Fit model parameters with MAP optimization.
+
+        Parameters
+        ----------
+        model : WPPM
+            Model instance.
+        data : ResponseData
+            Observed trials.
+
+        Returns
+        -------
+        Posterior
+            Posterior wrapper around MAP params and model.
         """
 
         def loss_fn(params):
-            # negative log posterior (we want to maximize posterior)
             return -model.log_posterior_from_data(params, data)
 
         params = model.init_params(jax.random.PRNGKey(0))

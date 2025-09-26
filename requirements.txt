@@ -9,6 +9,8 @@ matplotlib
 seaborn==0.13.2
 ruff==0.9.1
 black==24.3.0
+scipy
+numpy
 pre-commit
 
 

@@ -1,19 +1,44 @@
+"""
+base.py
+-------
+
+Abstract base class for trial placement strategies.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any
 
-"""
-Abstract base class for trial placement strategies.
-
-Defines:
-- propose(posterior, batch_size) -> TrialBatch
-
-All adaptive designs (grid, staircase, info gain) subclass this.
-"""
-
 
 class TrialPlacement(ABC):
+    """
+    Abstract interface for trial placement strategies.
+
+    Methods
+    -------
+    propose(posterior, batch_size) -> TrialBatch
+        Propose the next batch of trials.
+
+    All trial placement strategies (grid, staircase, info gain) subclass this.
+
+    """
+
     @abstractmethod
-    def next_batch(self, posterior: Any, n: int = 1) -> Any:  # pragma: no cover - interface
-        ...
+    def propose(self, posterior: Any, batch_size: int):
+        """
+        Propose the next batch of trials.
+
+        Parameters
+        ----------
+        posterior : Posterior
+            Posterior distribution (MAP, Laplace, or MCMC).
+        batch_size : int
+            Number of trials to propose.
+
+        Returns
+        -------
+        TrialBatch
+            Proposed batch of (reference, probe) stimuli.
+        """
+        return NotImplementedError()
