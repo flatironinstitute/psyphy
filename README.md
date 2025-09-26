@@ -34,48 +34,37 @@ pip install -e .
 ```
 
 ## Quickstart (MVP)
+If you already have data and just want to fit and predict without the experiment orchestrator, otherwise [go here](https://hmd101.github.io/psyphy/usage/) for a more comprehensive example including the entire experiment orchestrator.
 
 ```python
-import jax
-import jax.numpy as jnp
-import optax
-
 from psyphy.data.dataset import ResponseData
-from psyphy.model import WPPM, Prior, OddityTask, GaussianNoise
+from psyphy.model import WPPM, Prior, TwoAFC
 from psyphy.inference.map_optimizer import MAPOptimizer
-from psyphy.trial_placement.grid import GridPlacement
-from psyphy.session.experiment_session import ExperimentSession
+import optax
+import jax.numpy as jnp
+# Prepare data
+# Create an empty container for trials (reference, probe, response)
+data = ResponseData()
 
-# --- Setup model ---
-prior = Prior.default(input_dim=2)
-task = OddityTask()
-noise = GaussianNoise()
-model = WPPM(input_dim=2, prior=prior, task=task, noise=noise)
+# Add one trial:
+# - ref: reference stimulus (shape: (input_dim,))
+# - probe: probe stimulus (same shape as ref)
+# - resp: binary response in {0, 1}; TwoAFC log-likelihood treats 1 as "correct"
+data.add_trial(ref=jnp.array([0.0, 0.0]), probe=jnp.array([0.1, 0.0]), resp=1)
 
-# --- Inference engine ---
-inference = MAPOptimizer(steps=200)
+# Add another trial (subject responded 0 = "incorrect")
+data.add_trial(ref=jnp.array([0.0, 0.0]), probe=jnp.array([0.0, 0.1]), resp=0)
 
-# --- Placement strategy ---
-placement = GridPlacement(grid_points=[(0,0)])  # MVP stub
+# Model
+model = WPPM(input_dim=2, prior=Prior.default(2), task=TwoAFC())
 
-# --- Session orchestrator ---
-sess = ExperimentSession(model, inference, placement)
+# Optimizer config (SGD + momentum)
+opt = optax.sgd(learning_rate=5e-4, momentum=0.9)
+posterior = MAPOptimizer(steps=500, optimizer=opt).fit(model, data)
 
-# Initialize posterior (before any data)
-posterior = sess.initialize()
-
-# Collect data (simulated here)
-batch = sess.next_batch(batch_size=5)
-# subject_responses = run_trials(batch)   # user-defined
-# sess.data.add_batch(batch, subject_responses)
-
-# Update posterior with data
-posterior = sess.update()
-
-# Predict thresholds
-ellipse = posterior.predict_thresholds(reference=jnp.array([0.0, 0.0]))
-
-
+# Predictions
+p = posterior.predict_prob((jnp.array([0.0, 0.0]), jnp.array([0.05, 0.05])))
+contour = posterior.predict_thresholds(reference=jnp.array([0.0, 0.0]))
 ```
 
 
