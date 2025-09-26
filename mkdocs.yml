@@ -6,15 +6,29 @@ repo_name: hmd101/psyphy
 
 theme:
   name: material
+  logo: images/psyphy_logo_draft.png    
   features:
     - navigation.tabs
     - navigation.sections
     - content.code.copy
     - toc.integrate
   palette:
-    - scheme: default
-      primary: blue
-      accent: indigo
+    - scheme: default        # Light mode
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate          # Dark mode
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+# Custom colors via CSS
+extra_css:
+  - stylesheets/extra.css
 
 plugins:
   - search
@@ -29,7 +43,6 @@ plugins:
             separate_signature: true
             inherited_members: true
             members_order: source
-
 
 markdown_extensions:
   - admonition
