@@ -1,4 +1,6 @@
 # Contributing
+![psyphy logo](docs/reference/images/psyphy_logo_draft.png)
+
 
 ## Dev setup
 

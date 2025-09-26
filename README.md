@@ -1,5 +1,7 @@
 # psyphy
 
+![psyphy logo](docs/reference/images/psyphy_logo_draft.png)
+
 Psychophysical modeling and adaptive trial placement. This package provides:
 
 - Wishart Process Psychophysical Model (WPPM)

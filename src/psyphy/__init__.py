@@ -1,65 +1,4 @@
 """
-psyphy: A package for psychophysical modeling and adaptive trial placement.
-
-
-Top-level API for psychophysical modeling and adaptive trial placement.
-
-Exposes the most commonly used classes and functions so users can do:
-
-    from psyphy import WPPM, Prior, OddityTask, ExperimentSession
-    from psyphy.trial_placement import InfoGainPlacement
-
-See submodules for specialized components:
-- psyphy.data          Trial data and transformations
-- psyphy.model         WPPM, priors, noise, task likelihoods
-- psyphy.inference     Inference engines (MAP, Langevin, Laplace, Slice)
-- psyphy.posterior     Posterior wrapper classes and diagnostics
-- psyphy.trial_placement  Adaptive trial placement strategies
-- psyphy.session       Experiment orchestration
-- psyphy.utils         Shared helpers
-
-"""
-
-# Data
-from .data.dataset import ResponseData, TrialBatch
-from .inference.langevin import LangevinSampler
-from .inference.laplace import LaplaceApproximation
-
-# Inference
-from .inference.map_optimizer import MAPOptimizer
-from .model.noise import GaussianNoise, StudentTNoise
-from .model.prior import Prior
-from .model.task import OddityTask, TwoAFC
-from .model.wppm import WPPM
-
-# Posterior
-from .posterior.posterior import Posterior
-
-# Experiment orchestration
-from .session.experiment_session import ExperimentSession
-
-__all__ = [
-    # Core model
-    "WPPM", # needs task for likelihood and noise model
-    "Prior",
-    "OddityTask", 
-    "TwoAFC",
-    "GaussianNoise", #default noise model
-    "StudentTNoise",
-    # Inference
-    "MAPOptimizer",
-    "LangevinSampler",
-    "LaplaceApproximation",
-    # Posterior
-    "Posterior",
-    # Session orchestration
-    "ExperimentSession",
-    # Data handling
-    "ResponseData",
-    "TrialBatch",
-]
-
-"""
 psyphy
 ======
 
@@ -126,3 +65,43 @@ MVP vs Full WPPM mode
 
 ----------------------------------------------------------------------
 """
+# Data
+from .data.dataset import ResponseData, TrialBatch
+from .inference.langevin import LangevinSampler
+from .inference.laplace import LaplaceApproximation
+
+# Inference
+from .inference.map_optimizer import MAPOptimizer
+from .model.noise import GaussianNoise, StudentTNoise
+from .model.prior import Prior
+from .model.task import OddityTask, TwoAFC
+from .model.wppm import WPPM
+
+# Posterior
+from .posterior.posterior import Posterior
+
+# Experiment orchestration
+from .session.experiment_session import ExperimentSession
+
+__all__ = [
+    # Core model
+    "WPPM", # needs task for likelihood and noise model
+    "Prior",
+    "OddityTask", 
+    "TwoAFC",
+    "GaussianNoise", #default noise model
+    "StudentTNoise",
+    # Inference
+    "MAPOptimizer",
+    "LangevinSampler",
+    "LaplaceApproximation",
+    # Posterior
+    "Posterior",
+    # Session orchestration
+    "ExperimentSession",
+    # Data handling
+    "ResponseData",
+    "TrialBatch",
+]
+
+
