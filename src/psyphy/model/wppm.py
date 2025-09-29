@@ -241,9 +241,9 @@ class WPPM:
         # ResponseData instance, prefer `log_likelihood_from_data`.
         from psyphy.data.dataset import ResponseData  # local import to avoid cycles
         data = ResponseData()
-        # NOTE: ResponseData.add_trial expects (stimulus, response) where stimulus is (ref, probe)
+        # ResponseData.add_trial(ref, probe, resp)
         for r, p, y in zip(refs, probes, responses):
-            data.add_trial((r, p), int(y)) # TODO: r, p should be tuple (ref, probe), change signature in add_trial
+            data.add_trial(r, p, int(y))
         return self.task.loglik(params, data, self, self.noise)
 
     def log_likelihood_from_data(self, params: Params, data: Any) -> jnp.ndarray:
