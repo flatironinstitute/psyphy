@@ -19,7 +19,13 @@ Future extensions
 - Diagnostics: effective sample size, R-hat, posterior predictive checks.
 """
 
+from .diagnostics import effective_sample_size, rhat
 from .posterior import Posterior
 
-__all__ = ["Posterior"]
+__all__ = [
+	"Posterior",
+	# diagnostics
+	"effective_sample_size",
+	"rhat",
+]
     

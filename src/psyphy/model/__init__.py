@@ -1,24 +1,39 @@
 """
 psyphy.model
-==========
+============
 
-Core model components:
-- TaskLikelihood interfaces and example tasks
-- prior distributions over model parameters enabling warm starts/transfer learning
-- WPPM (Wishart Process Psychophysical Model) 
+Model-layer API: everything model-related in one place.
 
-All code in this submodule uses JAX arrays (jax.numpy as jnp), such that it works
-nicely with autodiff (jax.grad), and Optax optimizers.
+Includes
+--------
+- WPPM (core model)
+- Priors (Prior)
+- Tasks (TaskLikelihood base, OddityTask, TwoAFC)
+- Noise models (GaussianNoise, StudentTNoise)
 
-typical usage:
+All functions/classes use JAX arrays (jax.numpy as jnp) for autodiff
+and optimization with Optax.
 
-    from psyphy.model import WPPM, Prior, OddityTask
+Typical usage
+-------------
+    from psyphy.model import WPPM, Prior, OddityTask, GaussianNoise
 """
 
+from .noise import GaussianNoise, StudentTNoise
 from .prior import Prior
-from .task import OddityTask, TwoAFC
+from .task import OddityTask, TaskLikelihood, TwoAFC
 from .wppm import WPPM
 
-__all__ = [ "OddityTask", "TwoAFC", "Prior", "WPPM"]
+__all__ = [
+    "WPPM",
+    "Prior",
+    # tasks
+    "TaskLikelihood",
+    "OddityTask",
+    "TwoAFC",
+    # noise models
+    "GaussianNoise",
+    "StudentTNoise",
+]
 
 
