@@ -40,6 +40,19 @@ Core design
    - MVP: GaussianNoise (zero mean, isotropic).
    - Full WPPM mode: add StudentTNoise option and  beyond.
 
+Unified import style
+--------------------
+Top-level (core models + session):
+  from psyphy import WPPM, Prior, OddityTask, GaussianNoise, MAPOptimizer
+  from psyphy import ExperimentSession, ResponseData, TrialBatch
+
+Subpackages:
+  from psyphy.model import WPPM, Prior, OddityTask, TwoAFC, GaussianNoise, StudentTNoise
+  from psyphy.inference import MAPOptimizer, LangevinSampler, LaplaceApproximation
+  from psyphy.posterior import Posterior, effective_sample_size, rhat
+  from psyphy.trial_placement import GridPlacement, GreedyMAPPlacement, InfoGainPlacement, SobolPlacement, StaircasePlacement
+  from psyphy.utils import grid_candidates, sobol_candidates, custom_candidates, chebyshev_basis
+
 Data flow
 ---------
 - A ResponseData object (psyphy.data) contains trial stimuli and responses.
@@ -69,6 +82,15 @@ MVP vs Full WPPM mode
 ----------------------------------------------------------------------
 """
 # Data
+from . import data as data
+from . import inference as inference
+
+# Re-export subpackages for unified import style (e.g., psyphy.model, psyphy.inference)
+from . import model as model
+from . import posterior as posterior
+from . import session as session
+from . import trial_placement as trial_placement
+from . import utils as utils
 from .data.dataset import ResponseData, TrialBatch
 from .inference.langevin import LangevinSampler
 from .inference.laplace import LaplaceApproximation
@@ -105,6 +127,14 @@ __all__ = [
     # Data handling
     "ResponseData",
     "TrialBatch",
+  # Subpackages
+  "model",
+  "inference",
+  "posterior",
+  "trial_placement",
+  "utils",
+  "data",
+  "session",
 ]
 
 
