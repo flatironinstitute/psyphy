@@ -12,7 +12,6 @@ Full WPPM mode:
 - Could combine Sobol exploration (early) with posterior-aware exploitation (later).
 """
 
-import numpy as np
 from scipy.stats.qmc import Sobol
 
 from psyphy.data.dataset import TrialBatch
@@ -61,7 +60,15 @@ class SobolPlacement(TrialPlacement):
             Use Sobol as initialization, then switch to InfoGain.
         """
         raw = self.engine.random(batch_size)
-        scaled = [low + (high - low) * raw[:, i] for i, (low, high) in enumerate(self.bounds)]
-        stimuli = list(zip(*scaled))
-        return TrialBatch.from_stimuli(stimuli)
+        scaled = [
+            low + (high - low) * raw[:, i]
+            for i, (low, high) in enumerate(self.bounds)
+        ]
+        # Convert column-wise scaled arrays into list of probe vectors
+        probes = [tuple(vals) for vals in zip(*scaled)]
+        # MVP: use a zero reference vector of matching dimension
+        dim = len(self.bounds)
+        zero_ref = 0.0 if dim == 1 else tuple(0.0 for _ in range(dim))
+        trials = [(zero_ref, p) for p in probes]
+        return TrialBatch.from_stimuli(trials)
         
