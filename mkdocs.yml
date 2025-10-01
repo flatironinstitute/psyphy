@@ -32,26 +32,64 @@ extra_css:
 
 plugins:
   - search
-  - mkdocstrings:
+  - mkdocstrings: # auto-generate API reference from docstrings
+      default_handler: python
       handlers:
         python:
-          paths: [src]
-          options:
+          paths: [.]
+          inventories:
+            - https://docs.python.org/3/objects.inv
+            - https://pytorch.org/docs/stable/objects.inv
+          options: # See https://mkdocstrings.github.io/python/usage/
+            annotations_path: brief
             docstring_style: numpy
-            show_source: true
-            show_root_toc_entry: false
-            separate_signature: true
+            docstring_section_style: table
+            heading_level: 1
+            members_order: alphabetical
             inherited_members: true
-            members_order: source
+            filters:
+              - "!^_"
+              - "!^__"
+            merge_init_into_class: true
+            parameter_headings: false
+            separate_signature: true
+            show_if_no_docstring: true
+            show_labels: false
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_source: true
+            show_submodules: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary:
+              modules: false
+              classes: true
+              functions: true
+              attributes: true
+  - markdown-exec # Execute code blocks in markdown files
+
 
 markdown_extensions:
-  - admonition
   - toc:
       permalink: true
   - pymdownx.details
   - pymdownx.superfences
-  - pymdownx.highlight
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      linenums: true
+      anchor_linenums: true  
   - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      check_paths: true
+      base_path: ["docs/examples/", "."]
+      dedent_subsections: true # If code is extracted from a file, dedent it.
 
 nav:
   - Home: index.md
@@ -65,3 +103,6 @@ nav:
       - Trial Placement: reference/trial_placement.md
       - Session: reference/session.md
       - Utils: reference/utils.md
+   - Examples:
+   - Contributing: CONTRIBUTING.md
+
