@@ -1,5 +1,5 @@
 # psyphy
-![psyphy logo](reference/images/psyphy_logo_draft.png)
+![psyphy logo](images/psyphy_logo_draft.png)
 Psychophysical modeling and adaptive trial placement.
 ## Install
 
