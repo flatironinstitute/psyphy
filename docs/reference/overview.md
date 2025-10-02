@@ -1,3 +1,6 @@
-# API Overview
+# Psyphy
+---
 
 ::: psyphy
+
+---

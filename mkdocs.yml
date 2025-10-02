@@ -6,7 +6,7 @@ repo_name: hmd101/psyphy
 
 theme:
   name: material
-  logo: reference/images/psyphy_logo_draft.png    
+  logo: images/psyphy_logo_draft.png    
   features:
     - navigation.tabs
     - navigation.sections
@@ -36,7 +36,7 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: [.]
+          paths: [src]
           inventories:
             - https://docs.python.org/3/objects.inv
             - https://pytorch.org/docs/stable/objects.inv
@@ -68,7 +68,6 @@ plugins:
               classes: true
               functions: true
               attributes: true
-  - markdown-exec # Execute code blocks in markdown files
 
 
 markdown_extensions:
@@ -81,21 +80,20 @@ markdown_extensions:
   - md_in_html
   - pymdownx.arithmatex:
       generic: true
-  - pymdownx.details
   - pymdownx.highlight:
       linenums: true
       anchor_linenums: true  
   - pymdownx.inlinehilite
   - pymdownx.snippets:
       check_paths: true
-      base_path: ["docs/examples/", "."]
+      base_path: ["examples", "."]
       dedent_subsections: true # If code is extracted from a file, dedent it.
 
 nav:
   - Home: index.md
   - Usage: usage.md
-  - Reference:
-      - Overview: reference/overview.md
+  - API:
+      - Overview: reference.md
       - Data: reference/data.md
       - Model: reference/model.md
       - Inference: reference/inference.md
@@ -103,6 +101,9 @@ nav:
       - Trial Placement: reference/trial_placement.md
       - Session: reference/session.md
       - Utils: reference/utils.md
-   - Examples:
-   - Contributing: CONTRIBUTING.md
+  # - Examples:
+  #     - MVP Offline Fit: examples/mvp/offline_fit_mvp.md
+  # - Contributing: CONTRIBUTING.md
+  - Examples: examples/mvp/offline_fit_mvp.md   # single page in top nav
+  - Contributing: CONTRIBUTING.md               # single page in top nav
 
