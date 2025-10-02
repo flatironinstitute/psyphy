@@ -107,3 +107,6 @@ nav:
   - Examples: examples/mvp/offline_fit_mvp.md   # single page in top nav
   - Contributing: CONTRIBUTING.md               # single page in top nav
 
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
