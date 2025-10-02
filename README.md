@@ -1,5 +1,3 @@
-# psyphy
-
 ![psyphy logo](docs/images/psyphy_logo_draft.png)
 
 <div align="center">
