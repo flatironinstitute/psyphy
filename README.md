@@ -18,7 +18,7 @@
   <a href="https://hmd101.github.io/psyphy/CONTRIBUTING/">Contributing</a>
 </h4>
 
-Psychophysical modeling and adaptive trial placement. This package provides:
+#### This package provides:
 
 - Wishart Process Psychophysical Model (WPPM)
     - fit to subject's data 
