@@ -1,6 +1,22 @@
-# psyphy
 ![psyphy logo](images/psyphy_logo_draft.png)
-Psychophysical modeling and adaptive trial placement.
+
+<div align="center">
+    <picture>
+    <source srcset="docs/images/psyphy_logo_draft.png" media="(prefers-color-scheme: light)"/>
+    <source srcset="docs/images/psyphy_logo_draft.png"  media="(prefers-color-scheme: dark)"/>
+    <!-- <img align="center" src="docs/assets/logo/logo_text_black.svg" alt="Inferno" width="400" style="padding-right: 10px; padding left: 10px;"/> -->
+    </picture>
+    <h3>Psychophysical Modeling and Adaptive Trial Placement</h3>
+</div>
+
+
+
+<h4 align="center">
+  <a href="https://hmd101.github.io/psyphy/reference/">Documentation</a> | 
+  <a href="https://hmd101.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> | 
+  <a href="https://hmd101.github.io/psyphy/CONTRIBUTING/">Contributing</a>
+</h4>
+
 ## Install
 
 ```bash

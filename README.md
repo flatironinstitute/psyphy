@@ -6,7 +6,7 @@
     <source srcset="docs/images/psyphy_logo_draft.png"  media="(prefers-color-scheme: dark)"/>
     <!-- <img align="center" src="docs/assets/logo/logo_text_black.svg" alt="Inferno" width="400" style="padding-right: 10px; padding left: 10px;"/> -->
     </picture>
-    <h3>Adaptive Design for Psychophysical Experiments</h3>
+    <h3>Psychophysical Modeling and Adaptive Trial Placement</h3>
 </div>
 
 
