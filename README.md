@@ -1,6 +1,24 @@
 # psyphy
 
-![psyphy logo](docs/reference/images/psyphy_logo_draft.png)
+![psyphy logo](docs/images/psyphy_logo_draft.png)
+
+<div align="center">
+    <picture>
+    <source srcset="docs/images/psyphy_logo_draft.png" media="(prefers-color-scheme: light)"/>
+    <source srcset="docs/images/psyphy_logo_draft.png"  media="(prefers-color-scheme: dark)"/>
+    <!-- <img align="center" src="docs/assets/logo/logo_text_black.svg" alt="Inferno" width="400" style="padding-right: 10px; padding left: 10px;"/> -->
+    </picture>
+    <h3>Adaptive Design for Psychophysical Experiments</h3>
+</div>
+
+
+
+<h4 align="center">
+  <a href="https://hmd101.github.io/psyphy/#install/">Installation</a> |  
+  <a href="https://hmd101.github.io/psyphy/reference/">Documentation</a> | 
+  <a href="https://hmd101.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> | 
+  <a href="https://hmd101.github.io/psyphy/CONTRIBUTING/">Contributing</a>
+</h4>
 
 Psychophysical modeling and adaptive trial placement. This package provides:
 
