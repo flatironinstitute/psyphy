@@ -4,7 +4,7 @@ This toy example fits the MVP WPPM model to synthetic 2D data and produced a
 figure showing the predicted thresholds around the reference including 
 the ground-truth, init threshold contours.
 
-You can run this example yourself via the corresponding [standalone script](docs/examples/mvp/offline_fit_mvp.py).
+You can run this example yourself via the corresponding standalone script at `docs/examples/mvp/offline_fit_mvp.py`.
 
 ## Overview
 
