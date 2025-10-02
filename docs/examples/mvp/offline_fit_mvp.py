@@ -25,6 +25,7 @@ Quick tour of what this script does:
     in the displayed contour via Σ_eff = Σ + \sigma^2 I so plots match the likelihood.
 6) Plot trials and 3 contours (truth/init/fitted), and save both plots.
 """
+
 from __future__ import annotations
 
 import os
@@ -36,14 +37,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
-# Allow running the script directly from repo root without installing the package.
-# (Alternative: export PYTHONPATH=$PWD/src)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src")))
+# --8<-- [start:imports]
 from psyphy.data.dataset import ResponseData
 from psyphy.model.noise import GaussianNoise
 from psyphy.model.prior import Prior
 from psyphy.model.task import OddityTask
 from psyphy.model.wppm import WPPM
+
+# --8<-- [end:imports]
+
+# Allow running the script directly from repo root without installing the package.
+# (Alternative: export PYTHONPATH=$PWD/src)
 
 # ---------- Utilities ----------
 
@@ -187,7 +192,7 @@ opt_state = opt.init(params)
 
 
 # perform a single optimization step
-# with JIT-compiling the function for efficient execution on accelerators (CPU/GPU/TPU)
+# with jit-compiling the function for efficient execution on CPU/GPU/TPU
 # making the optimization loop much faster
 @jax.jit
 def _step(params, opt_state):
