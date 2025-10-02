@@ -90,6 +90,7 @@ def simulate_response(prob_correct: float, rng: np.random.Generator) -> int:
 # Define the "true" covariance we will use to generate synthetic data.
 # We parameterize the model in log-variance space (log_diag) for stability.
 print("[1/6] Setting up ground-truth model and parameters...")
+# --8<-- [start:truth]
 ref_np = np.array([0.0, 0.0], dtype=float)
 log_diag_true = jnp.array([np.log(0.9), np.log(0.01)])  # variances 0.04, 0.01
 Sigma_true = np.diag(np.exp(np.array(log_diag_true)))
@@ -99,6 +100,7 @@ noise = GaussianNoise(sigma=1.0)     # additive isotropic Gaussian noise
 truth_prior = Prior.default(input_dim=2)  # not used to generate, but WPPM requires a prior
 truth_model = WPPM(input_dim=2, prior=truth_prior, task=task, noise=noise)
 truth_params = {"log_diag": log_diag_true}
+# --8<-- [end:truth]
 print("    Ground truth log_diag:", np.array(log_diag_true))
 print("    Ground truth covariance diag:", np.exp(np.array(log_diag_true)))
 
@@ -108,6 +110,7 @@ print("    Ground truth covariance diag:", np.exp(np.array(log_diag_true)))
 print("[2/6] Simulating synthetic trials around reference:", ref_np)
 # random polar probes around ref; compute p(correct) with
 #  true Σ and the Oddity mapping; sample 0/1 responses.
+# --8<-- [start:data]
 rng = np.random.default_rng(0)
 data = ResponseData()
 num_trials = 400
@@ -120,24 +123,58 @@ for _ in range(num_trials):
     p = float(truth_model.predict_prob(truth_params, (jnp.array(ref_np), jnp.array(probe_np))))
     y = simulate_response(p, rng)
     data.add_trial(ref=ref_np.copy(), probe=probe_np.copy(), resp=y)
+# --8<-- [end:data]
 print(f"    Generated {num_trials} trials (max radius {max_radius}).")
+
+
+fig, ax = plt.subplots(figsize=(6, 6))
+refs_np, probes_np, responses_np = data.to_numpy()
+probes_rel = probes_np - refs_np
+
+ax.scatter(probes_rel[responses_np == 1, 0], probes_rel[responses_np == 1, 1], s=12, c="#1b9e77", alpha=0.6, label="Response = 1 (correct)")
+ax.scatter(probes_rel[responses_np == 0, 0], probes_rel[responses_np == 0, 1], s=12, c="#d95f02", alpha=0.6, label="Response = 0 (incorrect)")
+
+ax.scatter([0.0], [0.0], c="k", s=30, zorder=5, label="Reference")
+ax.set_aspect("equal", adjustable="box")
+ax.set_xlabel("Delta x (probe relative to ref)")
+ax.set_ylabel("Delta y (probe relative to ref)")
+ax.set_title(
+    f"Simulated Trials \n"
+)
+ax.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="gray", fontsize=12)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+
+# Save thresholds figure with a filename encoding lr and steps
+os.makedirs(PLOTS_DIR, exist_ok=True)
+base = f"simulated_trials"
+thresh_path = os.path.join(PLOTS_DIR, f"{base}.png")
+fig.savefig(thresh_path, dpi=200, bbox_inches="tight")
+print(f"    Saved thresholds plot to {thresh_path}")
+plt.show()
 
 # ---------- 3) Model + prior + init ----------
 # Build the model we will fit. The prior controls regularization; increasing
 # `scale` weakens the pull of the prior. We initialize from this prior.
 print("[3/6] Initializing model from prior...")
+# --8<-- [start:model]
+# from psyphy.model.prior import Prior
+# from psyphy.model.wppm import WPPM
+
 prior = Prior.default(input_dim=2, scale=0.5)
 model = WPPM(input_dim=2, prior=prior, task=task, noise=noise)
 init_params = model.init_params(jax.random.PRNGKey(42))
+# --8<-- [end:model]
 print("    Init log_diag:", np.array(init_params["log_diag"]))
 print("    Init covariance diag:", np.exp(np.array(init_params["log_diag"])))
 
 # ---------- 4) MAP fit (with learning curve) ----------
 # Optimize the negative log posterior with Optax; record loss every 10 steps
 # to display a learning curve. We JIT-compile a single step for speed.
+# --8<-- [start:training]
 steps = 1000
 lr = 2e-2
-print(f"[4/6] Running MAP optimization ({steps} steps, SGD+momentum, lr={lr})...")
+
 opt = optax.sgd(learning_rate=lr, momentum=0.9)
 
 # Define loss = negative log posterior (minimize it)
@@ -145,14 +182,21 @@ def _loss_fn(params):
     return -model.log_posterior_from_data(params, data)
 
 # Start from prior init
-params = init_params
+params = init_params # PyTree of parameters (dict of arrays)
 opt_state = opt.init(params)
 
+
+# perform a single optimization step
+# with JIT-compiling the function for efficient execution on accelerators (CPU/GPU/TPU)
+# making the optimization loop much faster
 @jax.jit
 def _step(params, opt_state):
+    # Ensure params and opt_state are JAX PyTrees for JIT compatibility
+    # (e.g., dicts of arrays, not custom Python objects)
     loss, grads = jax.value_and_grad(_loss_fn)(params)
     updates, opt_state = opt.update(grads, opt_state, params)
     params = optax.apply_updates(params, updates)
+    # Only return JAX-compatible types (PyTrees of arrays, scalars)
     return params, opt_state, loss
 
 # Track loss every 10 steps
@@ -165,6 +209,8 @@ for i in range(steps):
         loss_values.append(float(loss))
 
 fitted_params = params
+# --8<-- [end:training]
+print(f"[4/6] Running MAP optimization ({steps} steps, SGD+momentum, lr={lr})...")
 print("    Fitted (MAP) log_diag:", np.array(fitted_params["log_diag"]))
 print("    Fitted covariance diag:", np.exp(np.array(fitted_params["log_diag"])))
 
@@ -205,9 +251,10 @@ print("    Init ellipse semi-axes:", axes_init)
 print("    Fit  ellipse semi-axes:", axes_fit)
 
 # ---------- 6) Plot ----------
-# Left: the synthetic trials (relative to the reference) and 3 threshold ellipses.
-# Right (separate figure): learning curve (neg log posterior vs. step).
+# plot 1: the synthetic trials (relative to the reference) and 3 threshold ellipses
+# plot 2: learning curve (neg log posterior vs. step).
 print("[6/6] Rendering scatter and contours...")
+
 fig, ax = plt.subplots(figsize=(6, 6))
 refs_np, probes_np, responses_np = data.to_numpy()
 probes_rel = probes_np - refs_np
@@ -221,15 +268,15 @@ ax.plot(contour_fit[:, 0] - ref_np[0], contour_fit[:, 1] - ref_np[1], color="#37
 
 ax.scatter([0.0], [0.0], c="k", s=30, zorder=5, label="Reference")
 ax.set_aspect("equal", adjustable="box")
-ax.set_xlabel("Delta x (relative to ref)")
-ax.set_ylabel("Delta y (relative to ref)")
+ax.set_xlabel("Delta x (probe relative to ref)")
+ax.set_ylabel("Delta y (probe relative to ref)")
 ax.set_title(
-    f"MVP Offline Fit — Oddity, criterion={criterion:.3f} (d*={d_thr:.3f})\n"
+    f"MVP WPPM Fit, criterion={criterion:.3f} (d*={d_thr:.3f})\n"
     f"True log_diag={np.array(log_diag_true)}\n"
     f"Init log_diag={np.array(init_params['log_diag'])}\n"
     f"Fitted log_diag={np.array(fitted_params['log_diag'])}"
 )
-ax.legend(loc="upper right", frameon=False)
+ax.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="gray", fontsize=12)
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
 
@@ -242,7 +289,7 @@ fig.savefig(thresh_path, dpi=200, bbox_inches="tight")
 print(f"    Saved thresholds plot to {thresh_path}")
 plt.show()
 
-# Learning curve figure
+# plot 2: Learning curve figure
 fig2, ax2 = plt.subplots(figsize=(6, 4))
 ax2.plot(loss_iters, loss_values, color="#4444aa")
 ax2.set_title(f"Learning curve (neg log posterior) — lr={lr}, steps={steps}")
