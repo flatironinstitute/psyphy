@@ -2,8 +2,8 @@
 
 <div align="center">
     <picture>
-    <source srcset="docs/images/psyphy_logo_draft.png" media="(prefers-color-scheme: light)"/>
-    <source srcset="docs/images/psyphy_logo_draft.png"  media="(prefers-color-scheme: dark)"/>
+    <source srcset="images/psyphy_logo_draft.png" media="(prefers-color-scheme: light)"/>
+    <source srcset="images/psyphy_logo_draft.png"  media="(prefers-color-scheme: dark)"/>
     <!-- <img align="center" src="docs/assets/logo/logo_text_black.svg" alt="Inferno" width="400" style="padding-right: 10px; padding left: 10px;"/> -->
     </picture>
     <h3>Psychophysical Modeling and Adaptive Trial Placement</h3>
