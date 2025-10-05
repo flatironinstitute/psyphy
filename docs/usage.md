@@ -19,7 +19,7 @@
 </h4>
 
 
-# Quick start
+## Full Experimental Loop 
 
 
 
@@ -70,9 +70,11 @@ trial_placement = GridPlacement(grid_points=[(0.0, 0.0)])  # MVP placeholder
 # -----------------------
 # 4) Orchestrate an experiment session
 # -----------------------
-session = ExperimentSession(wppm_model, map_estimator, trial_placement)
+session = ExperimentSession(wppm_model, map_estimator, trial_placement) # session orchestrates the loop (ini/update/propose)
 
 # Initialize posterior (before any data)
+# Note: initialize() simply calls inference.fit(model, data) and returns
+# whatever that method returns (a Posterior). session just stores the instance.
 posterior = session.initialize()
 
 # Propose a batch of trials and collect responses (simulated/user-provided)
@@ -84,6 +86,9 @@ proposed_batch = session.next_batch(batch_size=5)
 posterior = session.update()
 
 # Predict threshold contour around a reference (placeholder unit circle in MVP)
+# This works because inference.fit(...) returned a Posterior that implements
+# predict_thresholds. Session itself relies on duck typing and doesn’t need
+# to reference Posterior explicitly.
 reference_point = jnp.array([0.0, 0.0])
 threshold_contour = posterior.predict_thresholds(
 	reference=reference_point,
@@ -92,7 +97,7 @@ threshold_contour = posterior.predict_thresholds(
 )
 ```
 
-### Alternative: Offline fit without the session
+## Alternative: Offline fit without the session
 If you already have data and just want to fit and predict without the experiment orchestrator:
 
 ```python

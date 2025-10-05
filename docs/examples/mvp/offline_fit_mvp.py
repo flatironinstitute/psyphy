@@ -2,28 +2,36 @@
 MVP offline example: fit WPPM to synthetic 2D data and visualize thresholds
 ----------------------------------------------------------------------------
 
-This example:
-- Builds a 2D WPPM (MVP) with Oddity task
-- Simulates synthetic trials from a known diagonal covariance (ground truth)
-- Fits the model offline via MAP
-- Plots three threshold contours around a reference: ground-truth, init, fitted
+This script demonstrates a full synthetic simulation and fitting pipeline:
 
-Note on visibility: With the MVP Oddity mapping used here, p(d=0) = 2/3.
-So if you choose criterion=2/3, the implied discriminability d* is 0 and the
-ellipse collapses to a point. We therefore use criterion=0.75 for a visible
-contour.
+1. Define a 'ground-truth' WPPM with known parameters θ* (log_diag_true).
+2. Generate synthetic behavioral data (reference–probe pairs with binary responses).
+3. Fit a new WPPM to the simulated data via MAP estimation.
 
-Run:
-  python docs/examples/mvp/offline_fit_mvp.py
+For each trial, the model computes:
+    p_correct = p(y=1 | ref, probe, θ, task)
 
-Quick tour of what this script does:
-1) Define a 2D MVP model (WPPM) with an Oddity task and Gaussian noise.
-2) Simulate synthetic responses around a reference from a known (diagonal) covariance.
-3) Initialize model parameters from a simple Gaussian prior (on log variances).
-4) Fit via MAP with a tiny JAX+Optax loop and record the learning curve (loss vs. step).
-5) Compute threshold contours at a chosen criterion (0.75) and optionally include noise
-    in the displayed contour via Σ_eff = Σ + \sigma^2 I so plots match the likelihood.
-6) Plot trials and 3 contours (truth/init/fitted), and save both plots.
+where y ∈ {0,1} is a binary response (1 = correct, 0 = incorrect).
+This probability is obtained from a *closed-form* mapping between
+Mahalanobis discriminability d(ref, probe; θ) and expected 3AFC performance.
+No Monte Carlo sampling over internal representations is used here.
+
+Thus, the likelihood for each trial is:
+    y_i ~ Bernoulli(p_correct_i)
+and the overall dataset likelihood is \Prod_i p(y_i | ref_i, probe_i, θ, task).
+
+Note:
+- The 'truth_model' and 'fitted_model' share the same class (WPPM), 
+  but the truth_model uses known parameters to *generate* data,
+  while the fitted model infers parameters from that data.
+- (Using the same model to simulate and fit (a well-specified setting)
+  provides a controlled test of parameter recovery.)
+- Note on visibility: With the MVP Oddity mapping used here, p(d=0) = 2/3.
+  So if you choose criterion=2/3, the implied discriminability d* is 0 and the
+  ellipse collapses to a point. We therefore use criterion=0.75 for a visible
+  contour.
+
+
 """
 
 from __future__ import annotations
@@ -64,27 +72,100 @@ def _fmt_float_sci(x: float) -> str:
     return s
 
 def invert_oddity_criterion_to_d(criterion: float, slope: float = 1.5) -> float:
-    """Invert OddityTask mapping to get discriminability d* at target p=criterion.
-
-    Mapping: p = 1/3 + (2/3)*0.5*(tanh(slope*d) + 1)
-    Note: p(d=0) = 2/3 (chance for Oddity). If you pick criterion close to 2/3,
-    the ellipse collapses; here we choose 0.75 for a visible contour.
     """
-    chance = 1.0 / 3.0
-    perf_range = 1.0 - chance
-    g = (criterion - chance) / perf_range
-    val = np.clip(2.0 * float(g) - 1.0, -0.999999, 0.999999)
-    return float(np.arctanh(val) / slope)
+    Given a target performance criterion (probability correct), invert the OddityTask
+    mapping to compute the corresponding discriminability threshold d*.
+
+    The OddityTask maps Mahalanobis distance d to probability correct p via:
+        p = 1/3 + (2/3) * 0.5 * (tanh(slope * d) + 1)
+    where:
+        - 1/3 is chance performance for 3AFC oddity,
+        - slope controls the steepness of the psychometric function.
+
+    This function solves for d given a desired p (criterion).
+
+    Parameters
+    ----------
+    criterion : float
+        Target probability correct (e.g., 0.75).
+    slope : float, optional
+        Slope parameter of the OddityTask psychometric function (default: 1.5).
+
+    Returns
+    -------
+    float
+        Discriminability threshold d* such that p(correct | d*) = criterion.
+    """
+    chance_level = 1.0 / 3.0  # Chance performance for 3AFC oddity task
+    performance_range = 1.0 - chance_level  # Range above chance (2/3)
+    # normalize criterion to [0, 1] range above chance
+    normalized_perf = (criterion - chance_level) / performance_range
+    # Invert the mapping: solve for tanh(slope * d)
+    # The mapping is: normalized_perf = 0.5 * (tanh(slope * d) + 1)
+    # Rearranged: tanh(slope * d) = 2 * normalized_perf - 1
+    tanh_arg = 2.0 * float(normalized_perf) - 1.0
+    # Clip to avoid numerical issues with arctanh at +/-1
+    tanh_arg = np.clip(tanh_arg, -0.999999, 0.999999)
+    # Solve for d: tanh(slope * d) = tanh_arg => d = arctanh(tanh_arg) / slope
+    d_star = float(np.arctanh(tanh_arg) / slope)
+    return d_star
+
+
+
+# def ellipse_contour_from_cov(ref: np.ndarray, cov: np.ndarray, d_threshold: float, n_points: int = 180) -> np.ndarray:
+#     """Return points on the isoperformance ellipse: (x-ref)^T Σ^{-1} (x-ref) = d^2."""
+#     L = np.linalg.cholesky(cov)  # Σ^{1/2}
+#     angles = np.linspace(0.0, 2.0 * np.pi, n_points, endpoint=False)
+#     unit = np.stack([np.cos(angles), np.sin(angles)], axis=0)  # (2,n)
+#     L_unit = L @ unit
+#     contour = ref.reshape(2, 1) + d_threshold * L_unit  # (2,n)
+#     return contour.T  # (n,2)
 
 
 def ellipse_contour_from_cov(ref: np.ndarray, cov: np.ndarray, d_threshold: float, n_points: int = 180) -> np.ndarray:
-    """Return points on the isoperformance ellipse: (x-ref)^T Σ^{-1} (x-ref) = d^2."""
-    L = np.linalg.cholesky(cov)  # Σ^{1/2}
-    angles = np.linspace(0.0, 2.0 * np.pi, n_points, endpoint=False)
-    unit = np.stack([np.cos(angles), np.sin(angles)], axis=0)  # (2,n)
-    contour = ref.reshape(2, 1) + d_threshold * (L @ unit)
-    return contour.T  # (n,2)
+    """
+    Return points on the isoperformance ellipse: (x-ref)^T Σ^{-1} (x-ref) = d^2.
 
+    Parameters
+    ----------
+    ref : np.ndarray
+        The center of the ellipse (mean of the distribution), shape (2,).
+    cov : np.ndarray
+        The 2x2 covariance matrix (Σ), must be symmetric and positive-definite.
+    d_threshold : float
+        The Mahalanobis distance threshold (radius of the ellipse).
+    n_points : int, optional
+        Number of points to generate along the ellipse contour (default: 180).
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (n_points, 2) containing the (x, y) coordinates of the ellipse contour.
+    """
+    # Compute the Cholesky decomposition of the covariance matrix.
+    # This gives a lower-triangular matrix L such that cov = L @ L.T
+    # L can be seen as a transformation that maps the unit circle to the ellipse.
+    L = np.linalg.cholesky(cov)  # Σ^{1/2}
+
+    # Generate n_points angles evenly spaced between 0 and 2π (not including 2π).
+    # These angles represent points around a unit circle.
+    angles = np.linspace(0.0, 2.0 * np.pi, n_points, endpoint=False)
+
+    # For each angle, compute the (x, y) coordinates on the unit circle.
+    # Shape: (2, n_points), where first row is cosines, second is sines.
+    unit = np.stack([np.cos(angles), np.sin(angles)], axis=0)  # (2, n_points)
+
+    # Transform the unit circle points by the Cholesky factor to get the ellipse shape.
+    # This scales and rotates the unit circle to match the covariance.
+    L_unit = L @ unit  # (2, n_points)
+
+    # Scale the ellipse by the Mahalanobis distance threshold (d_threshold)
+    # and shift it to be centered at 'ref'.
+    # ref.reshape(2, 1) ensures broadcasting to all points.
+    contour = ref.reshape(2, 1) + d_threshold * L_unit  # (2, n_points)
+
+    # Transpose the result to shape (n_points, 2) for easier plotting/use.
+    return contour.T  # (n_points, 2)
 
 def simulate_response(prob_correct: float, rng: np.random.Generator) -> int:
     """Draw a binary response with P(correct) = prob_correct."""
@@ -92,17 +173,26 @@ def simulate_response(prob_correct: float, rng: np.random.Generator) -> int:
 
 
 # ---------- 1) Ground truth setup ----------
-# Define the "true" covariance we will use to generate synthetic data.
-# We parameterize the model in log-variance space (log_diag) for stability.
 print("[1/6] Setting up ground-truth model and parameters...")
 # --8<-- [start:truth]
+# Ground truth setup:
+# We instantiate a WPPM with known parameters log_diag_true.
+# The covariance at any stimulus location is:
+#     Σ(r; θ*) = diag(exp(log_diag_true))
 ref_np = np.array([0.0, 0.0], dtype=float)
-log_diag_true = jnp.array([np.log(0.9), np.log(0.01)])  # variances 0.04, 0.01
-Sigma_true = np.diag(np.exp(np.array(log_diag_true)))
+log_diag_true = jnp.array([np.log(0.9), np.log(0.01)])  # variances 0.9, 0.01
+Sigma_true = np.diag(np.exp(np.array(log_diag_true))) # true covariance matrix
+
+# Define the true model: Oddity task + Gaussian noise + WPPM
+# from psyphy.model.task import OddityTask
+# from psyphy.model.noise import GaussianNoise
+# from psyphy.model.wppm import WPPM
 
 task = OddityTask(slope=1.5)         # tanh mapping from d to P(correct)
 noise = GaussianNoise(sigma=1.0)     # additive isotropic Gaussian noise
 truth_prior = Prior.default(input_dim=2)  # not used to generate, but WPPM requires a prior
+
+# Build the true model
 truth_model = WPPM(input_dim=2, prior=truth_prior, task=task, noise=noise)
 truth_params = {"log_diag": log_diag_true}
 # --8<-- [end:truth]
@@ -110,24 +200,31 @@ print("    Ground truth log_diag:", np.array(log_diag_true))
 print("    Ground truth covariance diag:", np.exp(np.array(log_diag_true)))
 
 # ---------- 2) Simulate synthetic trials ----------
-# Sample probes around the reference in polar coordinates, compute P(correct)
-# under the true model, then Bernoulli sample the responses.
 print("[2/6] Simulating synthetic trials around reference:", ref_np)
 # random polar probes around ref; compute p(correct) with
 #  true Σ and the Oddity mapping; sample 0/1 responses.
 # --8<-- [start:data]
+# Simulate synthetic trials:
+# Sample probes around the reference in polar coordinates, 
+# compute  P(correct|probe, ref) under the true model, 
+# then Bernoulli sample the responses.
 rng = np.random.default_rng(0)
-data = ResponseData()
+data = ResponseData() # to store trials
 num_trials = 400
-max_radius = 0.25
+max_radius = 0.25 # max radius of probe from reference
+
 for _ in range(num_trials):
-    angle = rng.uniform(0.0, 2.0 * np.pi)
-    radius = rng.uniform(0.0, max_radius)
-    delta = np.array([np.cos(angle), np.sin(angle)]) * radius
-    probe_np = ref_np + delta
-    p = float(truth_model.predict_prob(truth_params, (jnp.array(ref_np), jnp.array(probe_np))))
-    y = simulate_response(p, rng)
-    data.add_trial(ref=ref_np.copy(), probe=probe_np.copy(), resp=y)
+    angle = rng.uniform(0.0, 2.0 * np.pi)   # random angle
+    radius = rng.uniform(0.0, max_radius)  # random radius
+    delta = np.array([np.cos(angle), np.sin(angle)]) * radius # delta from ref
+    probe_np = ref_np + delta # probe position
+
+    # For each (ref, probe) pair, we compute the conditional probability:
+    # p_correct_truth = p(y=1 | ref, probe, θ*, task)  aka P(correct|probe, ref):
+    p_correct_truth = float(truth_model.predict_prob(truth_params, (jnp.array(ref_np), jnp.array(probe_np)))) 
+    #  sample responses y ~ Bernoulli(p_correct_truth) to form a simulated dataset.
+    y = simulate_response(p_correct_truth, rng) # draw 0/1 response with p_correct_truth
+    data.add_trial(ref=ref_np.copy(), probe=probe_np.copy(), resp=y) # store trial (ref, probe, response)
 # --8<-- [end:data]
 print(f"    Generated {num_trials} trials (max radius {max_radius}).")
 
@@ -163,10 +260,17 @@ plt.show()
 # `scale` weakens the pull of the prior. We initialize from this prior.
 print("[3/6] Initializing model from prior...")
 # --8<-- [start:model]
-# from psyphy.model.prior import Prior
-# from psyphy.model.wppm import WPPM
+# Here we fit a new WPPM to the simulated data:
+# For each trial i with response y_i, the model evaluates:
+#     log p(y_i | ref_i, probe_i, θ, task)
+# where p(y=1|·) is obtained using the same closed-form mapping as in simulation,
+# but with parameters θ (to be estimated).
 
-prior = Prior.default(input_dim=2, scale=0.5)
+# from psyphy.model.prior import Prior
+# from psyphy.model.noise import GaussianNoise
+# from psyphy.model.wppm import WPPM
+prior = Prior.default(input_dim=2, scale=0.5) # Gaussian prior on log_diag
+noise = GaussianNoise(sigma=1.0)   # additive isotropic Gaussian noise
 model = WPPM(input_dim=2, prior=prior, task=task, noise=noise)
 init_params = model.init_params(jax.random.PRNGKey(42))
 # --8<-- [end:model]
@@ -177,10 +281,13 @@ print("    Init covariance diag:", np.exp(np.array(init_params["log_diag"])))
 # Optimize the negative log posterior with Optax; record loss every 10 steps
 # to display a learning curve. We JIT-compile a single step for speed.
 # --8<-- [start:training]
-steps = 1000
+# optimizer hyperparameters:
+steps = 100
 lr = 2e-2
+momentum = 0.9
 
-opt = optax.sgd(learning_rate=lr, momentum=0.9)
+# Use SGD+momentum from Optax
+opt = optax.sgd(learning_rate=lr, momentum=momentum)
 
 # Define loss = negative log posterior (minimize it)
 def _loss_fn(params):
@@ -188,32 +295,35 @@ def _loss_fn(params):
 
 # Start from prior init
 params = init_params # PyTree of parameters (dict of arrays)
-opt_state = opt.init(params)
+opt_state = opt.init(params) # PyTree of optimizer state
 
 
-# perform a single optimization step
-# with jit-compiling the function for efficient execution on CPU/GPU/TPU
-# making the optimization loop much faster
+# Perform a single optimization step:
+# Details: each step computes gradients via automatic differentiation (jax.value_and_grad), 
+# updates parameters, and returns new ones — all as jax PyTrees, 
+# which are lightweight nested structures of arrays that 
+# Jax can efficiently traverse and transform.
 @jax.jit
 def _step(params, opt_state):
-    # Ensure params and opt_state are JAX PyTrees for JIT compatibility
+    # Ensure params and opt_state are Jax PyTrees for JIT compatibility
     # (e.g., dicts of arrays, not custom Python objects)
-    loss, grads = jax.value_and_grad(_loss_fn)(params)
-    updates, opt_state = opt.update(grads, opt_state, params)
-    params = optax.apply_updates(params, updates)
-    # Only return JAX-compatible types (PyTrees of arrays, scalars)
+    loss, grads = jax.value_and_grad(_loss_fn)(params) # auto-diff
+    updates, opt_state = opt.update(grads, opt_state, params) # optimizer update
+    params = optax.apply_updates(params, updates) # apply updates
+    # Only return jax-compatible types (PyTrees of arrays, scalars)
     return params, opt_state, loss
 
-# Track loss every 10 steps
+# Training loop: run steps of SGD+momentum
+# and track loss every 10 steps
 loss_iters: list[int] = []
 loss_values: list[float] = []
 for i in range(steps):
-    params, opt_state, loss = _step(params, opt_state)
+    params, opt_state, loss = _step(params, opt_state) # single JIT-compiled step
     if (i % 10 == 0) or (i == steps - 1):
         loss_iters.append(i)
         loss_values.append(float(loss))
 
-fitted_params = params
+fitted_params = params # maximum a posteriori (MAP) estimate after training of θ
 # --8<-- [end:training]
 print(f"[4/6] Running MAP optimization ({steps} steps, SGD+momentum, lr={lr})...")
 print("    Fitted (MAP) log_diag:", np.array(fitted_params["log_diag"]))
