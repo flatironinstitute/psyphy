@@ -1,6 +1,6 @@
-# Predicting Thesholds with MVP WMMP for Simulated Trials
+# Predicting Thresholds with MVP WMMP for Simulated Trials
 
-This toy example fits the MVP WPPM model to synthetic 2D data and produced a 
+This toy example fits the MVP WPPM model to synthetic 2D data and produces a 
 figure showing the predicted thresholds around the reference including 
 the ground-truth, init threshold contours.
 
@@ -235,7 +235,7 @@ Plots show the ellipses for:
 ---
 
 
-## Simplicfications in the MVP WPPM (Stub) and future extensions:
+## Simplifications in the MVP WPPM (Stub) and future extensions:
 
 ---
 ### Coming soon: The Full Observation Model and WPPM:
@@ -294,8 +294,7 @@ The MVP assumes constant, diagonal covariance. The full WPPM will extend this by
 
 ---
 
-Generated plots from 
-this  underlying script:
+Generated plots from this underlying script:
 
 ```bash
 python docs/examples/mvp/offline_fit_mvp.py
