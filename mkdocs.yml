@@ -104,7 +104,9 @@ nav:
   # - Examples:
   #     - MVP Offline Fit: examples/mvp/offline_fit_mvp.md
   # - Contributing: CONTRIBUTING.md
-  - Examples: examples/mvp/offline_fit_mvp.md   # single page in top nav
+  - Examples: 
+      - MVP Offline Fit: examples/mvp/offline_fit_mvp.md   # single page in top nav
+      - Build your own optimizer with optax: examples/optim/map.md
   - Contributing: CONTRIBUTING.md               # single page in top nav
 
 extra_javascript:
