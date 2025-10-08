@@ -111,6 +111,8 @@ d_thr = invert_oddity_criterion_to_d(criterion, slope=task.slope)
 
 # Collect fitted parameters, posterior holds the fitted params.
 fitted = posterior.params if hasattr(posterior, "params") else None
+
+# --8<-- [end:params_extraction]
 if fitted is None:
     raise RuntimeError("Posterior missing 'params' attribute; expected by this example.")
 
@@ -122,7 +124,7 @@ Sigma_fit_plot = Sigma_fit + (float(noise.sigma) ** 2) * np.eye(2) # fitted cova
 Sigma_init = np.diag(np.exp(np.array(init_params["log_diag"], dtype=float)))
 Sigma_init_plot = Sigma_init + (float(noise.sigma) ** 2) * np.eye(2) # initial covariance with noise
 Sigma_true_plot = Sigma_true + float(noise.sigma) ** 2 * np.eye(2) # simulated true covariance
-# --8<-- [end:params_extraction]
+
 
 
 # --8<-- [start:plot_contours]

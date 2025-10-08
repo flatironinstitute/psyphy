@@ -201,9 +201,9 @@ Plots show the ellipses for:
 - **Initial prior sample**,
 - **fitted parameters (MAP)**.
 
-```python title="Show init / true / fitted threshold ellipsoids"
+<!-- ```python title="Show init / true / fitted threshold ellipsoids"
 --8<-- "docs/examples/mvp/offline_fit_mvp_with_map_optimizer.py:plot_contours"
-```
+``` -->
 
 <div align="center">
     <picture>
