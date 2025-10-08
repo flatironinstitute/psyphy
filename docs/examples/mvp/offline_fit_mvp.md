@@ -161,19 +161,8 @@ This will enable you to collect the loss history for plotting via `optimizer.get
 --8<-- "docs/examples/mvp/offline_fit_mvp_with_map_optimizer.py:training"
 ```
 
-### [Optional] exposing psyphy's MAP implementation in Jax
-The code below produces the exact same figures as the previous training loop setup using `psyphy`. 
-This is meant for the interested reader curious about why and how we use JAX and optax for all of our optimizers
-in the `inference` module.
 
-**A note on JAX:**
-The key feature here is JAX’s Just-In-Time (JIT) compilation, which transforms our Python function into a single, optimized computation graph that runs efficiently on CPU, GPU, or TPU.
-To make this work, we represent parameters and optimizer states as PyTrees (nested dictionaries or tuples of arrays) — a core JAX data structure that supports efficient vectorization and differentiation.
-This approach lets us scale optimization and inference routines from small CPU experiments to large GPU-accelerated Bayesian models with minimal code changes.
 
-```python title="Optional: training loop exposing psyphy's MAP implementation in Jax"
---8<-- "docs/examples/mvp/offline_fit_mvp.py:training"
-```
 ### MAP Estimation
 
 The goal is to estimate the WPPM parameters (the diagonal covariance entries in log-space) given simulated behavioral data.

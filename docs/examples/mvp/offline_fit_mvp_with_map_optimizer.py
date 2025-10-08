@@ -134,7 +134,9 @@ contour_fit = ellipse_contour_from_cov(ref_np, Sigma_fit_plot, d_threshold=d_thr
 
 # Scatter + contours
 refs_np, probes_np, responses_np = data.to_numpy()
-probes_rel = probes_np - refs_np
+probes_rel = probes_np - refs_np # position of probe relative to reference
+# ... plotting
+# --8<-- [end:plot_contours]
 fig, ax = plt.subplots(figsize=(6, 6))
 # simulated data points
 ax.scatter(probes_rel[responses_np == 1, 0], probes_rel[responses_np == 1, 1], s=12, c="#1b9e77", alpha=0.6, label="Response = 1")
@@ -156,13 +158,15 @@ ax.set_title(
 ax.legend(loc="upper right")
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
-# --8<-- [end:plot_contours]
+
 os.makedirs(PLOTS_DIR, exist_ok=True)
 fig.savefig(os.path.join(PLOTS_DIR, "offline_fit_mvp_mapopt_thresholds.png"), dpi=200, bbox_inches="tight")
 
 # --8<-- [start:loss_history]
 # Learning curve from optimizer history
 steps_hist, loss_hist = optimizer.get_history()
+# plotting
+# --8<-- [end:loss_history]
 if steps_hist and loss_hist:
     fig2, ax2 = plt.subplots(figsize=(6, 4))
     ax2.plot(steps_hist, loss_hist, color="#4444aa")
@@ -171,7 +175,7 @@ if steps_hist and loss_hist:
     ax2.set_ylabel("Loss")
     ax2.grid(True, alpha=0.3)
     plt.tight_layout()
-# --8<-- [end:loss_history]
+
     fig2.savefig(os.path.join(PLOTS_DIR, "offline_fit_mvp_mapopt_learning_curve.png"), dpi=200, bbox_inches="tight")
 else:
     print("No history recorded — set track_history=True in MAPOptimizer to enable.")
