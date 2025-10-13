@@ -81,11 +81,10 @@ MVP vs Full WPPM mode
 
 ----------------------------------------------------------------------
 """
+# Re-export subpackages for unified import style (e.g., psyphy.model, psyphy.inference)
 # Data
 from . import data as data
 from . import inference as inference
-
-# Re-export subpackages for unified import style (e.g., psyphy.model, psyphy.inference)
 from . import model as model
 from . import posterior as posterior
 from . import session as session
@@ -98,7 +97,7 @@ from .inference.laplace import LaplaceApproximation
 # Inference
 from .inference.map_optimizer import MAPOptimizer
 from .model.noise import GaussianNoise, StudentTNoise
-from .model.prior import Prior
+from .model.prior import Prior, WishartPrior
 from .model.task import OddityTask, TwoAFC
 from .model.wppm import WPPM
 
@@ -112,6 +111,7 @@ __all__ = [
     # Core model
     "WPPM", # needs task for likelihood and noise model
     "Prior",
+  "WishartPrior",
     "OddityTask", 
     "TwoAFC",
     "GaussianNoise", #default noise model

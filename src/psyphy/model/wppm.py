@@ -31,9 +31,7 @@ from typing import Any, Dict, Tuple
 
 import jax
 import jax.numpy as jnp
-import jax.random as jr
 
-from .prior import Prior
 from .task import TaskLikelihood
 
 # Type aliases for readability
@@ -79,7 +77,7 @@ class WPPM:
     def __init__(
         self,
         input_dim: int,
-        prior: Prior,
+    prior: Any,
         task: TaskLikelihood,
         noise: Any | None = None,
         *,
@@ -103,7 +101,7 @@ class WPPM:
     # ----------------------------------------------------------------------
     # PARAMETERS
     # ----------------------------------------------------------------------
-    def init_params(self, key: jr.KeyArray) -> Params:
+    def init_params(self, key: Any) -> Params:
         """
         Sample initial parameters from the prior.
 
@@ -125,8 +123,11 @@ class WPPM:
         Return local covariance Σ(x) at stimulus location x.
 
         MVP:
-            Σ(x) = diag(exp(log_diag)), constant across x.
-            - Positive-definite because exp(log_diag) > 0.
+            - Back-compat: if params has "log_diag", use Σ = diag(exp(log_diag)).
+            - New (preferred): if params has "chol_params", interpret these as
+              unconstrained parameters for a lower-triangular Cholesky factor L
+              with positive diagonal via exp, and return Σ = L @ L.T.
+            In both cases, Σ is constant across x.
         Future (full WPPM mode):
             Σ(x) varies smoothly with x via basis expansions and a Wishart-process
             prior controlled by (extra_dims, variance_scale, lengthscale). Those
@@ -143,6 +144,10 @@ class WPPM:
         -------
         Σ : jnp.ndarray, shape (input_dim, input_dim)
         """
+        if "chol_params" in params:
+            L = self._chol_from_params(params)
+            return L @ L.T
+        # Backward compatibility: diagonal-only parameters
         log_diag = params["log_diag"]               # unconstrained diagonal log-variances
         diag = jnp.exp(log_diag)                    # enforce positivity
         return jnp.diag(diag)                       # constant diagonal covariance
@@ -178,12 +183,22 @@ class WPPM:
         """
         ref, probe = stimulus
         delta = probe - ref                                # difference vector in input space
-        Sigma = self.local_covariance(params, ref)         # local covariance at reference
-        # Add jitter for stable solve; diag_term is configurable
-        jitter = self.diag_term * jnp.eye(self.input_dim)
-        # Solve (Σ + jitter)^{-1} delta using a PD-aware solver
-        x = jax.scipy.linalg.solve(Sigma + jitter, delta, assume_a="pos")
-        d2 = jnp.dot(delta, x)                             # quadratic form
+        # Prefer triangular solves when Cholesky params are provided
+        if "chol_params" in params:
+            L = self._chol_from_params(params)
+            # Add small jitter to diagonal of L to ensure strong PD in extreme cases
+            L = L.at[jnp.diag_indices(self.input_dim)].add(self.diag_term)
+            # Solve L y = delta; then L^T x = y
+            y = jax.scipy.linalg.solve_triangular(L, delta, lower=True, trans='N')
+            x = jax.scipy.linalg.solve_triangular(L, y, lower=True, trans='T')
+            d2 = jnp.dot(delta, x)
+        else:
+            Sigma = self.local_covariance(params, ref)         # local covariance at reference
+            # Add jitter for stable solve; diag_term is configurable
+            jitter = self.diag_term * jnp.eye(self.input_dim)
+            # Solve (Σ + jitter)^{-1} delta using a PD-aware solver
+            x = jax.scipy.linalg.solve(Sigma + jitter, delta, assume_a="pos")
+            d2 = jnp.dot(delta, x)                             # quadratic form
         # Guard against tiny negative values from numerical error
         return jnp.sqrt(jnp.maximum(d2, 0.0))
 
@@ -284,3 +299,37 @@ class WPPM:
         jnp.ndarray : scalar log posterior = loglik(params | data) + log_prior(params)
         """
         return self.log_likelihood_from_data(params, data) + self.prior.log_prob(params)
+
+    # ----------------------------------------------------------------------
+    # INTERNAL HELPERS (Cholesky parameterization)
+    # ----------------------------------------------------------------------
+    def _chol_from_params(self, params: Params) -> jnp.ndarray:
+        """
+        Build lower-triangular Cholesky factor L from unconstrained params.
+
+        Representation:
+            - params["chol_params"] is a packed vector containing the lower-triangular
+              entries of L in row-major order (i >= j). Diagonals are stored as
+              unconstrained reals that we exp() to enforce positivity.
+
+        Notes:
+            - For input_dim=2 the packed order is [a, b, c] mapping to
+                  L = [[exp(a),   0   ],
+                       [   b,   exp(c)]]
+            - For general input_dim=p, length is p(p+1)/2.
+        """
+        p = self.input_dim
+        vec = params["chol_params"]
+        # Initialize L as zeros and fill lower triangle
+        L = jnp.zeros((p, p), dtype=vec.dtype)
+        idx = 0
+        # Fill row by row
+        for i in range(p):
+            # off-diagonals (i > j)
+            for j in range(i):
+                L = L.at[i, j].set(vec[idx])
+                idx += 1
+            # diagonal (positive)
+            L = L.at[i, i].set(jnp.exp(vec[idx]))
+            idx += 1
+        return L

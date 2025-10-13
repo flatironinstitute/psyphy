@@ -18,7 +18,7 @@ No Monte Carlo sampling over internal representations is used here.
 
 Thus, the likelihood for each trial is:
     y_i ~ Bernoulli(p_correct_i)
-and the overall dataset likelihood is \Prod_i p(y_i | ref_i, probe_i, θ, task).
+and the overall dataset likelihood is ∏_i p(y_i | ref_i, probe_i, θ, task).
 
 Note:
 - The 'truth_model' and 'fitted_model' share the same class (WPPM), 
@@ -49,7 +49,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 # --8<-- [start:imports]
 from psyphy.data.dataset import ResponseData
 from psyphy.model.noise import GaussianNoise
-from psyphy.model.prior import Prior
+from psyphy.model.prior import Prior, WishartPrior
 from psyphy.model.task import OddityTask
 from psyphy.model.wppm import WPPM
 
@@ -241,7 +241,7 @@ ax.set_aspect("equal", adjustable="box")
 ax.set_xlabel("Delta x (probe relative to ref)")
 ax.set_ylabel("Delta y (probe relative to ref)")
 ax.set_title(
-    f"Simulated Trials \n"
+    "Simulated Trials \n"
 )
 ax.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="gray", fontsize=12)
 ax.grid(True, alpha=0.3)
@@ -249,7 +249,7 @@ plt.tight_layout()
 
 # Save thresholds figure with a filename encoding lr and steps
 os.makedirs(PLOTS_DIR, exist_ok=True)
-base = f"simulated_trials"
+base = "simulated_trials"
 thresh_path = os.path.join(PLOTS_DIR, f"{base}.png")
 fig.savefig(thresh_path, dpi=200, bbox_inches="tight")
 print(f"    Saved thresholds plot to {thresh_path}")
@@ -269,13 +269,29 @@ print("[3/6] Initializing model from prior...")
 # from psyphy.model.prior import Prior
 # from psyphy.model.noise import GaussianNoise
 # from psyphy.model.wppm import WPPM
-prior = Prior.default(input_dim=2, scale=0.5) # Gaussian prior on log_diag
+# You can switch to a full-covariance prior; below we center it near the ground-truth diagonal mean
+nu = 5.0
+V_center = jnp.diag(jnp.array([0.9, 0.01])) / nu  # E[Σ] = ν V ≈ diag(0.9, 0.01)
+prior = WishartPrior.default(input_dim=2, nu=nu, V=V_center)
+# prior = Prior.default(input_dim=2, scale=0.5) # Gaussian prior on log_diag (back-compat MVP)
 noise = GaussianNoise(sigma=1.0)   # additive isotropic Gaussian noise
 model = WPPM(input_dim=2, prior=prior, task=task, noise=noise)
 init_params = model.init_params(jax.random.PRNGKey(42))
 # --8<-- [end:model]
-print("    Init log_diag:", np.array(init_params["log_diag"]))
-print("    Init covariance diag:", np.exp(np.array(init_params["log_diag"])))
+def _sigma_from_params(params) -> np.ndarray:
+    # Build Σ from either diagonal log-variances or packed Cholesky params
+    if "chol_params" in params:
+        vec = np.array(params["chol_params"], dtype=float)  # length 3 for 2D: [a, b, c]
+        a, b, c = vec
+        # Add tiny floors to diagonals to avoid underflow to exact zero
+        L = np.array([[np.exp(a) + 1e-12, 0.0], [b, np.exp(c) + 1e-12]], dtype=float)
+        return L @ L.T
+    elif "log_diag" in params:
+        return np.diag(np.exp(np.array(params["log_diag"], dtype=float)))
+    raise KeyError("Expected 'chol_params' or 'log_diag' in params")
+
+Sigma_init = _sigma_from_params(init_params)
+print("    Init covariance diag:", np.diag(Sigma_init))
 
 # ---------- 4) MAP fit (with learning curve) ----------
 # Optimize the negative log posterior with Optax; record loss every 10 steps
@@ -286,8 +302,17 @@ steps = 100
 lr = 2e-2
 momentum = 0.9
 
-# Use SGD+momentum from Optax
-opt = optax.sgd(learning_rate=lr, momentum=momentum)
+# Use a safer optimizer when using full-covariance (chol_params)
+if "chol_params" in init_params:
+    steps = 300
+    lr = 1e-3
+    opt = optax.chain(
+        optax.clip_by_global_norm(1.0),
+        optax.adam(learning_rate=lr),
+    )
+else:
+    # Use SGD+momentum from Optax for diagonal MVP
+    opt = optax.sgd(learning_rate=lr, momentum=momentum)
 
 # Define loss = negative log posterior (minimize it)
 def _loss_fn(params):
@@ -319,6 +344,10 @@ loss_iters: list[int] = []
 loss_values: list[float] = []
 for i in range(steps):
     params, opt_state, loss = _step(params, opt_state) # single JIT-compiled step
+    # Break if loss becomes non-finite (stability guard)
+    if not np.isfinite(float(loss)):
+        print("    Warning: non-finite loss encountered; stopping early.")
+        break
     if (i % 10 == 0) or (i == steps - 1):
         loss_iters.append(i)
         loss_values.append(float(loss))
@@ -326,8 +355,8 @@ for i in range(steps):
 fitted_params = params # maximum a posteriori (MAP) estimate after training of θ
 # --8<-- [end:training]
 print(f"[4/6] Running MAP optimization ({steps} steps, SGD+momentum, lr={lr})...")
-print("    Fitted (MAP) log_diag:", np.array(fitted_params["log_diag"]))
-print("    Fitted covariance diag:", np.exp(np.array(fitted_params["log_diag"])))
+Sigma_fit = _sigma_from_params(fitted_params)
+print("    Fitted covariance diag:", np.diag(Sigma_fit))
 
 # ---------- 5) Compute contours ----------
 # Convert the target criterion (0.75) to a discriminability threshold d*.
@@ -337,8 +366,7 @@ criterion = 0.75
 d_thr = invert_oddity_criterion_to_d(criterion, slope=task.slope)
 print(f"[5/6] Computing threshold contours at criterion={criterion:.3f} -> d*={d_thr:.4f}")
 
-Sigma_init = np.diag(np.exp(np.array(init_params["log_diag"], dtype=float)))
-Sigma_fit = np.diag(np.exp(np.array(fitted_params["log_diag"], dtype=float)))
+# Sigma_init already computed; Sigma_fit already computed
 
 # Use effective covariance if requested: Σ_eff = Σ + \sigma^2 I
 sigma = float(noise.sigma)
@@ -347,12 +375,17 @@ if INCLUDE_NOISE_IN_THRESHOLDS:
     Sigma_true_plot = Sigma_true + (sigma ** 2) * I2
     Sigma_init_plot = Sigma_init + (sigma ** 2) * I2
     Sigma_fit_plot = Sigma_fit + (sigma ** 2) * I2
-    print(f"    Using effective covariance in plots: Σ + \sigma^2 I (\sigma={sigma})")
+    print(f"    Using effective covariance in plots: Σ + σ^2 I (σ={sigma})")
 else:
     Sigma_true_plot = Sigma_true
     Sigma_init_plot = Sigma_init
     Sigma_fit_plot = Sigma_fit
     print("    Using model Σ only in plots (no noise added)")
+
+# Add a tiny ridge to ensure numerical PD for plotting
+Sigma_true_plot = Sigma_true_plot + 1e-12 * I2
+Sigma_init_plot = Sigma_init_plot + 1e-12 * I2
+Sigma_fit_plot = Sigma_fit_plot + 1e-12 * I2
 
 contour_true = ellipse_contour_from_cov(ref_np, Sigma_true_plot, d_threshold=d_thr)
 contour_init = ellipse_contour_from_cov(ref_np, Sigma_init_plot, d_threshold=d_thr)
@@ -387,9 +420,9 @@ ax.set_xlabel("Delta x (probe relative to ref)")
 ax.set_ylabel("Delta y (probe relative to ref)")
 ax.set_title(
     f"MVP WPPM Fit, criterion={criterion:.3f} (d*={d_thr:.3f})\n"
-    f"True log_diag={np.array(log_diag_true)}\n"
-    f"Init log_diag={np.array(init_params['log_diag'])}\n"
-    f"Fitted log_diag={np.array(fitted_params['log_diag'])}"
+    f"True Σ diag={np.diag(Sigma_true)}\n"
+    f"Init Σ diag={np.diag(Sigma_init)}\n"
+    f"Fitted Σ diag={np.diag(Sigma_fit)}"
 )
 ax.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="gray", fontsize=12)
 ax.grid(True, alpha=0.3)
@@ -418,4 +451,5 @@ lc_path = os.path.join(PLOTS_DIR, f"{base}_learning_curve.png")
 fig2.savefig(lc_path, dpi=200, bbox_inches="tight")
 print(f"    Saved learning curve to {lc_path}")
 
+plt.show()
 plt.show()
