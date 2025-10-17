@@ -15,7 +15,7 @@ classifiers = [
 ]
 dependencies = [
   "jax==0.4.28",
-  "optax==0.2.5",
+  "optax==0.2.4",
   "numpy>=1.22",
 ]
 
