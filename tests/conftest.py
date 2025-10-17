@@ -8,13 +8,11 @@ This file is automatically discovered by pytest and is intended for:
 
 Notes
 -----
-- Contributors should 
+- Contributors should
   install the package in editable mode (`pip install -e .`) so that imports are resolved
   consistently in local dev and CI environments.
 - Keep this file focused on test setup. Do not add application logic here.
 """
-
-
 
 import jax.numpy as jnp
 import pytest

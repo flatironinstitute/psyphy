@@ -1,17 +1,17 @@
 # Predicting Thresholds with MVP WMMP for Simulated Trials
 
-This toy example fits the MVP WPPM model to synthetic 2D data and produces a 
-figure showing the predicted thresholds around the reference including 
+This toy example fits the MVP WPPM model to synthetic 2D data and produces a
+figure showing the predicted thresholds around the reference including
 the ground-truth, init threshold contours.
 
-You can run this example yourself via the corresponding standalone script: 
+You can run this example yourself via the corresponding standalone script:
 
 
 ```bash
 python docs/examples/mvp/offline_fit_mvp_with_map_optimizer.py
 ```
 
-Alternatively, you can take a look at this script that explicitly exposes the training loop in jax and produces the exact same loop:  
+Alternatively, you can take a look at this script that explicitly exposes the training loop in jax and produces the exact same loop:
 ```bash
 python docs/examples/mvp/offline_fit_mvp.py
 ```
@@ -61,7 +61,7 @@ $$
 - If the entries of `log_diag` are equal, isoperformance contours are circles; otherwise they are axis-aligned ellipses.
 
 Example:
-- `log_diag = [\log 0.9, \log 0.01]` 
+- `log_diag = [\log 0.9, \log 0.01]`
 -> $\Sigma = \begin{bmatrix}0.9 & 0 \\ 0 & 0.01\end{bmatrix}$
 
 
@@ -72,7 +72,7 @@ For each trial:
 
 1. Compute discriminability $d$ between the reference and probe under the ground-truth covariance $\Sigma$.
 2. Map $d$ to the probability of a correct response using the Oddity task mapping (chance = $1/3$, monotonically increasing with $d$).
-3. Sample a binary response ($0 =$ incorrect (orange), $1 =$ correct (green)) 
+3. Sample a binary response ($0 =$ incorrect (orange), $1 =$ correct (green))
 
 This procedure yields a dataset of probe positions relative to the reference together with simulated subject responses (color-coded), namely if they correctly answered the question: *“Are the reference and probe the same?”*.
 
@@ -181,9 +181,9 @@ Here, optimization uses stochastic gradient descent (`optax.sgd`).
 
 ## Results
 
-### Predicted Thresholds 
+### Predicted Thresholds
 
-Given a target criterion (e.g. 75% correct), we compute the required discriminability $d^{*}$ by inverting the task mapping. 
+Given a target criterion (e.g. 75% correct), we compute the required discriminability $d^{*}$ by inverting the task mapping.
 
 Isoperformance contours (threshold ellipses) around the reference satisfy:
 
@@ -293,7 +293,7 @@ The script writes plots into `docs/examples/mvp/plots/` and this page embeds the
 
 ---
 
-<!-- 
+<!--
 Show code above but don't execute and include generated plots.
 
 - How to format code blocks: https://squidfunk.github.io/mkdocs-material/reference/code-blocks/#usage

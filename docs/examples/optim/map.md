@@ -41,7 +41,7 @@ This approach lets us scale optimization and inference routines from small CPU e
 ```
 
 
-<!-- 
+<!--
 Show code above but don't execute and include generated plots.
 
 - How to format code blocks: https://squidfunk.github.io/mkdocs-material/reference/code-blocks/#usage

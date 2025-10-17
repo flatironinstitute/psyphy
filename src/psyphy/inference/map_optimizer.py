@@ -40,7 +40,6 @@ class MAPOptimizer(InferenceEngine):
     - Gradients computed with jax.grad.
     """
 
-
     def __init__(
         self,
         steps: int = 500,
@@ -69,14 +68,18 @@ class MAPOptimizer(InferenceEngine):
             Record every N steps (also records the last step).
         """
         self.steps = steps
-        self.optimizer = optimizer or optax.sgd(learning_rate=learning_rate, momentum=momentum)
+        self.optimizer = optimizer or optax.sgd(
+            learning_rate=learning_rate, momentum=momentum
+        )
         self.track_history = track_history
         self.log_every = max(1, int(log_every))
         # Exposed after fit() when tracking is enabled
         self.loss_steps: list[int] = []
         self.loss_history: list[float] = []
 
-    def fit(self, model, data, init_params: dict | None = None, seed: int | None = None) -> Posterior:
+    def fit(
+        self, model, data, init_params: dict | None = None, seed: int | None = None
+    ) -> Posterior:
         """
         Fit model parameters with MAP optimization.
 
@@ -114,7 +117,9 @@ class MAPOptimizer(InferenceEngine):
         def step(params, opt_state):
             # Ensure params and opt_state are JAX PyTrees for JIT compatibility
             loss, grads = jax.value_and_grad(loss_fn)(params)  # auto-diff
-            updates, opt_state = self.optimizer.update(grads, opt_state, params)  # optimizer update
+            updates, opt_state = self.optimizer.update(
+                grads, opt_state, params
+            )  # optimizer update
             params = optax.apply_updates(params, updates)  # apply updates
             # Only return JAX-compatible types (PyTrees of arrays, scalars)
             return params, opt_state, loss
@@ -126,7 +131,9 @@ class MAPOptimizer(InferenceEngine):
 
         for i in range(self.steps):
             params, opt_state, loss = step(params, opt_state)
-            if self.track_history and ((i % self.log_every == 0) or (i == self.steps - 1)):
+            if self.track_history and (
+                (i % self.log_every == 0) or (i == self.steps - 1)
+            ):
                 # Pull scalar to host and record
                 try:
                     self.loss_steps.append(i)

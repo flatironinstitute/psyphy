@@ -93,20 +93,20 @@ def chebyshev_basis(x: jnp.ndarray, degree: int) -> jnp.ndarray:
         # compute next Chebyshev polynomial
         Tm1, Tm = carry
         Tnext = 2.0 * x * Tm - Tm1
-        return (Tm, Tnext), Tnext # new carry, plus an output to collect
+        return (Tm, Tnext), Tnext  # new carry, plus an output to collect
 
     # Jax friendly loop
-    (final_Tm1_ignored, final_Tm_ignored), Ts = lax.scan(step, (T0, T1), xs=None, length=degree - 1)
-    # Ts has shape (degree-1, N) and holds [T2, T3, ..., T_degree]
-    B = jnp.concatenate(
-        [T0[:, None], T1[:, None], jnp.swapaxes(Ts, 0, 1)],
-        axis=1
+    (final_Tm1_ignored, final_Tm_ignored), Ts = lax.scan(
+        step, (T0, T1), xs=None, length=degree - 1
     )
+    # Ts has shape (degree-1, N) and holds [T2, T3, ..., T_degree]
+    B = jnp.concatenate([T0[:, None], T1[:, None], jnp.swapaxes(Ts, 0, 1)], axis=1)
     return B
 
 
-
-def mahalanobis_distance(x: jnp.ndarray, mean: jnp.ndarray, cov_inv: jnp.ndarray) -> jnp.ndarray:
+def mahalanobis_distance(
+    x: jnp.ndarray, mean: jnp.ndarray, cov_inv: jnp.ndarray
+) -> jnp.ndarray:
     """
     Compute squared Mahalanobis distance between x and mean.
 
@@ -133,10 +133,12 @@ def mahalanobis_distance(x: jnp.ndarray, mean: jnp.ndarray, cov_inv: jnp.ndarray
     return jnp.dot(delta, cov_inv @ delta)
 
 
-def rbf_kernel(x1: jnp.ndarray, x2: jnp.ndarray, lengthscale: float = 1.0) -> jnp.ndarray:
+def rbf_kernel(
+    x1: jnp.ndarray, x2: jnp.ndarray, lengthscale: float = 1.0
+) -> jnp.ndarray:
     """
     Radial Basis Function (RBF) kernel between two sets of points.
-    
+
 
     Parameters
     ----------
@@ -157,5 +159,5 @@ def rbf_kernel(x1: jnp.ndarray, x2: jnp.ndarray, lengthscale: float = 1.0) -> jn
     - RBF kernel: k(x, x') = exp(-||x - x'||^2 / (2 * lengthscale^2))
     - Default used for Gaussian processes for smooth covariance priors in Full WPPM mode.
     """
-    sqdist = jnp.sum((x1[:, None, :] - x2[None, :, :])**2, axis=-1)
+    sqdist = jnp.sum((x1[:, None, :] - x2[None, :, :]) ** 2, axis=-1)
     return jnp.exp(-0.5 * sqdist / (lengthscale**2))

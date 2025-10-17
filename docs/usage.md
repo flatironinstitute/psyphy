@@ -12,14 +12,14 @@
 
 
 <h4 align="center">
-  <a href="https://hmd101.github.io/psyphy/#install/">Installation</a> |  
-  <a href="https://hmd101.github.io/psyphy/reference/">Documentation</a> | 
-  <a href="https://hmd101.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> | 
+  <a href="https://hmd101.github.io/psyphy/#install/">Installation</a> |
+  <a href="https://hmd101.github.io/psyphy/reference/">Documentation</a> |
+  <a href="https://hmd101.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> |
   <a href="https://hmd101.github.io/psyphy/CONTRIBUTING/">Contributing</a>
 </h4>
 
 
-## Full Experimental Loop 
+## Full Experimental Loop
 
 
 
@@ -79,7 +79,7 @@ posterior = session.initialize()
 
 # Propose a batch of trials and collect responses (simulated/user-provided)
 proposed_batch = session.next_batch(batch_size=5)
-# responses = run_subject(proposed_batch) 
+# responses = run_subject(proposed_batch)
 # session.data.add_batch(responses, proposed_batch)
 
 # Update posterior after adding data

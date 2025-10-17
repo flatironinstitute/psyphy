@@ -107,7 +107,9 @@ class Posterior(BasePosterior):
         """
         return self.model.predict_prob(self.params, stimulus)
 
-    def predict_thresholds(self, reference, criterion: float = 0.667, directions: int = 16):
+    def predict_thresholds(
+        self, reference, criterion: float = 0.667, directions: int = 16
+    ):
         """
         Predict discrimination threshold contour around a reference stimulus.
 
@@ -135,5 +137,7 @@ class Posterior(BasePosterior):
         - Average over posterior samples (Laplace, MCMC) to get credible intervals.
         """
         angles = jnp.linspace(0, 2 * jnp.pi, directions, endpoint=False)
-        contour = jnp.stack([reference + jnp.array([jnp.cos(a), jnp.sin(a)]) for a in angles])
+        contour = jnp.stack(
+            [reference + jnp.array([jnp.cos(a), jnp.sin(a)]) for a in angles]
+        )
         return contour

@@ -12,8 +12,8 @@
 
 
 <h4 align="center">
-  <a href="https://hmd101.github.io/psyphy/reference/">Documentation</a> | 
-  <a href="https://hmd101.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> | 
+  <a href="https://hmd101.github.io/psyphy/reference/">Documentation</a> |
+  <a href="https://hmd101.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> |
   <a href="https://hmd101.github.io/psyphy/CONTRIBUTING/">Contributing</a>
 </h4>
 

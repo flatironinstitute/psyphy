@@ -25,12 +25,11 @@ Connections
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
 
 import jax.numpy as jnp
 import jax.random as jr
 
-Params = Dict[str, jnp.ndarray]
+Params = dict[str, jnp.ndarray]
 
 
 @dataclass
@@ -62,7 +61,7 @@ class Prior:
     extra_embedding_dims: int = 0
 
     @classmethod
-    def default(cls, input_dim: int, scale: float = 0.5) -> "Prior":
+    def default(cls, input_dim: int, scale: float = 0.5) -> Prior:
         """Convenience constructor with MVP defaults."""
         return cls(input_dim=input_dim, scale=scale)
 

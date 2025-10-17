@@ -12,7 +12,8 @@ Future extensions:
 - other color spaces
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import numpy as np
 

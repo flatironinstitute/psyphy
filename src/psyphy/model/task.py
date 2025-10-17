@@ -33,11 +33,11 @@ Connections
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Any
 
 import jax.numpy as jnp
 
-Stimulus = Tuple[jnp.ndarray, jnp.ndarray]
+Stimulus = tuple[jnp.ndarray, jnp.ndarray]
 
 
 class TaskLikelihood(ABC):
@@ -46,7 +46,9 @@ class TaskLikelihood(ABC):
     """
 
     @abstractmethod
-    def predict(self, params: Any, stimuli: Stimulus, model: Any, noise: Any) -> jnp.ndarray:
+    def predict(
+        self, params: Any, stimuli: Stimulus, model: Any, noise: Any
+    ) -> jnp.ndarray:
         """Predict probability of correct response for a stimulus."""
         ...
 
@@ -64,16 +66,22 @@ class OddityTask(TaskLikelihood):
         self.chance_level: float = 1.0 / 3.0
         self.performance_range: float = 1.0 - self.chance_level
 
-    def predict(self, params: Any, stimuli: Stimulus, model: Any, noise: Any) -> jnp.ndarray:
+    def predict(
+        self, params: Any, stimuli: Stimulus, model: Any, noise: Any
+    ) -> jnp.ndarray:
         d = model.discriminability(params, stimuli)
         g = 0.5 * (jnp.tanh(self.slope * d) + 1.0)
         return self.chance_level + self.performance_range * g
 
     def loglik(self, params: Any, data: Any, model: Any, noise: Any) -> jnp.ndarray:
         refs, probes, responses = data.to_numpy()
-        ps = jnp.array([self.predict(params, (r, p), model, noise) for r, p in zip(refs, probes)])
+        ps = jnp.array(
+            [self.predict(params, (r, p), model, noise) for r, p in zip(refs, probes)]
+        )
         eps = 1e-9
-        return jnp.sum(jnp.where(responses == 1, jnp.log(ps + eps), jnp.log(1.0 - ps + eps)))
+        return jnp.sum(
+            jnp.where(responses == 1, jnp.log(ps + eps), jnp.log(1.0 - ps + eps))
+        )
 
 
 class TwoAFC(TaskLikelihood):
@@ -84,12 +92,18 @@ class TwoAFC(TaskLikelihood):
         self.chance_level: float = 0.5
         self.performance_range: float = 1.0 - self.chance_level
 
-    def predict(self, params: Any, stimuli: Stimulus, model: Any, noise: Any) -> jnp.ndarray:
+    def predict(
+        self, params: Any, stimuli: Stimulus, model: Any, noise: Any
+    ) -> jnp.ndarray:
         d = model.discriminability(params, stimuli)
         return self.chance_level + self.performance_range * jnp.tanh(self.slope * d)
 
     def loglik(self, params: Any, data: Any, model: Any, noise: Any) -> jnp.ndarray:
         refs, probes, responses = data.to_numpy()
-        ps = jnp.array([self.predict(params, (r, p), model, noise) for r, p in zip(refs, probes)])
+        ps = jnp.array(
+            [self.predict(params, (r, p), model, noise) for r, p in zip(refs, probes)]
+        )
         eps = 1e-9
-        return jnp.sum(jnp.where(responses == 1, jnp.log(ps + eps), jnp.log(1.0 - ps + eps)))
+        return jnp.sum(
+            jnp.where(responses == 1, jnp.log(ps + eps), jnp.log(1.0 - ps + eps))
+        )

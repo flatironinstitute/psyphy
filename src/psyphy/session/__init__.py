@@ -19,9 +19,8 @@ Full WPPM mode
 - Will support richer workflows:
   * Batch vs online updates.
   * Integration with live experimental computers (e.g., resuming sessions after breaks).
-  """
+"""
 
 from .experiment_session import ExperimentSession
 
 __all__ = ["ExperimentSession"]
-

@@ -22,7 +22,7 @@ import jax.numpy as jnp
 
 def effective_sample_size(samples: jnp.ndarray) -> float:
     """
-    Estimate effective sample size (ESS) to calculate the number of independent 
+    Estimate effective sample size (ESS) to calculate the number of independent
     samples that a correlated MCMC chain is equivalent to.
 
     Parameters
@@ -69,6 +69,6 @@ def rhat(chains: jnp.ndarray) -> float:
     References:
     ----------
         [1] https://bookdown.org/rdpeng/advstatcomp/monitoring-convergence.html
-         
+
     """
     return 1.0

@@ -18,7 +18,7 @@ Notes
 
 from __future__ import annotations
 
-from typing import Any, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -38,9 +38,9 @@ class ResponseData:
     """
 
     def __init__(self) -> None:
-        self.refs: List[Any] = []
-        self.probes: List[Any] = []
-        self.responses: List[int] = []
+        self.refs: list[Any] = []
+        self.probes: list[Any] = []
+        self.responses: list[int] = []
 
     def add_trial(self, ref: Any, probe: Any, resp: int) -> None:
         """
@@ -59,7 +59,7 @@ class ResponseData:
         self.probes.append(probe)
         self.responses.append(resp)
 
-    def add_batch(self, responses: List[int], trial_batch: TrialBatch) -> None:
+    def add_batch(self, responses: list[int], trial_batch: TrialBatch) -> None:
         """
         Append responses for a batch of trials.
 
@@ -73,7 +73,7 @@ class ResponseData:
         for (ref, probe), resp in zip(trial_batch.stimuli, responses):
             self.add_trial(ref, probe, resp)
 
-    def to_numpy(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def to_numpy(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Return refs, probes, responses as numpy arrays.
 
@@ -100,11 +100,11 @@ class TrialBatch:
         Each trial is a (reference, probe) tuple.
     """
 
-    def __init__(self, stimuli: List[Tuple[Any, Any]]) -> None:
+    def __init__(self, stimuli: list[tuple[Any, Any]]) -> None:
         self.stimuli = list(stimuli)
 
     @classmethod
-    def from_stimuli(cls, pairs: List[Tuple[Any, Any]]) -> TrialBatch:
+    def from_stimuli(cls, pairs: list[tuple[Any, Any]]) -> TrialBatch:
         """
         Construct a TrialBatch from a list of stimuli (ref, probe) pairs.
         """

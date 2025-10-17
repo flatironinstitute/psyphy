@@ -5,9 +5,9 @@ psyphy
 Psychophysical modeling and adaptive trial placement.
 
 This package implements the Wishart Process Psychophysical Model (WPPM)
-with modular components for priors, task likelihoods, and noise models, 
+with modular components for priors, task likelihoods, and noise models,
 which can be fitted to incoming subject data and used to adaptively
-select new trials to present to the subject next. 
+select new trials to present to the subject next.
 This is useful for efficiently estimating psychophysical parameters
 (e.g. threshold contours) with minimal trials.
 
@@ -81,6 +81,7 @@ MVP vs Full WPPM mode
 
 ----------------------------------------------------------------------
 """
+
 # Data
 from . import data as data
 from . import inference as inference
@@ -110,11 +111,11 @@ from .session.experiment_session import ExperimentSession
 
 __all__ = [
     # Core model
-    "WPPM", # needs task for likelihood and noise model
+    "WPPM",  # needs task for likelihood and noise model
     "Prior",
-    "OddityTask", 
+    "OddityTask",
     "TwoAFC",
-    "GaussianNoise", #default noise model
+    "GaussianNoise",  # default noise model
     "StudentTNoise",
     # Inference
     "MAPOptimizer",
@@ -127,14 +128,12 @@ __all__ = [
     # Data handling
     "ResponseData",
     "TrialBatch",
-  # Subpackages
-  "model",
-  "inference",
-  "posterior",
-  "trial_placement",
-  "utils",
-  "data",
-  "session",
+    # Subpackages
+    "model",
+    "inference",
+    "posterior",
+    "trial_placement",
+    "utils",
+    "data",
+    "session",
 ]
-
-
