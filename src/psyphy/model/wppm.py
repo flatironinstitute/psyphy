@@ -31,7 +31,6 @@ from typing import Any
 
 import jax
 import jax.numpy as jnp
-import jax.random as jr
 
 from .prior import Prior
 from .task import TaskLikelihood
@@ -103,7 +102,7 @@ class WPPM:
     # ----------------------------------------------------------------------
     # PARAMETERS
     # ----------------------------------------------------------------------
-    def init_params(self, key: jr.KeyArray) -> Params:
+    def init_params(self, key: Any) -> Params:
         """
         Sample initial parameters from the prior.
 

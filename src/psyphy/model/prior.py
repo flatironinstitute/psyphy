@@ -25,6 +25,7 @@ Connections
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import jax.numpy as jnp
 import jax.random as jr
@@ -65,7 +66,7 @@ class Prior:
         """Convenience constructor with MVP defaults."""
         return cls(input_dim=input_dim, scale=scale)
 
-    def sample_params(self, key: jr.KeyArray) -> Params:
+    def sample_params(self, key: Any) -> Params:
         """
         Sample initial parameters from the prior.
 
