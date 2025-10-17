@@ -23,9 +23,8 @@ from .diagnostics import effective_sample_size, rhat
 from .posterior import Posterior
 
 __all__ = [
-	"Posterior",
-	# diagnostics
-	"effective_sample_size",
-	"rhat",
+    "Posterior",
+    # diagnostics
+    "effective_sample_size",
+    "rhat",
 ]
-    

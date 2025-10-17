@@ -25,6 +25,7 @@ Full WPPM mode
 - StaircasePlacement can be extended to multi-dimensional, task-aware rules.
 - Hybrid strategies: exploration (Sobol) -> exploitation (InfoGain).
 """
+
 from .base import TrialPlacement
 from .greedy_map import GreedyMAPPlacement
 from .grid import GridPlacement

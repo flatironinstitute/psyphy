@@ -13,8 +13,6 @@ Full WPPM mode:
 - Rank candidates by informativeness (e.g., discriminability).
 """
 
-import jax.numpy as jnp
-
 from psyphy.data.dataset import TrialBatch
 from psyphy.trial_placement.base import TrialPlacement
 

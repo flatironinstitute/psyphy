@@ -33,7 +33,9 @@ class LangevinSampler:
         Noise scale (temperature).
     """
 
-    def __init__(self, steps: int = 1000, step_size: float = 1e-3, temperature: float = 1.0):
+    def __init__(
+        self, steps: int = 1000, step_size: float = 1e-3, temperature: float = 1.0
+    ):
         self.steps = steps
         self.step_size = step_size
         self.temperature = temperature

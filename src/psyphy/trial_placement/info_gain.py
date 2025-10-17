@@ -16,8 +16,6 @@ Full WPPM mode:
     * Rank candidates by information gain.
 """
 
-import jax.numpy as jnp
-
 from psyphy.data.dataset import TrialBatch
 from psyphy.trial_placement.base import TrialPlacement
 
@@ -58,7 +56,7 @@ class InfoGainPlacement(TrialPlacement):
         Full WPPM mode:
             - Draw parameter samples: samples = posterior.sample(n)
             - For each sample, compute p(correct | params, candidate)
-            - Approximate predictive distribution of responses, 
+            - Approximate predictive distribution of responses,
             - Compute predictive entropy:
                 H[p] = - p log p - (1-p) log (1-p)
             - InfoGain = expected reduction in entropy

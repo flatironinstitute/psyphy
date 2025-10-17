@@ -27,19 +27,18 @@ All numerics use JAX (jax.numpy as jnp) to support autodiff and Optax optimizers
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import jax
 import jax.numpy as jnp
-import jax.random as jr
 
 from .prior import Prior
 from .task import TaskLikelihood
 
 # Type aliases for readability
-Params = Dict[str, jnp.ndarray]
+Params = dict[str, jnp.ndarray]
 # A "stimulus" is a pair (reference, probe) in model space (shape: (input_dim,))
-Stimulus = Tuple[jnp.ndarray, jnp.ndarray]
+Stimulus = tuple[jnp.ndarray, jnp.ndarray]
 
 
 class WPPM:
@@ -89,10 +88,10 @@ class WPPM:
         diag_term: float = 1e-6,
     ) -> None:
         # --- core components ---
-        self.input_dim = int(input_dim)   # stimulus-space dimensionality
-        self.prior = prior                # prior over parameter PyTree
-        self.task = task                  # task mapping and likelihood
-        self.noise = noise                # noise model 
+        self.input_dim = int(input_dim)  # stimulus-space dimensionality
+        self.prior = prior  # prior over parameter PyTree
+        self.task = task  # task mapping and likelihood
+        self.noise = noise  # noise model
 
         # --- forward-compatible hyperparameters (stubs in MVP) ---
         self.extra_dims = int(extra_dims)
@@ -103,7 +102,7 @@ class WPPM:
     # ----------------------------------------------------------------------
     # PARAMETERS
     # ----------------------------------------------------------------------
-    def init_params(self, key: jr.KeyArray) -> Params:
+    def init_params(self, key: Any) -> Params:
         """
         Sample initial parameters from the prior.
 
@@ -143,9 +142,9 @@ class WPPM:
         -------
         Σ : jnp.ndarray, shape (input_dim, input_dim)
         """
-        log_diag = params["log_diag"]               # unconstrained diagonal log-variances
-        diag = jnp.exp(log_diag)                    # enforce positivity
-        return jnp.diag(diag)                       # constant diagonal covariance
+        log_diag = params["log_diag"]  # unconstrained diagonal log-variances
+        diag = jnp.exp(log_diag)  # enforce positivity
+        return jnp.diag(diag)  # constant diagonal covariance
 
     # ----------------------------------------------------------------------
     # DISCRIMINABILITY (d), later implemented via MC simulation
@@ -177,13 +176,13 @@ class WPPM:
             Nonnegative scalar discriminability.
         """
         ref, probe = stimulus
-        delta = probe - ref                                # difference vector in input space
-        Sigma = self.local_covariance(params, ref)         # local covariance at reference
+        delta = probe - ref  # difference vector in input space
+        Sigma = self.local_covariance(params, ref)  # local covariance at reference
         # Add jitter for stable solve; diag_term is configurable
         jitter = self.diag_term * jnp.eye(self.input_dim)
         # Solve (Σ + jitter)^{-1} delta using a PD-aware solver
         x = jax.scipy.linalg.solve(Sigma + jitter, delta, assume_a="pos")
-        d2 = jnp.dot(delta, x)                             # quadratic form
+        d2 = jnp.dot(delta, x)  # quadratic form
         # Guard against tiny negative values from numerical error
         return jnp.sqrt(jnp.maximum(d2, 0.0))
 
@@ -213,7 +212,13 @@ class WPPM:
     # ----------------------------------------------------------------------
     # LIKELIHOOD (delegates to task)
     # ----------------------------------------------------------------------
-    def log_likelihood(self, params: Params, refs: jnp.ndarray, probes: jnp.ndarray, responses: jnp.ndarray) -> jnp.ndarray:
+    def log_likelihood(
+        self,
+        params: Params,
+        refs: jnp.ndarray,
+        probes: jnp.ndarray,
+        responses: jnp.ndarray,
+    ) -> jnp.ndarray:
         """
         Compute the log-likelihood for arrays of trials.
 
@@ -240,6 +245,7 @@ class WPPM:
         # array inputs, we construct one on the fly. If you already have a
         # ResponseData instance, prefer `log_likelihood_from_data`.
         from psyphy.data.dataset import ResponseData  # local import to avoid cycles
+
         data = ResponseData()
         # ResponseData.add_trial(ref, probe, resp)
         for r, p, y in zip(refs, probes, responses):

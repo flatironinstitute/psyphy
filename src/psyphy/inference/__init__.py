@@ -17,6 +17,7 @@ Future extensions
 -----------------
 - adjusted MC samplers, e.g., MALA (for Bayesian posterior inference).
 """
+
 from .base import InferenceEngine
 from .langevin import LangevinSampler
 from .laplace import LaplaceApproximation
@@ -28,7 +29,3 @@ __all__ = [
     "LangevinSampler",
     "LaplaceApproximation",
 ]
-
-
-
-

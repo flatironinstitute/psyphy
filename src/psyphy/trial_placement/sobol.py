@@ -61,8 +61,7 @@ class SobolPlacement(TrialPlacement):
         """
         raw = self.engine.random(batch_size)
         scaled = [
-            low + (high - low) * raw[:, i]
-            for i, (low, high) in enumerate(self.bounds)
+            low + (high - low) * raw[:, i] for i, (low, high) in enumerate(self.bounds)
         ]
         # Convert column-wise scaled arrays into list of probe vectors
         probes = [tuple(vals) for vals in zip(*scaled)]
@@ -71,4 +70,3 @@ class SobolPlacement(TrialPlacement):
         zero_ref = 0.0 if dim == 1 else tuple(0.0 for _ in range(dim))
         trials = [(zero_ref, p) for p in probes]
         return TrialBatch.from_stimuli(trials)
-        

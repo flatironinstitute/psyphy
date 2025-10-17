@@ -1,4 +1,4 @@
-"""
+r"""
 MVP offline example: fit WPPM to synthetic 2D data and visualize thresholds
 ----------------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ Thus, the likelihood for each trial is:
 and the overall dataset likelihood is \Prod_i p(y_i | ref_i, probe_i, θ, task).
 
 Note:
-- The 'truth_model' and 'fitted_model' share the same class (WPPM), 
+- The 'truth_model' and 'fitted_model' share the same class (WPPM),
   but the truth_model uses known parameters to *generate* data,
   while the fitted model infers parameters from that data.
 - (Using the same model to simulate and fit (a well-specified setting)
@@ -45,7 +45,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import optax
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src"))
+)
 # --8<-- [start:imports]
 from psyphy.data.dataset import ResponseData
 from psyphy.model.noise import GaussianNoise
@@ -65,11 +67,13 @@ from psyphy.model.wppm import WPPM
 PLOTS_DIR = os.path.join(os.path.dirname(__file__), "plots")
 INCLUDE_NOISE_IN_THRESHOLDS = True  # if True, use Σ_eff = Σ + \sigma^2 I for plotting
 
+
 def _fmt_float_sci(x: float) -> str:
     """Return compact scientific notation string for filenames (e.g., 2e-4)."""
     s = f"{x:.0e}"
     s = s.replace("e+0", "e").replace("e+", "e").replace("e-0", "e-")
     return s
+
 
 def invert_oddity_criterion_to_d(criterion: float, slope: float = 1.5) -> float:
     """
@@ -111,7 +115,6 @@ def invert_oddity_criterion_to_d(criterion: float, slope: float = 1.5) -> float:
     return d_star
 
 
-
 # def ellipse_contour_from_cov(ref: np.ndarray, cov: np.ndarray, d_threshold: float, n_points: int = 180) -> np.ndarray:
 #     """Return points on the isoperformance ellipse: (x-ref)^T Σ^{-1} (x-ref) = d^2."""
 #     L = np.linalg.cholesky(cov)  # Σ^{1/2}
@@ -122,7 +125,9 @@ def invert_oddity_criterion_to_d(criterion: float, slope: float = 1.5) -> float:
 #     return contour.T  # (n,2)
 
 
-def ellipse_contour_from_cov(ref: np.ndarray, cov: np.ndarray, d_threshold: float, n_points: int = 180) -> np.ndarray:
+def ellipse_contour_from_cov(
+    ref: np.ndarray, cov: np.ndarray, d_threshold: float, n_points: int = 180
+) -> np.ndarray:
     """
     Return points on the isoperformance ellipse: (x-ref)^T Σ^{-1} (x-ref) = d^2.
 
@@ -167,6 +172,7 @@ def ellipse_contour_from_cov(ref: np.ndarray, cov: np.ndarray, d_threshold: floa
     # Transpose the result to shape (n_points, 2) for easier plotting/use.
     return contour.T  # (n_points, 2)
 
+
 def simulate_response(prob_correct: float, rng: np.random.Generator) -> int:
     """Draw a binary response with P(correct) = prob_correct."""
     return int(rng.uniform() < prob_correct)
@@ -181,16 +187,18 @@ print("[1/6] Setting up ground-truth model and parameters...")
 #     Σ(r; θ*) = diag(exp(log_diag_true))
 ref_np = np.array([0.0, 0.0], dtype=float)
 log_diag_true = jnp.array([np.log(0.9), np.log(0.01)])  # variances 0.9, 0.01
-Sigma_true = np.diag(np.exp(np.array(log_diag_true))) # true covariance matrix
+Sigma_true = np.diag(np.exp(np.array(log_diag_true)))  # true covariance matrix
 
 # Define the true model: Oddity task + Gaussian noise + WPPM
 # from psyphy.model.task import OddityTask
 # from psyphy.model.noise import GaussianNoise
 # from psyphy.model.wppm import WPPM
 
-task = OddityTask(slope=1.5)         # tanh mapping from d to P(correct)
-noise = GaussianNoise(sigma=1.0)     # additive isotropic Gaussian noise
-truth_prior = Prior.default(input_dim=2)  # not used to generate, but WPPM requires a prior
+task = OddityTask(slope=1.5)  # tanh mapping from d to P(correct)
+noise = GaussianNoise(sigma=1.0)  # additive isotropic Gaussian noise
+truth_prior = Prior.default(
+    input_dim=2
+)  # not used to generate, but WPPM requires a prior
 
 # Build the true model
 truth_model = WPPM(input_dim=2, prior=truth_prior, task=task, noise=noise)
@@ -205,26 +213,32 @@ print("[2/6] Simulating synthetic trials around reference:", ref_np)
 #  true Σ and the Oddity mapping; sample 0/1 responses.
 # --8<-- [start:data]
 # Simulate synthetic trials:
-# Sample probes around the reference in polar coordinates, 
-# compute  P(correct|probe, ref) under the true model, 
+# Sample probes around the reference in polar coordinates,
+# compute  P(correct|probe, ref) under the true model,
 # then Bernoulli sample the responses.
 rng = np.random.default_rng(0)
-data = ResponseData() # to store trials
+data = ResponseData()  # to store trials
 num_trials = 400
-max_radius = 0.25 # max radius of probe from reference
+max_radius = 0.25  # max radius of probe from reference
 
 for _ in range(num_trials):
-    angle = rng.uniform(0.0, 2.0 * np.pi)   # random angle
+    angle = rng.uniform(0.0, 2.0 * np.pi)  # random angle
     radius = rng.uniform(0.0, max_radius)  # random radius
-    delta = np.array([np.cos(angle), np.sin(angle)]) * radius # delta from ref
-    probe_np = ref_np + delta # probe position
+    delta = np.array([np.cos(angle), np.sin(angle)]) * radius  # delta from ref
+    probe_np = ref_np + delta  # probe position
 
     # For each (ref, probe) pair, we compute the conditional probability:
     # p_correct_truth = p(y=1 | ref, probe, θ*, task)  aka P(correct|probe, ref):
-    p_correct_truth = float(truth_model.predict_prob(truth_params, (jnp.array(ref_np), jnp.array(probe_np)))) 
+    p_correct_truth = float(
+        truth_model.predict_prob(truth_params, (jnp.array(ref_np), jnp.array(probe_np)))
+    )
     #  sample responses y ~ Bernoulli(p_correct_truth) to form a simulated dataset.
-    y = simulate_response(p_correct_truth, rng) # draw 0/1 response with p_correct_truth
-    data.add_trial(ref=ref_np.copy(), probe=probe_np.copy(), resp=y) # store trial (ref, probe, response)
+    y = simulate_response(
+        p_correct_truth, rng
+    )  # draw 0/1 response with p_correct_truth
+    data.add_trial(
+        ref=ref_np.copy(), probe=probe_np.copy(), resp=y
+    )  # store trial (ref, probe, response)
 # --8<-- [end:data]
 print(f"    Generated {num_trials} trials (max radius {max_radius}).")
 
@@ -233,23 +247,37 @@ fig, ax = plt.subplots(figsize=(6, 6))
 refs_np, probes_np, responses_np = data.to_numpy()
 probes_rel = probes_np - refs_np
 
-ax.scatter(probes_rel[responses_np == 1, 0], probes_rel[responses_np == 1, 1], s=12, c="#1b9e77", alpha=0.6, label="Response = 1 (correct)")
-ax.scatter(probes_rel[responses_np == 0, 0], probes_rel[responses_np == 0, 1], s=12, c="#d95f02", alpha=0.6, label="Response = 0 (incorrect)")
+ax.scatter(
+    probes_rel[responses_np == 1, 0],
+    probes_rel[responses_np == 1, 1],
+    s=12,
+    c="#1b9e77",
+    alpha=0.6,
+    label="Response = 1 (correct)",
+)
+ax.scatter(
+    probes_rel[responses_np == 0, 0],
+    probes_rel[responses_np == 0, 1],
+    s=12,
+    c="#d95f02",
+    alpha=0.6,
+    label="Response = 0 (incorrect)",
+)
 
 ax.scatter([0.0], [0.0], c="k", s=30, zorder=5, label="Reference")
 ax.set_aspect("equal", adjustable="box")
 ax.set_xlabel("Delta x (probe relative to ref)")
 ax.set_ylabel("Delta y (probe relative to ref)")
-ax.set_title(
-    f"Simulated Trials \n"
+ax.set_title("Simulated Trials \n")
+ax.legend(
+    loc="upper right", frameon=True, facecolor="white", edgecolor="gray", fontsize=12
 )
-ax.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="gray", fontsize=12)
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
 
 # Save thresholds figure with a filename encoding lr and steps
 os.makedirs(PLOTS_DIR, exist_ok=True)
-base = f"simulated_trials"
+base = "simulated_trials"
 thresh_path = os.path.join(PLOTS_DIR, f"{base}.png")
 fig.savefig(thresh_path, dpi=200, bbox_inches="tight")
 print(f"    Saved thresholds plot to {thresh_path}")
@@ -269,8 +297,8 @@ print("[3/6] Initializing model from prior...")
 # from psyphy.model.prior import Prior
 # from psyphy.model.noise import GaussianNoise
 # from psyphy.model.wppm import WPPM
-prior = Prior.default(input_dim=2, scale=0.5) # Gaussian prior on log_diag
-noise = GaussianNoise(sigma=1.0)   # additive isotropic Gaussian noise
+prior = Prior.default(input_dim=2, scale=0.5)  # Gaussian prior on log_diag
+noise = GaussianNoise(sigma=1.0)  # additive isotropic Gaussian noise
 model = WPPM(input_dim=2, prior=prior, task=task, noise=noise)
 init_params = model.init_params(jax.random.PRNGKey(42))
 # --8<-- [end:model]
@@ -289,41 +317,44 @@ momentum = 0.9
 # Use SGD+momentum from Optax
 opt = optax.sgd(learning_rate=lr, momentum=momentum)
 
+
 # Define loss = negative log posterior (minimize it)
 def _loss_fn(params):
     return -model.log_posterior_from_data(params, data)
 
+
 # Start from prior init
-params = init_params # PyTree of parameters (dict of arrays)
-opt_state = opt.init(params) # PyTree of optimizer state
+params = init_params  # PyTree of parameters (dict of arrays)
+opt_state = opt.init(params)  # PyTree of optimizer state
 
 
 # Perform a single optimization step:
-# Details: each step computes gradients via automatic differentiation (jax.value_and_grad), 
-# updates parameters, and returns new ones — all as jax PyTrees, 
-# which are lightweight nested structures of arrays that 
+# Details: each step computes gradients via automatic differentiation (jax.value_and_grad),
+# updates parameters, and returns new ones — all as jax PyTrees,
+# which are lightweight nested structures of arrays that
 # Jax can efficiently traverse and transform.
 @jax.jit
 def _step(params, opt_state):
     # Ensure params and opt_state are Jax PyTrees for JIT compatibility
     # (e.g., dicts of arrays, not custom Python objects)
-    loss, grads = jax.value_and_grad(_loss_fn)(params) # auto-diff
-    updates, opt_state = opt.update(grads, opt_state, params) # optimizer update
-    params = optax.apply_updates(params, updates) # apply updates
+    loss, grads = jax.value_and_grad(_loss_fn)(params)  # auto-diff
+    updates, opt_state = opt.update(grads, opt_state, params)  # optimizer update
+    params = optax.apply_updates(params, updates)  # apply updates
     # Only return jax-compatible types (PyTrees of arrays, scalars)
     return params, opt_state, loss
+
 
 # Training loop: run steps of SGD+momentum
 # and track loss every 10 steps
 loss_iters: list[int] = []
 loss_values: list[float] = []
 for i in range(steps):
-    params, opt_state, loss = _step(params, opt_state) # single JIT-compiled step
+    params, opt_state, loss = _step(params, opt_state)  # single JIT-compiled step
     if (i % 10 == 0) or (i == steps - 1):
         loss_iters.append(i)
         loss_values.append(float(loss))
 
-fitted_params = params # maximum a posteriori (MAP) estimate after training of θ
+fitted_params = params  # maximum a posteriori (MAP) estimate after training of θ
 # --8<-- [end:training]
 print(f"[4/6] Running MAP optimization ({steps} steps, SGD+momentum, lr={lr})...")
 print("    Fitted (MAP) log_diag:", np.array(fitted_params["log_diag"]))
@@ -335,7 +366,9 @@ print("    Fitted covariance diag:", np.exp(np.array(fitted_params["log_diag"]))
 # effective covariance (Σ_eff = Σ + \sigma^2 I) when noise is additive in stimulus space.
 criterion = 0.75
 d_thr = invert_oddity_criterion_to_d(criterion, slope=task.slope)
-print(f"[5/6] Computing threshold contours at criterion={criterion:.3f} -> d*={d_thr:.4f}")
+print(
+    f"[5/6] Computing threshold contours at criterion={criterion:.3f} -> d*={d_thr:.4f}"
+)
 
 Sigma_init = np.diag(np.exp(np.array(init_params["log_diag"], dtype=float)))
 Sigma_fit = np.diag(np.exp(np.array(fitted_params["log_diag"], dtype=float)))
@@ -344,10 +377,10 @@ Sigma_fit = np.diag(np.exp(np.array(fitted_params["log_diag"], dtype=float)))
 sigma = float(noise.sigma)
 I2 = np.eye(2, dtype=float)
 if INCLUDE_NOISE_IN_THRESHOLDS:
-    Sigma_true_plot = Sigma_true + (sigma ** 2) * I2
-    Sigma_init_plot = Sigma_init + (sigma ** 2) * I2
-    Sigma_fit_plot = Sigma_fit + (sigma ** 2) * I2
-    print(f"    Using effective covariance in plots: Σ + \sigma^2 I (\sigma={sigma})")
+    Sigma_true_plot = Sigma_true + (sigma**2) * I2
+    Sigma_init_plot = Sigma_init + (sigma**2) * I2
+    Sigma_fit_plot = Sigma_fit + (sigma**2) * I2
+    print(rf"    Using effective covariance in plots: Σ + \sigma^2 I (\sigma={sigma})")
 else:
     Sigma_true_plot = Sigma_true
     Sigma_init_plot = Sigma_init
@@ -374,12 +407,45 @@ fig, ax = plt.subplots(figsize=(6, 6))
 refs_np, probes_np, responses_np = data.to_numpy()
 probes_rel = probes_np - refs_np
 
-ax.scatter(probes_rel[responses_np == 1, 0], probes_rel[responses_np == 1, 1], s=12, c="#1b9e77", alpha=0.6, label="Response = 1 (correct)")
-ax.scatter(probes_rel[responses_np == 0, 0], probes_rel[responses_np == 0, 1], s=12, c="#d95f02", alpha=0.6, label="Response = 0 (incorrect)")
+ax.scatter(
+    probes_rel[responses_np == 1, 0],
+    probes_rel[responses_np == 1, 1],
+    s=12,
+    c="#1b9e77",
+    alpha=0.6,
+    label="Response = 1 (correct)",
+)
+ax.scatter(
+    probes_rel[responses_np == 0, 0],
+    probes_rel[responses_np == 0, 1],
+    s=12,
+    c="#d95f02",
+    alpha=0.6,
+    label="Response = 0 (incorrect)",
+)
 
-ax.plot(contour_true[:, 0] - ref_np[0], contour_true[:, 1] - ref_np[1], color="#4daf4a", lw=2.0, label="Ground-truth threshold")
-ax.plot(contour_init[:, 0] - ref_np[0], contour_init[:, 1] - ref_np[1], color="#7f7f7f", lw=1.5, ls="--", label="Init threshold")
-ax.plot(contour_fit[:, 0] - ref_np[0], contour_fit[:, 1] - ref_np[1], color="#377eb8", lw=2.0, label="Fitted threshold (MAP)")
+ax.plot(
+    contour_true[:, 0] - ref_np[0],
+    contour_true[:, 1] - ref_np[1],
+    color="#4daf4a",
+    lw=2.0,
+    label="Ground-truth threshold",
+)
+ax.plot(
+    contour_init[:, 0] - ref_np[0],
+    contour_init[:, 1] - ref_np[1],
+    color="#7f7f7f",
+    lw=1.5,
+    ls="--",
+    label="Init threshold",
+)
+ax.plot(
+    contour_fit[:, 0] - ref_np[0],
+    contour_fit[:, 1] - ref_np[1],
+    color="#377eb8",
+    lw=2.0,
+    label="Fitted threshold (MAP)",
+)
 
 ax.scatter([0.0], [0.0], c="k", s=30, zorder=5, label="Reference")
 ax.set_aspect("equal", adjustable="box")
@@ -391,7 +457,9 @@ ax.set_title(
     f"Init log_diag={np.array(init_params['log_diag'])}\n"
     f"Fitted log_diag={np.array(fitted_params['log_diag'])}"
 )
-ax.legend(loc="upper right", frameon=True, facecolor="white", edgecolor="gray", fontsize=12)
+ax.legend(
+    loc="upper right", frameon=True, facecolor="white", edgecolor="gray", fontsize=12
+)
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
 

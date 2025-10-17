@@ -12,24 +12,24 @@
 
 
 <h4 align="center">
-  <a href="https://hmd101.github.io/psyphy/#install/">Installation</a> |  
-  <a href="https://hmd101.github.io/psyphy/reference/">Documentation</a> | 
-  <a href="https://hmd101.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> | 
+  <a href="https://hmd101.github.io/psyphy/#install/">Installation</a> |
+  <a href="https://hmd101.github.io/psyphy/reference/">Documentation</a> |
+  <a href="https://hmd101.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> |
   <a href="https://hmd101.github.io/psyphy/CONTRIBUTING/">Contributing</a>
 </h4>
 
 #### This package provides:
 
 - Wishart Process Psychophysical Model (WPPM)
-    - fit to subject's data 
+    - fit to subject's data
     - predict psychphysical thresholds
     - optional trial placement strategy leveraging model's posterior (e.g., information gain, place next batch of trials such that model's uncertainty is maximally reduced)
 - Priors and noise models
     - supports cold and warm starts where warm means initialzing with parameters from previous subjects fitted parameters
-    - Noise Model: 
+    - Noise Model:
         - default: Gaussian
-        - supports Student's T 
-- Task likelihoods 
+        - supports Student's T
+- Task likelihoods
     - currently supports OddityTask, TwoAFC
 - Inference engines (MAP, Langevin, Laplace)
 - Posterior wrappers and diagnostics

@@ -100,7 +100,9 @@ class BasePosterior(ABC):
         ...
 
     @abstractmethod
-    def predict_thresholds(self, reference, criterion: float = 0.667, directions: int = 16):
+    def predict_thresholds(
+        self, reference, criterion: float = 0.667, directions: int = 16
+    ):
         """
         Predict discrimination threshold contour around a reference.
 

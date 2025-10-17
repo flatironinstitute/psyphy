@@ -13,6 +13,7 @@ Implements:
 NoiseModel objects plug into WPPM to define trial likelihoods.
 """
 
+
 @dataclass
 class GaussianNoise:
     sigma: float = 1.0

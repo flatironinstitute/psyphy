@@ -36,16 +36,16 @@ Full WPPM mode
 
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import jax.numpy as jnp
 import numpy as np
 
 # Stimulus = (reference, probe)
-Stimulus = Tuple[jnp.ndarray, jnp.ndarray]
+Stimulus = tuple[jnp.ndarray, jnp.ndarray]
 
 
-def grid_candidates(reference: jnp.ndarray, radii: List[float], directions: int = 16) -> List[Stimulus]:
+def grid_candidates(
+    reference: jnp.ndarray, radii: list[float], directions: int = 16
+) -> list[Stimulus]:
     """
     Generate grid-based candidate probes around a reference.
 
@@ -77,7 +77,9 @@ def grid_candidates(reference: jnp.ndarray, radii: List[float], directions: int 
     return candidates
 
 
-def sobol_candidates(reference: jnp.ndarray, n: int, bounds: List[Tuple[float, float]], seed: int = 0) -> List[Stimulus]:
+def sobol_candidates(
+    reference: jnp.ndarray, n: int, bounds: list[tuple[float, float]], seed: int = 0
+) -> list[Stimulus]:
     """
     Generate Sobol quasi-random candidates within bounds.
 
@@ -104,6 +106,7 @@ def sobol_candidates(reference: jnp.ndarray, n: int, bounds: List[Tuple[float, f
       then hand off to posterior-aware strategies.
     """
     from scipy.stats.qmc import Sobol
+
     dim = len(bounds)
     engine = Sobol(d=dim, scramble=True, seed=seed)
     raw = engine.random(n)
@@ -112,7 +115,9 @@ def sobol_candidates(reference: jnp.ndarray, n: int, bounds: List[Tuple[float, f
     return [(reference, jnp.array(p)) for p in probes]
 
 
-def custom_candidates(reference: jnp.ndarray, probe_list: List[jnp.ndarray]) -> List[Stimulus]:
+def custom_candidates(
+    reference: jnp.ndarray, probe_list: list[jnp.ndarray]
+) -> list[Stimulus]:
     """
     Wrap a user-defined list of probes into candidate pairs.
 

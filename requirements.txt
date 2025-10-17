@@ -1,14 +1,14 @@
 
 jax==0.4.28
 jaxlib==0.4.28
-optax==0.2.5
+optax==0.2.4
 jupyterlab==4.0.13
 notebook==6.5.4
 pytest==8.2.1
 matplotlib
 seaborn==0.13.2
 ruff==0.9.1
-black==24.3.0
+mypy==1.11.2
 scipy
 numpy
 pre-commit

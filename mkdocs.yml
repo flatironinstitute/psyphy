@@ -6,7 +6,7 @@ repo_name: hmd101/psyphy
 
 theme:
   name: material
-  logo: images/psyphy_logo_draft.png    
+  logo: images/psyphy_logo_draft.png
   features:
     - navigation.tabs
     - navigation.sections
@@ -82,7 +82,7 @@ markdown_extensions:
       generic: true
   - pymdownx.highlight:
       linenums: true
-      anchor_linenums: true  
+      anchor_linenums: true
   - pymdownx.inlinehilite
   - pymdownx.snippets:
       check_paths: true
@@ -104,7 +104,7 @@ nav:
   # - Examples:
   #     - MVP Offline Fit: examples/mvp/offline_fit_mvp.md
   # - Contributing: CONTRIBUTING.md
-  - Examples: 
+  - Examples:
       - MVP Offline Fit: examples/mvp/offline_fit_mvp.md   # single page in top nav
       - Build your own optimizer with optax: examples/optim/map.md
   - Contributing: CONTRIBUTING.md               # single page in top nav

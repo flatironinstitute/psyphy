@@ -25,13 +25,12 @@ Examples
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Any
 
-import jax
 import jax.random as jr
 
 
-def seed(seed_value: int) -> jax.random.KeyArray:
+def seed(seed_value: int) -> Any:
     """
     Create a new PRNG key from an integer seed.
 
@@ -48,7 +47,7 @@ def seed(seed_value: int) -> jax.random.KeyArray:
     return jr.PRNGKey(seed_value)
 
 
-def split(key: jax.random.KeyArray, num: int = 2) -> Tuple[jax.random.KeyArray, ...]:
+def split(key: Any, num: int = 2) -> Any:
     """
     Split a PRNG key into multiple independent keys.
 
