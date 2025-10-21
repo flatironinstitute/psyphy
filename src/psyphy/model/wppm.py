@@ -296,3 +296,57 @@ class WPPM(Model):
         jnp.ndarray : scalar log posterior = loglik(params | data) + log_prior(params)
         """
         return self.log_likelihood_from_data(params, data) + self.prior.log_prob(params)
+
+    # ----------------------------------------------------------------------
+    # MODEL FORWARD PASS (for predict_with_params)
+    # ----------------------------------------------------------------------
+    def _forward(
+        self,
+        X: jnp.ndarray,
+        probes: jnp.ndarray | None,
+        params: dict[str, jnp.ndarray],
+    ) -> jnp.ndarray:
+        """
+        Evaluate WPPM at specific parameter values (no marginalization).
+
+        This is called by Model.predict_with_params() and is used for:
+        - Threshold uncertainty estimation
+        - Parameter sensitivity analysis
+        - Debugging
+
+        Parameters
+        ----------
+        X : jnp.ndarray, shape (n_test, input_dim)
+            Test stimuli (references)
+        probes : jnp.ndarray | None, shape (n_test, input_dim)
+            Probe stimuli (None for detection tasks)
+        params : dict[str, jnp.ndarray]
+            Model parameters (e.g., {"log_diag": (input_dim,)})
+
+        Returns
+        -------
+        predictions : jnp.ndarray, shape (n_test,)
+            Predicted response probabilities at each test point
+
+        Notes
+        -----
+        This evaluates the model deterministically at the given parameters.
+        For proper predictions that account for parameter uncertainty,
+        use model.posterior() instead.
+        """
+        if probes is None:
+            # Detection task - not yet implemented in MVP
+            raise NotImplementedError(
+                "Detection tasks not yet supported in MVP. "
+                "Use discrimination with probes."
+            )
+
+        # Vectorize over test points
+        def predict_single(ref, probe):
+            stimulus = (ref, probe)
+            return self.predict_prob(params, stimulus)
+
+        # Use vmap for efficient batch evaluation
+        predictions = jax.vmap(predict_single)(X, probes)
+
+        return predictions

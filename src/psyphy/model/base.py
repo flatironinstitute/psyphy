@@ -332,6 +332,91 @@ class Model(ABC):
                 f"Unknown kind: '{kind}'. Use 'predictive' or 'parameter'."
             )
 
+    def predict_with_params(
+        self,
+        X: jnp.ndarray,
+        probes: jnp.ndarray | None,
+        params: dict[str, jnp.ndarray],
+    ) -> jnp.ndarray:
+        """
+        Evaluate model at specific parameter values (no marginalization).
+
+        This is useful for:
+        - Threshold uncertainty estimation (evaluate at sampled parameters)
+        - Parameter sensitivity analysis
+        - Debugging and diagnostics
+
+        NOT for making predictions (use .posterior() instead, which
+        marginalizes over parameter uncertainty).
+
+        Parameters
+        ----------
+        X : jnp.ndarray, shape (n_test, input_dim)
+            Test stimuli (references)
+        probes : jnp.ndarray, shape (n_test, input_dim), optional
+            Probe stimuli (for discrimination tasks)
+        params : dict[str, jnp.ndarray]
+            Specific parameter values to evaluate at.
+            Keys and shapes depend on the model (e.g., WPPM has "W", "noise_scale", etc.)
+
+        Returns
+        -------
+        predictions : jnp.ndarray, shape (n_test,)
+            Predicted probabilities at each test point, given these parameters
+
+        Examples
+        --------
+        >>> # Sample parameters and evaluate
+        >>> param_post = model.posterior(kind="parameter")
+        >>> samples = param_post.sample(100, key=jr.PRNGKey(0))
+        >>>
+        >>> # Evaluate at first parameter sample
+        >>> params_0 = {k: v[0] for k, v in samples.items()}
+        >>> predictions = model.predict_with_params(X_test, probes, params_0)
+        >>>
+        >>> # Use for threshold uncertainty estimation
+        >>> threshold_locs = []
+        >>> for i in range(100):
+        ...     params_i = {k: v[i] for k, v in samples.items()}
+        ...     preds_i = model.predict_with_params(X_grid, probes_grid, params_i)
+        ...     threshold_idx = jnp.argmin(jnp.abs(preds_i - 0.75))
+        ...     threshold_locs.append(threshold_idx)
+
+        Notes
+        -----
+        This bypasses the posterior marginalization. For acquisition functions,
+        always use .posterior() which properly accounts for parameter uncertainty.
+        """
+        return self._forward(X, probes, params)
+
+    @abstractmethod
+    def _forward(
+        self,
+        X: jnp.ndarray,
+        probes: jnp.ndarray | None,
+        params: dict[str, jnp.ndarray],
+    ) -> jnp.ndarray:
+        """
+        Model-specific forward pass with given parameters.
+
+        Subclasses must implement this to support predict_with_params().
+
+        Parameters
+        ----------
+        X : jnp.ndarray, shape (n_test, input_dim)
+            Test stimuli
+        probes : jnp.ndarray | None, shape (n_test, input_dim)
+            Probe stimuli (None for detection tasks)
+        params : dict[str, jnp.ndarray]
+            Model parameters
+
+        Returns
+        -------
+        jnp.ndarray, shape (n_test,)
+            Predicted response probabilities
+        """
+        pass
+
     def condition_on_observations(self, X: jnp.ndarray, y: jnp.ndarray) -> Model:
         """
         Update model with new observations (online learning).
