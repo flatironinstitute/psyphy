@@ -216,8 +216,8 @@ class WPPM(Model):
         """
         Evaluate all Chebyshev basis functions at point x, keeping structure for einsum.
 
-        For 2D: returns φᵢⱼ(x) = Tᵢ(x₁) * Tⱼ(x₂) with shape (degree+1, degree+1)
-        For 3D: returns φᵢⱼₖ(x) = Tᵢ(x₁) * Tⱼ(x₂) * Tₖ(x₃) with shape (degree+1, degree+1, degree+1)
+        For 2D: returns φ_ij(x) = T_i(x₁) * T_j(x₂) with shape (degree+1, degree+1)
+        For 3D: returns φ_ijk(x) = T_i(x₁) * T_j(x₂) * Tk(x₃) with shape (degree+1, degree+1, degree+1)
 
         Note: chebyshev_basis(x, degree=d) returns (degree+1) basis functions [T_0, ..., T_d].
 
@@ -244,7 +244,7 @@ class WPPM(Model):
         x_norm = self._normalize_stimulus(x)
 
         if self.input_dim == 2:
-            # Evaluate basis functions: φᵢⱼ(x) = Tᵢ(x₁) * Tⱼ(x₂)
+            # Evaluate basis functions: φ_ij(x) = T_i(x₁) * T_j(x₂)
             # chebyshev_basis returns (1, degree+1) for each dimension
             cheb_0 = chebyshev_basis(x_norm[0:1], degree=self.basis_degree)[
                 0, :
@@ -255,7 +255,7 @@ class WPPM(Model):
             phi = cheb_0[:, None] * cheb_1[None, :]  # (degree+1, degree+1)
 
         elif self.input_dim == 3:
-            # 3D case: φᵢⱼₖ(x) = Tᵢ(x₁) * Tⱼ(x₂) * Tₖ(x₃)
+            # 3D case: φ_ijk(x) = T_i(x₁) * T_j(x₂) * T_k(x₃)
             # phi.shape = (degree+1, degree+1, degree+1)
             cheb_0 = chebyshev_basis(x_norm[0:1], degree=self.basis_degree)[0, :]
             cheb_1 = chebyshev_basis(x_norm[1:2], degree=self.basis_degree)[0, :]
@@ -273,8 +273,8 @@ class WPPM(Model):
         """
         Compute "square root" matrix U(x) from basis expansion.
 
-        This is the core of the Wishart process: U(x) = Σᵢⱼ Wᵢⱼ * φᵢⱼ(x)
-        where Wᵢⱼ are learned coefficients and φᵢⱼ are Chebyshev basis functions.
+        This is the core of the Wishart process: U(x) = Σ_ij W_ij * φ_ij(x)
+        where W_ij are learned coefficients and φ_ij are Chebyshev basis functions.
 
         The covariance is then Σ(x) = U(x) @ U(x)^T + diag_term * I, which is
         guaranteed to be positive definite.
@@ -305,7 +305,7 @@ class WPPM(Model):
         W = params["W"]
         phi = self._evaluate_basis_at_point(x)
 
-        # Linear combination: U(x) = Σᵢⱼ Wᵢⱼ * φᵢⱼ(x)
+        # Linear combination: U(x) = Σ_ij W_ij * φ_ij(x)
         # Einstein summation over basis function indices
         if self.input_dim == 2:
             # W[i,j,d,v] * phi[i,j] -> U[d,v]

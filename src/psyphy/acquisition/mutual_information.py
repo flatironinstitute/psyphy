@@ -100,12 +100,12 @@ def mutual_information(
       uncertainty given a parameter sample)
 
     This is approximated via MC:
-        p(y | X) ≈ (1/N) Σᵢ p(y | θᵢ, X)  where θᵢ ~ p(θ | data)
+        p(y | X) ≈ (1/N) Σ_i p(y | θ_i, X)  where θ_i ~ p(θ | data)
 
     BALD Interpretation
     -------------------
     BALD (Bayesian Active Learning by Disagreement) selects points where
-    different parameter samples θᵢ **disagree** most about the prediction.
+    different parameter samples θ_i **disagree** most about the prediction.
     High disagreement → high information gain.
     """
     if key is None:
@@ -125,10 +125,10 @@ def mutual_information(
 
     for _ in range(n_samples):
         # Extract parameters for this sample
-        # TODO: Use params_i to compute p(correct | θᵢ, X)
+        # TODO: Use params_i to compute p(correct | θ_i, X)
         # params_i = {k: v[i] for k, v in param_samples.items()}
 
-        # Compute p(correct | θᵢ, X)
+        # Compute p(correct | θ_i, X)
         if probes is not None:
             # Discrimination task: compute prob of correct response
             # This requires model-specific logic

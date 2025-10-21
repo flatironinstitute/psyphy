@@ -83,9 +83,10 @@ def upper_confidence_bound(
     Adaptive β
     ----------
     Theoretically, β should grow with number of trials:
-        β_t = sqrt(2 * log(input_dim * t^2 * π^2 / 6δ))
+        β_t = sqrt(2 * log(input_dim * t^2 * \pi^2 / 6\delta))
 
-    where t is the trial number and δ is a confidence parameter.
+    where t is the trial number and
+     delta is a confidence parameter.
     In practice, a fixed β ∈ [1, 3] works well.
     """
     mean = posterior.mean

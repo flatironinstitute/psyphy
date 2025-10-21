@@ -80,9 +80,9 @@ def expected_improvement(
     Let u = (μ(x) - best_f) / σ(x) (standardized improvement).
 
     Then:
-        EI(x) = σ(x) * [u * Φ(u) + φ(u)]
+        EI(x) = σ(x) * [u * \\Phi(u) + \varphi(u)]
 
-    where Φ is the standard normal CDF and φ is the PDF.
+    where \\Phi is the standard normal CDF and \varphi is the PDF.
 
     When σ(x) = 0 (no uncertainty), EI(x) = max(0, μ(x) - best_f).
     """
@@ -95,7 +95,7 @@ def expected_improvement(
     else:
         u = (mean - best_f) / (std + 1e-9)
 
-    # EI formula: σ * [u * Φ(u) + φ(u)]
+    # EI formula: σ * [u * \Phi(u) + \varphi(u)]
     normal_cdf = stats.norm.cdf(u)
     normal_pdf = stats.norm.pdf(u)
 
