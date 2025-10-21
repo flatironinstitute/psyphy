@@ -1,19 +1,17 @@
 # Trial Placement
-## Package
+
+Trial placement strategies for adaptive psychophysical experiments.
+
+## Package Overview
 ---
 
 ::: psyphy.trial_placement
 
 ---
 
-## Base
----
-::: psyphy.trial_placement.base
-
----
-
 ## Grid
 ---
+
 ::: psyphy.trial_placement.grid
 
 ---
@@ -29,18 +27,5 @@
 ---
 
 ::: psyphy.trial_placement.staircase
-
----
-## Greedy MAP
----
-
-::: psyphy.trial_placement.greedy_map
-
----
-
-## Info Gain
----
-
-::: psyphy.trial_placement.info_gain
 
 ---
