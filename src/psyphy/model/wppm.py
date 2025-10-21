@@ -84,6 +84,7 @@ class WPPM(Model):
         task: TaskLikelihood,
         noise: Any | None = None,
         *,
+        basis_degree: int | None = 5,  # NEW: Chebyshev degree (None = MVP mode)
         extra_dims: int = 0,
         variance_scale: float = 1.0,
         lengthscale: float = 1.0,
@@ -99,11 +100,97 @@ class WPPM(Model):
         self.task = task  # task mapping and likelihood
         self.noise = noise  # noise model
 
+        # --- basis expansion (Hong et al. Issue #3) ---
+        if basis_degree is not None and basis_degree < 0:
+            raise ValueError("basis_degree must be non-negative or None")
+        self.basis_degree = basis_degree  # None = MVP mode (no embedding)
+
         # --- forward-compatible hyperparameters (stubs in MVP) ---
         self.extra_dims = int(extra_dims)
         self.variance_scale = float(variance_scale)
         self.lengthscale = float(lengthscale)
         self.diag_term = float(diag_term)
+
+    @property
+    def embedding_dim(self) -> int:
+        """
+        Dimension of the embedding space.
+
+        Returns
+        -------
+        int
+            If basis_degree is None (MVP mode): returns input_dim
+            If basis_degree is set: returns input_dim * (basis_degree + 1)
+        """
+        if self.basis_degree is None:
+            return self.input_dim
+        return self.input_dim * (self.basis_degree + 1)
+
+    def _normalize_stimulus(self, x: jnp.ndarray) -> jnp.ndarray:
+        """
+        Normalize stimulus coordinates to [-1, 1] for Chebyshev basis.
+
+        Assumes input stimuli are in [0, 1] range (standard for psychophysics).
+        Maps [0, 1] → [-1, 1] via x_norm = 2*x - 1.
+
+        Parameters
+        ----------
+        x : jnp.ndarray, shape (input_dim,)
+            Raw stimulus coordinates
+
+        Returns
+        -------
+        x_norm : jnp.ndarray, shape (input_dim,)
+            Normalized coordinates in [-1, 1]
+        """
+        return 2.0 * x - 1.0
+
+    def _embed_stimulus(self, x: jnp.ndarray) -> jnp.ndarray:
+        """
+        Transform stimulus to embedding space via Chebyshev basis expansion.
+
+        Hong et al. (2025) uses degree-5 Chebyshev polynomials for dimensionality
+        reduction and better numerical conditioning.
+
+        Parameters
+        ----------
+        x : jnp.ndarray, shape (input_dim,)
+            Raw stimulus coordinates (assumed in [0, 1])
+
+        Returns
+        -------
+        x_embed : jnp.ndarray, shape (embedding_dim,)
+            Embedded stimulus representation
+
+        Notes
+        -----
+        If basis_degree is None (MVP mode), returns input unchanged.
+        Otherwise, applies Chebyshev basis separately to each input dimension
+        and concatenates the results.
+        """
+        from psyphy.utils.math import chebyshev_basis
+
+        # MVP mode: no embedding
+        if self.basis_degree is None:
+            return x
+
+        # Normalize to [-1, 1] for numerical stability
+        x_norm = self._normalize_stimulus(x)
+
+        # Apply Chebyshev basis to each dimension
+        embeddings = []
+        for i in range(self.input_dim):
+            # chebyshev_basis expects shape (N,) and returns (N, degree+1)
+            # We have a single point, so add/remove batch dimension
+            x_i = x_norm[i : i + 1]  # shape (1,)
+            cheb_i = chebyshev_basis(
+                x_i, degree=self.basis_degree
+            )  # shape (1, degree+1)
+            embeddings.append(cheb_i.ravel())  # shape (degree+1,)
+
+        # Concatenate all dimensions
+        x_embed = jnp.concatenate(embeddings)  # shape (input_dim * (degree+1),)
+        return x_embed
 
     # ----------------------------------------------------------------------
     # PARAMETERS
