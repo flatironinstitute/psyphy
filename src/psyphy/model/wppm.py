@@ -210,34 +210,163 @@ class WPPM(Model):
         return self.prior.sample_params(key)
 
     # ----------------------------------------------------------------------
-    # LOCAL COVARIANCE (Σ(x)), to be replaced by basis-expansion Wishart process
+    # WISHART PROCESS COVARIANCE (Issue #3, Task 2)
+    # ----------------------------------------------------------------------
+    def _evaluate_basis_at_point(self, x: jnp.ndarray) -> jnp.ndarray:
+        """
+        Evaluate all Chebyshev basis functions at point x, keeping structure for einsum.
+
+        For 2D: returns φᵢⱼ(x) = Tᵢ(x₁) * Tⱼ(x₂) with shape (degree+1, degree+1)
+        For 3D: returns φᵢⱼₖ(x) = Tᵢ(x₁) * Tⱼ(x₂) * Tₖ(x₃) with shape (degree+1, degree+1, degree+1)
+
+        Note: chebyshev_basis(x, degree=d) returns (degree+1) basis functions [T_0, ..., T_d].
+
+        Parameters
+        ----------
+        x : jnp.ndarray, shape (input_dim,)
+            Stimulus coordinates (assumed in [0, 1])
+
+        Returns
+        -------
+        phi : jnp.ndarray
+            Basis function values with structured shape for efficient einsum.
+            Shape is (degree+1, degree+1) for 2D or (degree+1, degree+1, degree+1) for 3D.
+        """
+        from psyphy.utils.math import chebyshev_basis
+
+        if self.basis_degree is None:
+            raise ValueError(
+                "Cannot evaluate basis: basis_degree is None (MVP mode). "
+                "Set basis_degree to use Wishart process."
+            )
+
+        # Normalize to [-1, 1]
+        x_norm = self._normalize_stimulus(x)
+
+        if self.input_dim == 2:
+            # Evaluate basis functions: φᵢⱼ(x) = Tᵢ(x₁) * Tⱼ(x₂)
+            # chebyshev_basis returns (1, degree+1) for each dimension
+            cheb_0 = chebyshev_basis(x_norm[0:1], degree=self.basis_degree)[
+                0, :
+            ]  # (degree+1,)
+            cheb_1 = chebyshev_basis(x_norm[1:2], degree=self.basis_degree)[
+                0, :
+            ]  # (degree+1,)
+            phi = cheb_0[:, None] * cheb_1[None, :]  # (degree+1, degree+1)
+
+        elif self.input_dim == 3:
+            # 3D case: φᵢⱼₖ(x) = Tᵢ(x₁) * Tⱼ(x₂) * Tₖ(x₃)
+            # phi.shape = (degree+1, degree+1, degree+1)
+            cheb_0 = chebyshev_basis(x_norm[0:1], degree=self.basis_degree)[0, :]
+            cheb_1 = chebyshev_basis(x_norm[1:2], degree=self.basis_degree)[0, :]
+            cheb_2 = chebyshev_basis(x_norm[2:3], degree=self.basis_degree)[0, :]
+            phi = cheb_0[:, None, None] * cheb_1[None, :, None] * cheb_2[None, None, :]
+
+        else:
+            raise NotImplementedError(
+                f"Wishart process only supports 2D and 3D. Got input_dim={self.input_dim}"
+            )
+
+        return phi
+
+    def _compute_U(self, params: Params, x: jnp.ndarray) -> jnp.ndarray:
+        """
+        Compute "square root" matrix U(x) from basis expansion.
+
+        This is the core of the Wishart process: U(x) = Σᵢⱼ Wᵢⱼ * φᵢⱼ(x)
+        where Wᵢⱼ are learned coefficients and φᵢⱼ are Chebyshev basis functions.
+
+        The covariance is then Σ(x) = U(x) @ U(x)^T + diag_term * I, which is
+        guaranteed to be positive definite.
+
+        Parameters
+        ----------
+        params : dict
+            Model parameters. Must contain "W" for Wishart mode.
+        x : jnp.ndarray, shape (input_dim,)
+            Stimulus location
+
+        Returns
+        -------
+        U : jnp.ndarray, shape (embedding_dim, embedding_dim + extra_dims)
+            "Square root" matrix
+
+        Raises
+        ------
+        ValueError
+            If params doesn't contain "W" (not in Wishart mode)
+        """
+        if "W" not in params:
+            raise ValueError(
+                "Cannot compute U(x): params missing 'W'. "
+                "Use Wishart mode (basis_degree set) or call local_covariance() in MVP mode."
+            )
+
+        W = params["W"]
+        phi = self._evaluate_basis_at_point(x)
+
+        # Linear combination: U(x) = Σᵢⱼ Wᵢⱼ * φᵢⱼ(x)
+        # Einstein summation over basis function indices
+        if self.input_dim == 2:
+            # W[i,j,d,v] * phi[i,j] -> U[d,v]
+            U = jnp.einsum("ijdv,ij->dv", W, phi)
+        elif self.input_dim == 3:
+            # W[i,j,k,d,v] * phi[i,j,k] -> U[d,v]
+            U = jnp.einsum("ijkdv,ijk->dv", W, phi)
+        else:
+            raise NotImplementedError(
+                f"Wishart process only supports 2D and 3D. Got input_dim={self.input_dim}"
+            )
+
+        return U
+
+    # ----------------------------------------------------------------------
+    # LOCAL COVARIANCE (Σ(x))
     # ----------------------------------------------------------------------
     def local_covariance(self, params: Params, x: jnp.ndarray) -> jnp.ndarray:
         """
         Return local covariance Σ(x) at stimulus location x.
 
-        MVP:
+        MVP mode (basis_degree=None):
             Σ(x) = diag(exp(log_diag)), constant across x.
             - Positive-definite because exp(log_diag) > 0.
-        Future (full WPPM mode):
-            Σ(x) varies smoothly with x via basis expansions and a Wishart-process
-            prior controlled by (extra_dims, variance_scale, lengthscale). Those
-            hyperparameters are exposed here but not used in MVP.
+
+        Wishart mode (basis_degree set):
+            Σ(x) = U(x) @ U(x)^T + diag_term * I
+            where U(x) is computed from Chebyshev basis expansion.
+            - Varies smoothly with x
+            - Guaranteed positive-definite
 
         Parameters
         ----------
         params : dict
-            model parameters (MVP expects "log_diag": (input_dim,)).
-        x : jnp.ndarray
-            Stimulus location (unused in MVP because Σ is constant).
+            Model parameters:
+            - MVP: {"log_diag": (input_dim,)}
+            - Wishart: {"W": (degree, degree, embedding_dim, embedding_dim + extra_dims)}
+        x : jnp.ndarray, shape (input_dim,)
+            Stimulus location
 
         Returns
         -------
-        Σ : jnp.ndarray, shape (input_dim, input_dim)
+        Σ : jnp.ndarray
+            Covariance matrix:
+            - MVP: shape (input_dim, input_dim)
+            - Wishart: shape (embedding_dim, embedding_dim)
         """
-        log_diag = params["log_diag"]  # unconstrained diagonal log-variances
-        diag = jnp.exp(log_diag)  # enforce positivity
-        return jnp.diag(diag)  # constant diagonal covariance
+        # MVP mode: constant diagonal covariance
+        if "log_diag" in params:
+            log_diag = params["log_diag"]
+            diag = jnp.exp(log_diag)
+            return jnp.diag(diag)
+
+        # Wishart mode: spatially-varying covariance
+        if "W" in params:
+            U = self._compute_U(params, x)
+            # Σ(x) = U(x) @ U(x)^T + diag_term * I
+            Sigma = U @ U.T + self.diag_term * jnp.eye(self.embedding_dim)
+            return Sigma
+
+        raise ValueError("params must contain either 'log_diag' (MVP) or 'W' (Wishart)")
 
     # ----------------------------------------------------------------------
     # DISCRIMINABILITY (d), later implemented via MC simulation
@@ -246,10 +375,15 @@ class WPPM(Model):
         """
         Compute scalar discriminability d >= 0 for a (reference, probe) pair
 
-        MVP:
+        MVP mode:
             d = sqrt( (probe - ref)^T Σ(ref)^{-1} (probe - ref) )
-            with Σ(ref) the local covariance at the reference,
-            - We add `diag_term * I` for numerical stability before inversion
+            with Σ(ref) the local covariance at the reference in input space.
+
+        Wishart mode:
+            First embeds ref and probe into embedding space, then computes:
+            d = sqrt( (φ(probe) - φ(ref))^T Σ(ref)^{-1} (φ(probe) - φ(ref)) )
+            with Σ(ref) the local covariance in embedding space.
+
         Future (full WPPM mode):
             d is implicit via Monte Carlo simulation of internal noisy responses
             under the task's decision rule (no closed form). In that case, tasks
@@ -269,10 +403,22 @@ class WPPM(Model):
             Nonnegative scalar discriminability.
         """
         ref, probe = stimulus
-        delta = probe - ref  # difference vector in input space
+
+        # Determine if we're in Wishart or MVP mode
+        if "W" in params:
+            # Wishart mode: work in embedding space
+            ref_embedded = self._embed_stimulus(ref)
+            probe_embedded = self._embed_stimulus(probe)
+            delta = probe_embedded - ref_embedded
+            dim = self.embedding_dim
+        else:
+            # MVP mode: work in input space
+            delta = probe - ref
+            dim = self.input_dim
+
         Sigma = self.local_covariance(params, ref)  # local covariance at reference
         # Add jitter for stable solve; diag_term is configurable
-        jitter = self.diag_term * jnp.eye(self.input_dim)
+        jitter = self.diag_term * jnp.eye(dim)
         # Solve (Σ + jitter)^{-1} delta using a PD-aware solver
         x = jax.scipy.linalg.solve(Sigma + jitter, delta, assume_a="pos")
         d2 = jnp.dot(delta, x)  # quadratic form
