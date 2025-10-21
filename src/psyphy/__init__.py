@@ -50,8 +50,11 @@ Subpackages:
   from psyphy.model import WPPM, Prior, OddityTask, TwoAFC, GaussianNoise, StudentTNoise
   from psyphy.inference import MAPOptimizer, LangevinSampler, LaplaceApproximation
   from psyphy.posterior import Posterior, effective_sample_size, rhat
-  from psyphy.trial_placement import GridPlacement, GreedyMAPPlacement, InfoGainPlacement, SobolPlacement, StaircasePlacement
+  from psyphy.acquisition import expected_improvement, upper_confidence_bound, mutual_information
+  from psyphy.acquisition import optimize_acqf, optimize_acqf_discrete, optimize_acqf_random
+  from psyphy.trial_placement import GridPlacement, SobolPlacement, StaircasePlacement
   from psyphy.utils import grid_candidates, sobol_candidates, custom_candidates, chebyshev_basis
+  from psyphy.utils import bootstrap_predictions, bootstrap_statistic, bootstrap_compare_models
 
 Data flow
 ---------
@@ -83,10 +86,10 @@ MVP vs Full WPPM mode
 """
 
 # Data
+# Re-export subpackages for unified import style (e.g., psyphy.model, psyphy.inference)
+from . import acquisition as acquisition
 from . import data as data
 from . import inference as inference
-
-# Re-export subpackages for unified import style (e.g., psyphy.model, psyphy.inference)
 from . import model as model
 from . import posterior as posterior
 from . import session as session

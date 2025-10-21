@@ -1,4 +1,4 @@
-"""
+r"""
 predictive_posterior.py
 ----------------------
 
@@ -10,7 +10,7 @@ used by acquisition functions for Bayesian optimization.
 Design
 ------
 PredictivePosterior wraps a ParameterPosterior and computes predictions via:
-    E[f(X*) | data] ≈ (1/N) Σ_i f(X*; θ_i) where θ_i ~ p(θ | data)
+    E[f(X*) | data] ≈ (1/N) \Sigma_i f(X*; θ_i) where θ_i ~ p(θ | data)
 
 This separates concerns:
 - ParameterPosterior: represents uncertainty over θ (research)
@@ -95,8 +95,8 @@ class PredictivePosterior(Protocol):
         ...
 
     def cov_field(self, X: jnp.ndarray) -> jnp.ndarray:
-        """
-        Posterior over perceptual covariance field Σ(X).
+        r"""
+        Posterior over perceptual covariance field \Sigma(X).
 
         Parameters
         ----------
@@ -106,7 +106,7 @@ class PredictivePosterior(Protocol):
         Returns
         -------
         jnp.ndarray
-            Posterior mean covariance E[Σ(X) | data],
+            Posterior mean covariance E[\Sigma(X) | data],
             shape (n_test, input_dim, input_dim)
 
         Notes
@@ -251,8 +251,8 @@ class WPPMPredictivePosterior:
         return samples
 
     def cov_field(self, X: jnp.ndarray) -> jnp.ndarray:
-        """
-        Posterior mean covariance field E[Σ(X) | data].
+        r"""
+        Posterior mean covariance field E[\Sigma(X) | data].
 
         Parameters
         ----------
@@ -274,7 +274,7 @@ class WPPMPredictivePosterior:
         model = self.param_posterior.model
 
         def cov_at_x(params, x):
-            """Evaluate Σ(x) with given parameters."""
+            r"""Evaluate \Sigma(x) with given parameters."""
             return model.local_covariance(params, x)
 
         # Vectorized evaluation: (n_samples, n_test, input_dim, input_dim)
