@@ -23,9 +23,17 @@ from .langevin import LangevinSampler
 from .laplace import LaplaceApproximation
 from .map_optimizer import MAPOptimizer
 
+# Registry for string-based inference selection
+INFERENCE_ENGINES = {
+    "map": MAPOptimizer,
+    "laplace": LaplaceApproximation,
+    "langevin": LangevinSampler,
+}
+
 __all__ = [
     "InferenceEngine",
     "MAPOptimizer",
     "LangevinSampler",
     "LaplaceApproximation",
+    "INFERENCE_ENGINES",
 ]

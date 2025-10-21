@@ -33,6 +33,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 
+from .base import Model
 from .prior import Prior
 from .task import TaskLikelihood
 
@@ -42,7 +43,7 @@ Params = dict[str, jnp.ndarray]
 Stimulus = tuple[jnp.ndarray, jnp.ndarray]
 
 
-class WPPM:
+class WPPM(Model):
     """
     Wishart Process Psychophysical Model (WPPM).
 
@@ -87,7 +88,11 @@ class WPPM:
         variance_scale: float = 1.0,
         lengthscale: float = 1.0,
         diag_term: float = 1e-6,
+        **kwargs,  # Accept online_config from Model base
     ) -> None:
+        # Initialize Model base class
+        super().__init__(**kwargs)
+
         # --- core components ---
         self.input_dim = int(input_dim)  # stimulus-space dimensionality
         self.prior = prior  # prior over parameter PyTree

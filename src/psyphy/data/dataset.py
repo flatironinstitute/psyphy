@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import jax.numpy as jnp
 import numpy as np
 
 
@@ -88,6 +89,131 @@ class ResponseData:
             np.array(self.probes),
             np.array(self.responses),
         )
+
+    @property
+    def trials(self) -> list[tuple[Any, Any, int]]:
+        """
+        Return list of (ref, probe, response) tuples.
+
+        Returns
+        -------
+        list[tuple]
+            Each element is (ref, probe, resp)
+        """
+        return list(zip(self.refs, self.probes, self.responses))
+
+    def __len__(self) -> int:
+        """Return number of trials."""
+        return len(self.refs)
+
+    @classmethod
+    def from_arrays(
+        cls,
+        X: jnp.ndarray | np.ndarray,
+        y: jnp.ndarray | np.ndarray,
+        *,
+        probes: jnp.ndarray | np.ndarray | None = None,
+    ) -> ResponseData:
+        """
+        Construct ResponseData from arrays.
+
+        Parameters
+        ----------
+        X : array, shape (n_trials, 2, input_dim) or (n_trials, input_dim)
+            Stimuli. If 3D, second axis is [reference, probe].
+            If 2D, probes must be provided separately.
+        y : array, shape (n_trials,)
+            Responses
+        probes : array, shape (n_trials, input_dim), optional
+            Probe stimuli. Only needed if X is 2D.
+
+        Returns
+        -------
+        ResponseData
+            Data container
+
+        Examples
+        --------
+        >>> # From paired stimuli
+        >>> X = jnp.array([[[0, 0], [1, 0]], [[1, 1], [2, 1]]])
+        >>> y = jnp.array([1, 0])
+        >>> data = ResponseData.from_arrays(X, y)
+
+        >>> # From separate refs and probes
+        >>> refs = jnp.array([[0, 0], [1, 1]])
+        >>> probes = jnp.array([[1, 0], [2, 1]])
+        >>> data = ResponseData.from_arrays(refs, y, probes=probes)
+        """
+        data = cls()
+
+        X = np.asarray(X)
+        y = np.asarray(y)
+
+        if X.ndim == 3:
+            # X is (n_trials, 2, input_dim)
+            refs = X[:, 0, :]
+            probes_arr = X[:, 1, :]
+        elif X.ndim == 2 and probes is not None:
+            refs = X
+            probes_arr = np.asarray(probes)
+        else:
+            raise ValueError(
+                "X must be shape (n_trials, 2, input_dim) or "
+                "(n_trials, input_dim) with probes argument"
+            )
+
+        for ref, probe, response in zip(refs, probes_arr, y):
+            data.add_trial(ref, probe, int(response))
+
+        return data
+
+    def merge(self, other: ResponseData) -> None:
+        """
+        Merge another dataset into this one (in-place).
+
+        Parameters
+        ----------
+        other : ResponseData
+            Dataset to merge
+        """
+        self.refs.extend(other.refs)
+        self.probes.extend(other.probes)
+        self.responses.extend(other.responses)
+
+    def tail(self, n: int) -> ResponseData:
+        """
+        Return last n trials as a new ResponseData.
+
+        Parameters
+        ----------
+        n : int
+            Number of trials to keep
+
+        Returns
+        -------
+        ResponseData
+            New dataset with last n trials
+        """
+        new_data = ResponseData()
+        new_data.refs = self.refs[-n:]
+        new_data.probes = self.probes[-n:]
+        new_data.responses = self.responses[-n:]
+        return new_data
+
+    def copy(self) -> ResponseData:
+        """
+        Create a deep copy of this dataset.
+
+        Returns
+        -------
+        ResponseData
+            New dataset with copied data
+        """
+        new_data = ResponseData()
+        new_data.refs = list(self.refs)
+        new_data.probes = list(self.probes)
+        new_data.responses = list(self.responses)
+        return new_data
 
 
 class TrialBatch:
