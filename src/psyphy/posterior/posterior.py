@@ -2,51 +2,61 @@
 posterior.py
 ------------
 
-Posterior representation for WPPM.
+Concrete ParameterPosterior implementations.
 
-MVP implementation:
-- Posterior = MAPPosterior (point estimate only).
-- Stores one parameter set and delegates predictions to WPPM.
+This module provides:
+- MAPPosterior: delta distribution at θ_MAP (point estimate)
+- Posterior: backwards compatibility alias (deprecated)
 
-Design note
------------
-- This class inherits from BasePosterior.
-- In the future, other subclasses (LaplacePosterior, MCMCPosterior) will
-  also inherit from BasePosterior, each implementing the same interface.
+Future additions:
+- LaplacePosterior: Gaussian approximation
+- LangevinPosterior: MCMC samples
 """
 
 from __future__ import annotations
 
+import jax
 import jax.numpy as jnp
 
 from psyphy.posterior.base_posterior import BasePosterior
 
 
-class Posterior(BasePosterior):
+class MAPPosterior(BasePosterior):
     """
-    MVP Posterior (MAP only).
+    MAP (Maximum A Posteriori) posterior - delta distribution at θ_MAP.
+
+    Represents a point estimate with no uncertainty.
 
     Parameters
     ----------
     params : dict
-        MAP parameter dictionary.
+        MAP parameter dictionary (θ_MAP)
     model : WPPM
-        Model instance used for predictions.
+        Model instance used for predictions
 
     Notes
     -----
-    - This is effectively a MAPPosterior.
-    - Future subclasses (LaplacePosterior, MCMCPosterior) will extend
-      BasePosterior with real sampling logic.
+    This implements the ParameterPosterior protocol.
+    For uncertainty quantification, use LaplacePosterior or LangevinPosterior.
     """
 
     def __init__(self, params, model):
-        self.params = params
-        self.model = model
+        self._params = params
+        self._model = model
 
     # ------------------------------------------------------------------
-    # ACCESSORS (expose internal information)
+    # ParameterPosterior protocol implementation
     # ------------------------------------------------------------------
+    @property
+    def params(self):
+        """Return the MAP parameters (θ_MAP)."""
+        return self._params
+
+    @property
+    def model(self):
+        """Return the associated model."""
+        return self._model
+
     def MAP_params(self):
         """
         Return the MAP parameters.
@@ -55,33 +65,79 @@ class Posterior(BasePosterior):
         -------
         dict
             Parameter dictionary.
-        """
-        return self.params
 
-    def sample(self, num_samples: int = 1):
+        Notes
+        -----
+        Kept for backwards compatibility with BasePosterior.
+        Use .params property instead.
         """
-        Draw parameter samples from the posterior.
+        return self._params
+
+    def sample(self, n: int = 1, *, key=None):
+        """
+        Sample from delta distribution (returns repeated θ_MAP).
 
         Parameters
         ----------
-        num_samples : int, default=1
-            Number of samples.
+        n : int, default=1
+            Number of samples
+        key : jax.random.KeyArray, optional
+            PRNG key (unused for delta distribution)
 
         Returns
         -------
-        list of dict
-            Parameter sets.
+        dict
+            Parameter PyTree with leading dimension n.
+            Each array has shape (n, ...) with identical values.
 
-        MVP
-        ---
-        Returns MAP params repeated n times.
-
-        Future
-        ------
-        - LaplacePosterior: draw from N(mean, cov).
-        - MCMCPosterior: return stored samples.
+        Notes
+        -----
+        Delta distribution has no randomness - returns repeated MAP estimate.
         """
-        return [self.params] * num_samples
+        # Stack params n times along new leading dimension
+        return jax.tree.map(
+            lambda x: jnp.tile(x[None, ...], (n,) + (1,) * x.ndim), self._params
+        )
+
+    def log_prob(self, params: dict) -> jnp.ndarray:
+        """
+        Evaluate log p(θ | data) under delta distribution.
+
+        Parameters
+        ----------
+        params : dict
+            Parameters to evaluate
+
+        Returns
+        -------
+        jnp.ndarray
+            0.0 if params == θ_MAP, -∞ otherwise
+
+        Notes
+        -----
+        Delta distribution: all mass at θ_MAP.
+        In practice, returns 0.0 at MAP and -inf elsewhere.
+        """
+        # Check if params match MAP (element-wise)
+        matches = jax.tree.map(lambda x, y: jnp.allclose(x, y), params, self._params)
+        all_match = jax.tree.reduce(lambda a, b: a & b, matches)
+
+        return jnp.where(all_match, 0.0, -jnp.inf)
+
+    def diagnostics(self) -> dict:
+        """
+        Return diagnostic information.
+
+        Returns
+        -------
+        dict
+            Empty dict (no diagnostics for delta distribution)
+
+        Notes
+        -----
+        Override this in subclasses to add optimizer convergence info.
+        """
+        return {}
 
     # ------------------------------------------------------------------
     # PREDICTIONS: delegates to model
@@ -141,3 +197,11 @@ class Posterior(BasePosterior):
             [reference + jnp.array([jnp.cos(a), jnp.sin(a)]) for a in angles]
         )
         return contour
+
+
+# ============================================================================
+# Backwards compatibility
+# ============================================================================
+
+# TODO: Remove in v1.0.0
+Posterior = MAPPosterior

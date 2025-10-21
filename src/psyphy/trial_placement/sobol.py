@@ -15,10 +15,9 @@ Full WPPM mode:
 from scipy.stats.qmc import Sobol
 
 from psyphy.data.dataset import TrialBatch
-from psyphy.trial_placement.base import TrialPlacement
 
 
-class SobolPlacement(TrialPlacement):
+class SobolPlacement:
     """
     Sobol quasi-random placement.
 

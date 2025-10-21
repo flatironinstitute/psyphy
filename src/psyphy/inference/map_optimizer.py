@@ -20,7 +20,7 @@ import jax
 import optax
 
 from psyphy.inference.base import InferenceEngine
-from psyphy.posterior.posterior import Posterior
+from psyphy.posterior.posterior import MAPPosterior
 
 
 class MAPOptimizer(InferenceEngine):
@@ -79,7 +79,7 @@ class MAPOptimizer(InferenceEngine):
 
     def fit(
         self, model, data, init_params: dict | None = None, seed: int | None = None
-    ) -> Posterior:
+    ) -> MAPPosterior:
         """
         Fit model parameters with MAP optimization.
 
@@ -98,7 +98,7 @@ class MAPOptimizer(InferenceEngine):
 
         Returns
         -------
-        Posterior
+        MAPPosterior
             Posterior wrapper around MAP params and model.
         """
 
@@ -142,7 +142,7 @@ class MAPOptimizer(InferenceEngine):
                     # Best-effort; do not break fitting if logging fails
                     pass
 
-        return Posterior(params=params, model=model)
+        return MAPPosterior(params=params, model=model)
 
     # Optional helper
     def get_history(self) -> tuple[list[int], list[float]]:

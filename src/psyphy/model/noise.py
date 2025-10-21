@@ -8,7 +8,7 @@ Noise models for observer's internal representations.
 Implements:
 - GaussianNoise: default (ellipsoidal isoperformance contours)
 - StudentTNoise: heavier-tailed observer variability
-- Extensible for other families (e.g., skewed or anisotropic)
+- Extensible for other families (e.g., skewed)
 
 NoiseModel objects plug into WPPM to define trial likelihoods.
 """

@@ -13,10 +13,9 @@ Full WPPM mode:
 """
 
 from psyphy.data.dataset import TrialBatch
-from psyphy.trial_placement.base import TrialPlacement
 
 
-class GridPlacement(TrialPlacement):
+class GridPlacement:
     """
     Fixed grid placement.
 
