@@ -93,7 +93,8 @@ nav:
   - Home: index.md
   - Quickstart: usage.md
   - API:
-      - Overview: reference.md
+      - Overview: reference/overview.md
+      - Reference: reference.md
       - Data: reference/data.md
       - Model: reference/model.md
       - Inference: reference/inference.md
