@@ -28,21 +28,6 @@ class AcquisitionFunction(Protocol):
     An acquisition function scores candidate points for selection in
     adaptive experimental design. Higher scores indicate more valuable points.
 
-    Signature
-    ---------
-    def __call__(self, X: jnp.ndarray) -> jnp.ndarray:
-        ...
-
-    Parameters
-    ----------
-    X : jnp.ndarray, shape (n_candidates, input_dim)
-        Candidate test points
-
-    Returns
-    -------
-    jnp.ndarray, shape (n_candidates,)
-        Acquisition scores (higher = better)
-
     Examples
     --------
     >>> # Function-based acquisition
@@ -74,7 +59,19 @@ class AcquisitionFunction(Protocol):
     """
 
     def __call__(self, X: jnp.ndarray) -> jnp.ndarray:
-        """Evaluate acquisition function at candidate points."""
+        """
+        Evaluate acquisition function at candidate points.
+
+        Parameters
+        ----------
+        X : jnp.ndarray, shape (n_candidates, input_dim)
+            Candidate test points
+
+        Returns
+        -------
+        jnp.ndarray, shape (n_candidates,)
+            Acquisition scores (higher = better)
+        """
         ...
 
 

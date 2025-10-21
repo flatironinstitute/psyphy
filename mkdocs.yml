@@ -99,6 +99,7 @@ nav:
       - Model: reference/model.md
       - Inference: reference/inference.md
       - Posterior: reference/posterior.md
+      - Acquisition: reference/acquisition.md
       - Trial Placement: reference/trial_placement.md
       - Session: reference/session.md
       - Utils: reference/utils.md
