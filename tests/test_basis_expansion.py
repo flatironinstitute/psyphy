@@ -2,10 +2,10 @@
 test_basis_expansion.py
 -----------------------
 
-Tests for basis expansion functionality in WPPM (Issue #3).
+Tests for basis expansion functionality.
 
 The basis expansion transforms raw stimulus coordinates into an embedding
-space using Chebyshev polynomials, as described in Hong et al. (2025).
+space using Chebyshev polynomials, as described in Hong et al (2025).
 """
 
 import jax
@@ -20,7 +20,7 @@ from psyphy.utils.math import chebyshev_basis
 
 
 class TestBasisExpansion:
-    """Tests for stimulus → embedding space transformation."""
+    """Tests for stimulus -> embedding space transformation."""
 
     def test_normalize_stimulus_to_chebyshev_range(self):
         """Stimuli should be normalized to [-1, 1] for Chebyshev basis."""
@@ -36,16 +36,16 @@ class TestBasisExpansion:
         x = jnp.array([0.5, 0.8])
         x_norm = model._normalize_stimulus(x)
 
-        # Should map [0, 1] → [-1, 1]
+        # Should map [0, 1] -> [-1, 1]
         assert jnp.all((x_norm >= -1.0) & (x_norm <= 1.0))
 
         # Check specific values
-        # 0.5 → 0.0, 0.0 → -1.0, 1.0 → 1.0
+        # 0.5 -> 0.0, 0.0 -> -1.0, 1.0 -> 1.0
         expected = 2 * x - 1
         assert jnp.allclose(x_norm, expected, atol=1e-6)
 
     def test_embed_stimulus_shape(self):
-        """Embedding should transform input_dim → embedding_dim."""
+        """Embedding should transform input_dim -> embedding_dim."""
         input_dim = 2
         basis_degree = 5  # Hong et al. uses degree 5
         model = WPPM(
@@ -59,8 +59,8 @@ class TestBasisExpansion:
         x = jnp.array([0.5, 0.3])
         x_embed = model._embed_stimulus(x)
 
-        # Degree 5 Chebyshev → 6 basis functions per dimension
-        # 2D input → 2 * 6 = 12 embedding dimensions
+        # Degree 5 Chebyshev -> 6 basis functions per dimension
+        # 2D input -> 2 * 6 = 12 embedding dimensions
         expected_embedding_dim = input_dim * (basis_degree + 1)
         assert x_embed.shape == (expected_embedding_dim,)
 

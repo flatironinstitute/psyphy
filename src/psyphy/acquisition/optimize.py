@@ -11,7 +11,7 @@ Provides functional interface for maximizing acquisition functions:
 
 Design
 ------
-Following BoTorch's functional API:
+Following BoTorch's  API:
     X_next, acq_value = optimize_acqf(acq_fn, bounds, q=1)
 
 But adapted for psyphy:

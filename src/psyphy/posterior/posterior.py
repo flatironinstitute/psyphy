@@ -139,6 +139,37 @@ class MAPPosterior(BasePosterior):
         """
         return {}
 
+    def get_covariance_field(self):
+        """
+        Create a CovarianceField object from this posterior.
+
+        Returns
+        -------
+        CovarianceField
+            Field object for evaluating Σ(x) and U(x) at arbitrary locations.
+
+        Examples
+        --------
+        >>> # After fitting
+        >>> posterior = model.fit(data, optimizer=MAPOptimizer())
+        >>> field = posterior.get_covariance_field()
+        >>>
+        >>> # Evaluate at point
+        >>> Sigma_x = field.cov(jnp.array([0.5, 0.3]))
+        >>>
+        >>> # Evaluate over grid
+        >>> X_grid = jnp.stack(jnp.meshgrid(...), axis=-1)
+        >>> Sigmas = field.cov_batch(X_grid)
+
+        Notes
+        -----
+        For MAP posteriors, uses θ_MAP.
+        For variational posteriors, could use posterior mean or sample.
+        """
+        from psyphy.model.covariance_field import WPPMCovarianceField
+
+        return WPPMCovarianceField.from_posterior(self)
+
     # ------------------------------------------------------------------
     # PREDICTIONS: delegates to model
     # ------------------------------------------------------------------
