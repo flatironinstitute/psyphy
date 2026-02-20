@@ -505,7 +505,7 @@ class OddityTask(TaskLikelihood):
         # OddityTask is intentionally MC-only and currently only supports the
         # WPPM/Wishart covariance parameterization.
         input_dim = ref.shape[0]
-        if model.basis_degree is not None:
+        if model.basis_degree is None:
             raise ValueError(
                 "(Expected a basis degree, got None. model.basis_degree must not be None)."
             )

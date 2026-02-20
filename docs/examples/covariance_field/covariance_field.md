@@ -160,7 +160,6 @@ where:
 
 | Property | Returns | Description |
 |----------|---------|-------------|
-| `field.is_wishart_mode` | `bool` | True if spatially-varying |
 | `field.model` | `WPPM` | Associated model |
 | `field.params` | `dict` | Parameter dictionary |
 
