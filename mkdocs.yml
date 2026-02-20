@@ -105,11 +105,9 @@ nav:
     - Utils: reference/utils.md
   - Examples:
     - Overview: examples/index.md
-    # - MVP Offline Fit: examples/mvp/offline_fit_mvp.md
-    - Full WPPM fit (end-to-end): examples/wppm/full_wppm_fit_example.md
+    - Fitting with the Wishart Psychophysical Process Model (WPPM): examples/wppm/full_wppm_fit_example.md
     - Build your own optimizer with optax: examples/optim/map.md
-    - Covariance Field Visualization: examples/covariance_field.md
-    - Covariance Field (full page): examples/covariance_field/covariance_field.md
+    - Covariance Field Visualization: examples/covariance_field/covariance_field.md
   - Design Doc: API_DESIGN_DOCUMENT.md
   - Contributing: CONTRIBUTING.md
 

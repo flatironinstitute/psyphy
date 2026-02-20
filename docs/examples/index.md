@@ -12,5 +12,5 @@ This section collects end-to-end, runnable examples.
 
 ## Covariance field
 
-- [Covariance Field Visualization](covariance_field.md)
-- [Covariance Field (full page)](covariance_field/covariance_field.md)
+- [Covariance Field Visualization](covariance_field/covariance_field.md)
+
