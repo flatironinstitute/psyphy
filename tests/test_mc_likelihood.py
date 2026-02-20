@@ -469,7 +469,7 @@ class TestGradientCompatibility:
         # Check that ALL gradient values are finite (not NaN, not inf)
         # We use tree_map because params is a nested dict structure
         all_finite = jax.tree_util.tree_all(
-            jax.tree_map(lambda x: jnp.all(jnp.isfinite(x)), grad)
+            jax.tree.map(lambda x: jnp.all(jnp.isfinite(x)), grad)
         )
 
         assert all_finite, (
@@ -514,7 +514,7 @@ class TestGradientCompatibility:
 
         # Even with no discriminability, gradients should be finite
         all_finite = jax.tree_util.tree_all(
-            jax.tree_map(lambda x: jnp.all(jnp.isfinite(x)), grad)
+            jax.tree.map(lambda x: jnp.all(jnp.isfinite(x)), grad)
         )
 
         assert all_finite, "Gradients are NaN/inf with identical stimuli!"
@@ -548,7 +548,7 @@ class TestGradientCompatibility:
 
         # With extreme discriminability, gradients should be finite (though possibly small)
         all_finite = jax.tree_util.tree_all(
-            jax.tree_map(lambda x: jnp.all(jnp.isfinite(x)), grad)
+            jax.tree.map(lambda x: jnp.all(jnp.isfinite(x)), grad)
         )
 
         assert all_finite, "Gradients are NaN/inf with extreme discriminability!"
@@ -586,7 +586,7 @@ class TestGradientCompatibility:
         grad = jax.grad(loss_fn)(params)
 
         all_finite = jax.tree_util.tree_all(
-            jax.tree_map(lambda x: jnp.all(jnp.isfinite(x)), grad)
+            jax.tree.map(lambda x: jnp.all(jnp.isfinite(x)), grad)
         )
 
         assert all_finite, "Gradients are NaN/inf with small bandwidth!"
