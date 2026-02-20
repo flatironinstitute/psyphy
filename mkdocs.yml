@@ -106,7 +106,6 @@ nav:
   - Examples:
     - Overview: examples/index.md
     - Fitting with the Wishart Psychophysical Process Model (WPPM): examples/wppm/full_wppm_fit_example.md
-    - Build your own optimizer with optax: examples/optim/map.md
     - Covariance Field Visualization: examples/covariance_field/covariance_field.md
   - Design Doc: API_DESIGN_DOCUMENT.md
   - Contributing: CONTRIBUTING.md
