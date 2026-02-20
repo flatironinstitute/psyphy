@@ -226,7 +226,6 @@ Sigma_full = field(x_ref)  # callable interface!
 Sigma_ref = Sigma_full[:2, :2]
 # --8<-- [end:single_point]
 print("\n[1.1] Covariance field created (Wishart mode)")
-print(f"      Field type: Wishart={field.is_wishart_mode}")
 print(f"\n[1.2] Reference point: {x_ref}")
 print(f"      Σ(x_ref) [2x2 block] = \n{Sigma_ref}")
 
@@ -320,7 +319,6 @@ Sigma_custom_full = custom_field(x_center)
 Sigma_custom = Sigma_custom_full[:2, :2]
 # --8<-- [end:custom]
 print("\n[3.2] Σ(0.5, 0.5) from custom field [2x2 block]:")
-print(f"      Field type: Wishart={custom_field.is_wishart_mode}")
 
 print(f"      {Sigma_custom}")
 

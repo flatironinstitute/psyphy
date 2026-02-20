@@ -105,67 +105,7 @@ def bootstrap_predictions(
     ci_upper : jnp.ndarray, shape (n_test,)
         Upper confidence bound at each test point
 
-    Examples
-    --------
-    >>> # Fit model and get bootstrap CIs
-    >>> from psyphy.model import WPPM, Prior
-    >>> from psyphy.model.task import OddityTask
-    >>> from psyphy.model.noise import GaussianNoise
-    >>>
-    >>> model = WPPM(
-    ...     input_dim=2,
-    ...     prior=Prior(input_dim=2),
-    ...     task=OddityTask(),
-    ...     noise=GaussianNoise(),
-    ... )
-    >>>
-    >>> # Bootstrap CIs for psychometric function
-    >>> X_test = jnp.linspace(-1, 1, 50)[:, None]
-    >>> probes_test = X_test + 0.1
-    >>>
-    >>> mean, lower, upper = bootstrap_predictions(
-    ...     model,
-    ...     X_train,
-    ...     y_train,
-    ...     X_test,
-    ...     probes=probes_test,
-    ...     n_bootstrap=100,
-    ...     key=jr.PRNGKey(0),
-    ... )
-    >>>
-    >>> # Plot with confidence bands
-    >>> import matplotlib.pyplot as plt
-    >>> plt.plot(X_test, mean, label="Mean prediction")
-    >>> plt.fill_between(X_test[:, 0], lower, upper, alpha=0.3, label="95% CI")
-    >>> plt.legend()
 
-    >>> # Quick diagnostic: is model stable?
-    >>> mean, lower, upper = bootstrap_predictions(
-    ...     model,
-    ...     X_train,
-    ...     y_train,
-    ...     X_test,
-    ...     n_bootstrap=50,  # Faster for diagnostics
-    ...     key=jr.PRNGKey(42),
-    ... )
-    >>> ci_width = upper - lower
-    >>> print(f"Average CI width: {jnp.mean(ci_width):.3f}")
-
-    Notes
-    -----
-    Computational cost:
-    - Each bootstrap sample requires a full model refit
-    - Total time ≈ n_bootstrap × (time per fit)
-    - For MAP with 100 samples: typically 10-100 seconds
-
-    Assumptions:
-    - Training data are IID (independent and identically distributed)
-    - For sequential data, consider block bootstrap instead
-
-    The bootstrap estimates sampling uncertainty (how stable are
-    predictions if we collected different data?), not model uncertainty
-    (what is the range of plausible predictions given the data?).
-    For model uncertainty, use the Bayesian posterior.variance instead.
     """
     n_train = len(X_train)
     alpha = 1 - confidence_level

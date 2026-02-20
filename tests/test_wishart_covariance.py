@@ -204,7 +204,7 @@ class TestSpatiallyVaryingCovariance:
 
 
 class TestWishartIntegration:
-    """Integration tests with full model pipeline."""
+    """Integration tests with model pipeline."""
 
     def test_discriminability_with_wishart(self):
         """Discriminability should work with spatially-varying covariance."""

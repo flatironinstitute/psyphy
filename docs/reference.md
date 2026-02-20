@@ -13,7 +13,7 @@
 
 <h4 align="center">
   <a href="https://flatironinstitute.github.io/psyphy/#install/">Installation</a> |
-  <a href="https://flatironinstitute.github.io/psyphy/examples/mvp/offline_fit_mvp/">Examples</a> |
+  <a href="https://flatironinstitute.github.io/psyphy/examples/wppm/full_wppm_fit_example/">Examples</a> |
   <a href="https://flatironinstitute.github.io/psyphy/CONTRIBUTING/">Contributing</a>
 </h4>
 

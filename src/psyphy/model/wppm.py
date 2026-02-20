@@ -151,7 +151,7 @@ class WPPM(Model):
     @property
     def embedding_dim(self) -> int:
         """
-        Dimension of the embedding space (perceptual space).
+        Dimension of the embedding space.
 
         embedding_dim = input_dim + extra_dims.
         this represents the full perceptual space where:
@@ -172,72 +172,55 @@ class WPPM(Model):
         # Wishart mode: full perceptual space
         return self.input_dim + self.extra_dims
 
-    def _normalize_stimulus(self, x: jnp.ndarray) -> jnp.ndarray:
-        """
-        Normalize stimulus coordinates to [-1, 1] for Chebyshev basis.
+    def _validate_basis_input(self, x: jnp.ndarray) -> None:
+        """Validate that inputs are in the expected basis domain.
 
-        Assumes input stimuli are in [0, 1] range (standard for psychophysics).
-        Maps [0, 1] -> [-1, 1] via x_norm = 2*x - 1.
+        Design contract (current):
+            - WPPM does **not** normalize stimuli.
+            - Users must provide stimulus coordinates already in the basis domain.
 
-        Parameters
-        ----------
-        x : jnp.ndarray, shape (input_dim,)
-            Raw stimulus coordinates
-
-        Returns
-        -------
-        x_norm : jnp.ndarray, shape (input_dim,)
-            Normalized coordinates in [-1, 1]
-        """
-        return 2.0 * x - 1.0
-
-    def _embed_stimulus(self, x: jnp.ndarray) -> jnp.ndarray:
-        """
-        Transform stimulus to embedding space via Chebyshev basis expansion.
-
-        Hong et al. (2025) uses degree-5 Chebyshev polynomials for dimensionality
-        reduction and better numerical conditioning.
-
-        Parameters
-        ----------
-        x : jnp.ndarray, shape (input_dim,)
-            Raw stimulus coordinates (assumed in [0, 1])
-
-        Returns
-        -------
-        x_embed : jnp.ndarray, shape (embedding_dim,)
-            Embedded stimulus representation
+        For the current Chebyshev basis implementation, the domain is ``[-1, 1]``
+        per dimension.
 
         Notes
         -----
-        If basis_degree raises ValueError
-        Otherwise, applies Chebyshev basis separately to each input dimension
-        and concatenates the results.
+        This is intentionally a lightweight, eager validator (Python exceptions).
+        If we later need fully-jittable checks, we can replace this with
+        ``jax.experimental.checkify``.
         """
 
-        if self.basis_degree is None:
+        x = jnp.asarray(x)
+        if x.ndim != 1 or x.shape[0] != self.input_dim:
             raise ValueError(
-                "Cannot embed stimulus: basis_degree is None . "
-                "Set basis_degree to use Wishart process."
+                f"Expected x with shape ({self.input_dim},), got {tuple(x.shape)}"
             )
 
-        # Normalize to [-1, 1] for numerical stability
-        x_norm = self._normalize_stimulus(x)
+        # NOTE: This method may be called from jitted code paths.
+        # Avoid Python bool/float conversions on JAX tracers.
+        #
+        # Strategy:
+        # - If x is concrete (non-traced), do normal Python ('eager') exceptions.
+        # - If x is traced (e.g., under jit/vmap), skip eager checks to
+        #   remain JIT-compatible.
+        # JAX tracing produces Tracer objects (not concrete values). Eager validation
+        # (Python exceptions) is only safe on concrete arrays.
+        if isinstance(x, jax.core.Tracer):
+            return
 
-        # Apply Chebyshev basis to each dimension
-        embeddings = []
-        for i in range(self.input_dim):
-            # chebyshev_basis expects shape (N,) and returns (N, degree+1)
-            # We have a single point, so add/remove batch dimension
-            x_i = x_norm[i : i + 1]  # shape (1,)
-            cheb_i = chebyshev_basis(
-                x_i, degree=self.basis_degree
-            )  # shape (1, degree+1)
-            embeddings.append(cheb_i.ravel())  # shape (degree+1,)
+        if jnp.any(~jnp.isfinite(x)):
+            raise ValueError("Stimulus x contains NaN/Inf.")
 
-        # Concatenate all dimensions
-        x_embed = jnp.concatenate(embeddings)  # shape (input_dim * (degree+1),)
-        return x_embed
+        # Chebyshev basis expects inputs in [-1, 1].
+        tol = 1e-6
+        if jnp.any(x < (-1.0 - tol)) or jnp.any(x > (1.0 + tol)):
+            x_min = float(jnp.min(x))
+            x_max = float(jnp.max(x))
+            raise ValueError(
+                "Stimulus x is outside the Chebyshev domain [-1, 1]. "
+                f"Observed min={x_min:g}, max={x_max:g}. "
+                "Normalize your data to align with domain of basis "
+                "in order to avoid unexpected behavior."
+            )
 
     # ----------------------------------------------------------------------
     # PARAMETERS
@@ -256,19 +239,18 @@ class WPPM(Model):
     # ----------------------------------------------------------------------
     def _evaluate_basis_at_point(self, x: jnp.ndarray) -> jnp.ndarray:
         """
-        TODO: require user to provide input in chebychev range [-1,1] and have this
-        function only check whether valid range
         Evaluate all Chebyshev basis functions at point x, keeping structure for einsum.
 
-        For 2D: returns φ_ij(x) = T_i(x_1) * T_j(x_2) with shape (degree+1, degree+1)
-        For 3D: returns φ_ijk(x) = T_i(x_1) * T_j(x_2) * T_k(x_3) with shape (degree+1, degree+1, degree+1)
+        For 2D: returns phi_ij(x) = T_i(x_1) * T_j(x_2) with shape (degree+1, degree+1)
+        For 3D: returns phi_ijk(x) = T_i(x_1) * T_j(x_2) * T_k(x_3) with shape (degree+1, degree+1, degree+1)
 
         Note: chebyshev_basis(x, degree=d) returns (degree+1) basis functions [T_0, ..., T_d].
 
         Parameters
         ----------
         x : jnp.ndarray, shape (input_dim,)
-            Stimulus coordinates (assumed in [0, 1])
+            Stimulus coordinates in the Chebyshev domain ``[-1, 1]``.
+            The model does not normalize inputs; callers must normalize upstream.
 
         Returns
         -------
@@ -283,13 +265,11 @@ class WPPM(Model):
                 "Set basis_degree to a valid integer."
             )
 
-        # TODO: re-implement normalize_stimulus to check valid input range
-        # user is required to provide valid input in [-1, 1] for Chebyshev basis
-        # Normalize to [-1, 1]
-        x_norm = x  # self._normalize_stimulus(x)
+        self._validate_basis_input(x)
+        x_norm = x
 
         if self.input_dim == 2:
-            # Evaluate basis functions: φ_ij(x) = T_i(x_1) * T_j(x_2)
+            # Evaluate basis functions: \phi_ij(x) = T_i(x_1) * T_j(x_2)
             # chebyshev_basis returns (1, degree+1) for each dimension
             cheb_0 = chebyshev_basis(x_norm[0:1], degree=self.basis_degree)[
                 0, :
@@ -300,7 +280,7 @@ class WPPM(Model):
             phi = cheb_0[:, None] * cheb_1[None, :]  # (degree+1, degree+1)
 
         elif self.input_dim == 3:
-            # 3D case: φ_ijk(x) = T_i(x_1) * T_j(x_2) * T_k(x_3)
+            # 3D case: \phi_ijk(x) = T_i(x_1) * T_j(x_2) * T_k(x_3)
             # phi.shape = (degree+1, degree+1, degree+1)
             cheb_0 = chebyshev_basis(x_norm[0:1], degree=self.basis_degree)[0, :]
             cheb_1 = chebyshev_basis(x_norm[1:2], degree=self.basis_degree)[0, :]
@@ -318,8 +298,8 @@ class WPPM(Model):
         r"""
         Compute "square root" matrix U(x) from basis expansion.
 
-        This is the core of the Wishart process: U(x) = Σ_ij W_ij * φ_ij(x)
-        where W_ij are learned coefficients and φ_ij are Chebyshev basis functions.
+        This is the core of the Wishart process: U(x) = Σ_ij W_ij * \phi_ij(x)
+        where W_ij are learned coefficients and \phi_ij are Chebyshev basis functions.
 
         The covariance is then Σ(x) = U(x) @ U(x)^T + diag_term * I, which is
         guaranteed to be positive definite.
