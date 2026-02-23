@@ -49,7 +49,7 @@ pip install -e .
 
 ```
 
-## Quickstart (MVP)
+## Quickstart
 If you already have data and just want to fit and predict without the experiment orchestrator, otherwise [go here](https://flatironinstitute.github.io/psyphy/usage/) for a more comprehensive example including the entire experiment orchestrator.
 
 ```python
