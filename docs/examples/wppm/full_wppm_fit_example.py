@@ -309,10 +309,21 @@ model = WPPM(
     input_dim=input_dim,
     prior=prior,
     task=task,
-    noise=noise,
+    noise=noise,  # Gaussian
     diag_term=1e-4,  # ensure positive-definite covariances
 )
 # --8<-- [end:build_model]
+
+
+# 3.5) Prior
+# --8<-- [start:prior]
+# Initialize at prior sample
+init_params = model.init_params(jax.random.PRNGKey(42))
+init_field = WPPMCovarianceField(model, init_params)
+# Prior over covariance field
+covs_prior = init_field(ref_points)  # (25, 2, 2)
+# --8<-- [end:prior]
+print(f"shape of covs_prior: {covs_prior.shape}")
 
 
 # 4) Fit using optimizer
@@ -326,8 +337,6 @@ momentum = 0.9
 map_optimizer = MAPOptimizer(
     steps=steps, learning_rate=lr, momentum=momentum, track_history=True, log_every=1
 )
-# Initialize at prior sample
-init_params = model.init_params(jax.random.PRNGKey(42))
 
 map_posterior = map_optimizer.fit(
     model,
@@ -383,12 +392,11 @@ centers = jnp.stack(jnp.meshgrid(grid_x, grid_y), axis=-1).reshape(-1, 2)
 #     than a Python loop and stays efficient when you evaluate many points.
 
 truth_field = WPPMCovarianceField(truth_model, truth_params)
+
 # --8<-- [start:cov_fields]
-init_field = WPPMCovarianceField(model, init_params)
 map_field = WPPMCovarianceField(model, map_posterior.params)
 # evaluate any covariance field object like this at either a single point
 # or a batch of points
-covs_prior = init_field(ref_points)  # to get the prior over cov fields
 covs_map = map_field(ref_points)  # to get the fitted covariances
 # --8<-- [end:cov_fields]
 
