@@ -164,7 +164,8 @@ where $x$ is `ref_points` in the code:
 
 ## Step 5 — Fit with MAP optimization
 
-We fut parameters with SGD + momentum:
+We obtain a MAP estimate over weight $W$ by  computing the negative log likelihood  using
+SGD + momentum:
 
 
 ```python title="Fitting with psyphy (MAPOptimizer)"
@@ -173,7 +174,7 @@ We fut parameters with SGD + momentum:
 
 ### What is being optimized
 
-MAP fitting finds
+We compute a MAP estimate of weights $W$:
 
 \[
 \theta_\text{MAP} = \arg\max_{\theta} \big[\log p(\mathcal{D}\mid\theta) + \log p(\theta)\big].
@@ -213,23 +214,31 @@ The result in this example is a `MAPPosterior` object that contains a point esti
 To use WPPM on your own data, these are the essential calls:
 
 **1. Create** task + noise + prior:
+
    - `task = OddityTask()`
+
    - `noise = GaussianNoise(sigma=...)`
+
    - `prior = Prior(input_dim=..., basis_degree=..., extra_embedding_dims=..., decay_rate=..., variance_scale=...)`
 
 **2. Create** WPPM:
+
    - `model = WPPM(input_dim=..., prior=prior, task=task, noise=noise, diag_term=...)`
 
 **3. Initialize** parameters:
+
    - `params0 = model.init_params(jax.random.PRNGKey(...))`  (draws from `Prior.sample_params`)
 
 **4. Load/build** a dataset:
+
       - `data = TrialData(refs=..., comparisons=..., responses=...)`
 
 **5. Fit**:
+
    - `map = MAPOptimizer(...).fit(model, data, init_params=params0, ...)`
 
 **6. Inspect** $\Sigma(x)$:
+
    - `field = WPPMCovarianceField(model, map.params)`
    - `Sigmas = field(xs)`
 
