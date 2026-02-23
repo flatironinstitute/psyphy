@@ -72,7 +72,7 @@ We can visualize the threshold at a single point as an ellipse:
 
 <div align="center">
     <picture>
-    <img align="center" src="plots/single_point_ellipse.png" width="600"/>
+    <img align="center" src="../plots/single_point_ellipse.png" width="600"/>
     </picture>
     <p><em>Threshold ellipse at point (0.5, 0.5). The ellipse shape encodes the covariance structure: elongation shows correlation direction, size shows threshold magnitude.</em></p>
 </div>
@@ -101,7 +101,7 @@ To see how thresholds vary across space, we evaluate the covariance field at mul
 
 <div align="center">
     <picture>
-    <img align="center" src="plots/ellipse_grid.png" width="700"/>
+    <img align="center" src="../plots/ellipse_grid.png" width="700"/>
     </picture>
     <p><em>5×5 grid of uncertainty ellipses showing spatial variation. note how ellipse size, shape, and orientation vary smoothly across the stimulus space.</em></p>
 </div>
@@ -123,7 +123,7 @@ You can sample multiple fields from the prior or create fields from custom param
 
 <div align="center">
     <picture>
-    <img align="center" src="plots/custom_field_ellipses.png" width="700"/>
+    <img align="center" src="../plots/custom_field_ellipses.png" width="700"/>
     </picture>
     <p><em>Different prior sample produces different spatial pattern.</em></p>
 </div>

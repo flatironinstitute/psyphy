@@ -155,7 +155,7 @@ def _ellipse_segments_from_covs(
 
 NUM_GRID_PTS = 10  # Number of reference points over stimulus space.
 MC_SAMPLES = 500  # Number of Monte Carlo samples per trial in the likelihood. # 500
-NUM_TRIALS_TOTAL = 4000  # Total number of trials in the simulated dataset.
+NUM_TRIALS_Per_Ref = 4000  # Total number of trials in the simulated dataset.
 # 4000 trials does not work on cpu
 
 
@@ -219,7 +219,7 @@ truth_params = truth_model.init_params(jax.random.PRNGKey(123))
 
 
 # --8<-- [start:simulate_data]
-num_trials_per_ref = NUM_TRIALS_TOTAL  # (trials per reference point)
+num_trials_per_ref = NUM_TRIALS_Per_Ref  # (trials per reference point)
 n_ref_grid = 5  # NUM_GRID_PTS
 ref_grid = jnp.linspace(-1, 1, n_ref_grid)  # [-1,1] space
 ref_points = jnp.stack(jnp.meshgrid(ref_grid, ref_grid), axis=-1).reshape(-1, 2)
@@ -469,7 +469,7 @@ ref_scatter = ax.scatter(
 legend_handles.append(ref_scatter)
 ax.set_title(
     f"Covariance field  \nSkipped non-PD: GT={non_pd_counts[0]}, Prior={non_pd_counts[1]}, Fit={non_pd_counts[2]}"
-    f"\n lr={lr}, steps={steps} - MC-samples={MC_SAMPLES}, num-trials={num_trials_total}"
+    f"\n lr={lr}, steps={steps} - MC-samples={MC_SAMPLES}, num-trials-total={num_trials_total}"
 )
 ax.set_aspect("equal", adjustable="box")
 ax.set_xlabel("Model space dimension 1")
@@ -553,7 +553,7 @@ if steps_hist and loss_hist:
     ax2.set_xlim(steps_hist[0], steps_hist[-1])
     ax2.plot(steps_hist, loss_hist, color="#4444aa")
     ax2.set_title(
-        f"Learning curve — lr={lr}, steps={steps} - MC-samples={MC_SAMPLES}, num-trials={num_trials_total}"
+        f"Learning curve \n lr={lr}, steps={steps} - MC-samples={MC_SAMPLES}, num-trials-per-ref={num_trials_per_ref}"
     )
     ax2.set_xlabel("Step")
     ax2.set_ylabel("Neg log likelihood")
