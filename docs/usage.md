@@ -65,7 +65,7 @@ map_estimator = MAPOptimizer(
 # -----------------------
 # 3) Trial placement strategy (stubbed)
 # -----------------------
-trial_placement = GridPlacement(grid_points=[(0.0, 0.0)])  # MVP placeholder
+trial_placement = GridPlacement(grid_points=[(0.0, 0.0)])
 
 # -----------------------
 # 4) Orchestrate an experiment session
@@ -85,7 +85,7 @@ proposed_batch = session.next_batch(batch_size=5)
 # Update posterior after adding data
 posterior = session.update()
 
-# Predict threshold contour around a reference (placeholder unit circle in MVP)
+# Predict threshold contour around a reference
 # This works because inference.fit(...) returned a Posterior that implements
 # predict_thresholds. Session itself relies on duck typing and doesn’t need
 # to reference Posterior explicitly.

@@ -54,8 +54,38 @@ For more details on the psychophysical task used in this example as well as some
 >The most important thing to keep in mind is that the **task** used in the experiment (with humans) implicitly defines the **likelihood**. So, in this context, you can think of task and likelihood as interchangeable.
 
 \[
-\log p(\theta \mid \mathcal{D}) = \log p(\mathcal{D} \mid \theta) + \log p(\theta).
+\log p(W \mid \mathcal{D}) = \log p(\mathcal{D} \mid W) + \log p(W).
 \]
+
+---
+## Step 0 -- Load data
+
+For OddityTask, we store trials as (ref, comparison) even though the task involves three items, since the assumed stimulus triplet is (ref, ref, comparison), i.e., ref, ref represent two samples from the distribution over ref.
+
+```python title="Load data"
+--8<-- "docs/examples/wppm/full_wppm_fit_example.py:data"
+```
+
+`psyphy` provides two lightweight containers for trial data (defined in [`src/psyphy/data/dataset.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/data/dataset.py)):
+
+**`TrialData` (compute-first; used for fitting):**
+- The canonical, (batched) input expected by likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)).
+It holds JAX arrays:
+   - refs: (N, d)
+   - comparisons: (N, d)
+   - responses: (N,)
+
+where $d$ refers to the input dimension, here 2.
+
+**`ResponseData` (collection/I/O-first; convenient for experiments):**
+- A Python-friendly log (stores trials in lists) designed for incremental collection, saving/loading (e.g., CSV), and adaptive experiments but expensive for computation
+
+#### Typical workflow:
+Avoid repeatedly converting Python lists → JAX arrays inside tight loops.
+
+- If you’re doing online fitting with adaptive trial placement, it’s usually better to:
+-  collect trials in ResponseData (easy incremental updates).
+- then convert to `TrialData` with `to_trial_data()` when you’re ready to fit/evaluate a model once or  in batches (e.g. every K trials) before running expensive optimizaiton.
 
 ---
 
@@ -82,6 +112,8 @@ W \in \mathbb{R}^{(d+1) \times (d+1) \times D \times E},
 where:
 
 - $d$ = `basis_degree`
+   - -> we're representing a function using a Chebychev expansion with terms up to degree `basis_degree`, which is 4 here
+   - T_0(x), T_1(x), T_2(x), T_3(x), T_4(x)
 - $D$ = `input_dim` (here 2)
 - $E$ = `embedding_dim = input_dim + extra_embedding_dims`
 
@@ -162,9 +194,9 @@ where $x$ is `ref_points` in the code:
 
 ---
 
-## Step 5 — Fit with MAP optimization
+## Step 4 — Fit with MAP optimization
 
-We obtain a MAP estimate over weight $W$ by  computing the negative log likelihood  using
+We obtain a MAP estimate over weights $W$ by  computing the negative log likelihood  using
 SGD + momentum:
 
 
@@ -177,11 +209,11 @@ SGD + momentum:
 We compute a MAP estimate of weights $W$:
 
 \[
-\theta_\text{MAP} = \arg\max_{\theta} \big[\log p(\mathcal{D}\mid\theta) + \log p(\theta)\big].
+W_\text{MAP} = \arg\max_{W} \big[\log p(\mathcal{D}\midW) + \log p(W)\big].
 \]
 
-- $\log p(\theta)$ is from `Prior.log_prob(params)` (see `prior.py`).
-- $\log p(\mathcal{D}\mid\theta)$ is computed by the task’s log-likelihood (here via Monte Carlo inside `OddityTask.loglik`).
+- $\log p(W)$ is from `Prior.log_prob(params)` (see `prior.py`).
+- $\log p(\mathcal{D}\midW)$ is computed by the task’s log-likelihood (here via Monte Carlo inside `OddityTask.loglik`).
 
 The result in this example is a `MAPPosterior` object that contains a point estimate `map_posterior.params`.
 
@@ -231,7 +263,7 @@ To use WPPM on your own data, these are the essential calls:
 
 **4. Load/build** a dataset:
 
-      - `data = TrialData(refs=..., comparisons=..., responses=...)`
+   - `data = TrialData(refs=..., comparisons=..., responses=...)`
 
 **5. Fit**:
 

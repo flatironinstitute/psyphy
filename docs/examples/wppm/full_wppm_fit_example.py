@@ -161,7 +161,7 @@ NUM_TRIALS_Per_Ref = 4000  # Total number of trials in the simulated dataset.
 
 print("[1/5] Setting up ground-truth WPPM and simulating data...")
 input_dim = 2
-basis_degree = 4  # controls smoothness/complexity
+basis_degree = 4  # controls smoothness/complexity (basis degrees 0,1,2,3,4)
 extra_dims = 1  # embedding dim for Wishart process
 decay_rate = 0.4  # decay rate for basis functions
 variance_scale = 4e-3
@@ -263,6 +263,7 @@ comparisons = jnp.clip(refs + deltas, -1.0, 1.0)
 trial_pred_keys = jr.split(k_pred, num_trials_total)
 
 
+# we use task as the generative model to create observations (user responses)
 def _p_correct_one(ref: jnp.ndarray, comp: jnp.ndarray, kk: jnp.ndarray) -> jnp.ndarray:
     # Task MC settings (num_samples/bandwidth) come from OddityTaskConfig.
     # Only the randomness is threaded dynamically.
@@ -289,7 +290,11 @@ ys = jr.bernoulli(k_y, p_correct, shape=(num_trials_total,)).astype(jnp.int32)
 # - This is equivalent to storing X with shape (N, 2, d) and y with shape (N,)
 #   where X[:,0,:]=refs and X[:,1,:]=comparisons.
 # - We keep named fields because it's currently native to OddityTask.
+# - Even though oddity is a 3-item task, we only store (ref, comparison)
+#   because the oddity trial is assumed to be (ref, ref, comparison)
+# --8<-- [start:data]
 data = TrialData(refs=refs, comparisons=comparisons, responses=ys)
+# --8<-- [end:data]
 
 # --8<-- [end:simulate_data]
 
