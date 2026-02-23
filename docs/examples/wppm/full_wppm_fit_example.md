@@ -13,7 +13,7 @@ This tutorial explains the example that can be found and run
 Runtime depends heavily on your device and on a few computation-driving hyperparameters (see below).
 - GPU (A100 40GB): With the default settings below, the script runs in ~3 minutes.
 - CPU: To make the script practical on CPU, reduce `MC_SAMPLES` aggressively (e.g., to 5–20 and `NUM_TRIALS_Per_Ref`) and shorten the **optimizer** run (reduce `num_steps`). These two knobs usually give the biggest speedups.
-- Apple Silicon / MPS: With the current configuration, the script takes … on  CPU
+- Apple Silicon / MPS: With the current configuration, the script takes 1h 45 min on  CPU (M4 Max, 64 GB)
 - JAX-accelearion on MPS limitation (`jax-metal`): At the moment, JAX on MPS does not support some operations we rely on (e.g., Cholesky decomposition), hence CPU is the only
 
 #### Default compute settings (GPU)
