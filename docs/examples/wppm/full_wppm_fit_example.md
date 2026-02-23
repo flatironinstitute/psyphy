@@ -37,7 +37,7 @@ num_steps = 2000
 
 ## What the Wishart Psychophysical Process Model (WPPM) is in a nutshell
 
-WPPM defines a *covariance matrix field* $\Sigma(x)$ over stimulus space (e.g. color represented in RGB). Intuitively, $\Sigma(x)$ describes the local noise/uncertainty ellipse around stimulus $x$ where stimulus within that ellipse will be perceived as identical to the human observer.
+WPPM defines a *covariance matrix field* $\Sigma(x)$ over stimulus space (e.g. color represented in RGB). Intuitively, $\Sigma(x)$ describes the local noise/uncertainty ellipse around stimulus $x$ where stimuli within that ellipse will be perceived as identical to the human observer.
 
 The model represents $\Sigma(x)$ as
 
@@ -49,25 +49,13 @@ where $U(x)$ is a smooth, basis-expanded matrix-valued function and $\varepsilon
 
 A psychophysical task model (here: `OddityTask`) uses $\Sigma$ to compute probability of a correct response on each trial, and `MAPOptimizer` fits WPPM parameters by maximizing
 
+For more details on the psychophysical task used in this example as well as some more details on the model, please checkout the paper by [Hong et al (2025)](https://elifesciences.org/reviewed-preprints/108943) and this [tutorial](`docs/examples/wppm/wppm_tutorial.md`).
+
+>The most important thing to keep in mind is that the **task** used in the experiment (with humans) implicitly defines the **likelihood**. So, in this context, you can think of task and likelihood as interchangeable.
+
 \[
 \log p(\theta \mid \mathcal{D}) = \log p(\mathcal{D} \mid \theta) + \log p(\theta).
 \]
-
-
-
-For more details on how the Wishart Psychophysical Model (WPPM) works, and the psychophysical task used in this example,  please checkout the paper by [Hong et al (2025)](https://elifesciences.org/reviewed-preprints/108943) and this [tutorial](`docs/examples/wppm/wppm_tutorial.md`).
-
-
----
-
-## Step 0 — Imports and setup
-
-The following imports are important to set the model up and fit to date:
-
-```python title="Ground-truth model + prior sample"
---8<-- "docs/examples/wppm/full_wppm_fit_example.py:imports"
-```
-
 
 ---
 
@@ -134,13 +122,16 @@ This is the  state of the  WPPM: **before any data**, WPPM draws smooth random f
 
 ## Step 2 — Build the model (WPPM + task + noise)
 
-We create a model by combining its prior and likelihood.
-Note that the task inherently defines the likelihood. Hence, think of them interchangebly.
-In `psyphy`, think of model as simply a container of the prior and the likelihood.
-- All prior specific hyerparameters are owned by the Prior.
-- Likewise, all likelihood specific hyerparameters are owned by the task.
-- besides being the container for prior and likelihood, the model also takes some compute specific arguments, such as `diag_term`, which ensures numeric stability by ensuring positive-definite matrices.
+Like good Bayesians, we build a model by combining a **prior** and a **likelihood**.
 
+
+In `psyphy`, `model` acts as  a container for both
+
+- Prior specific hyerparameters, owned by the `Prior`.
+
+- Likelihood-specific hyperparameters are owned by the `Task`
+
+- The `model` also takes compute-specific arguments such as diag_term, which improves numerical stability by encouraging positive-definite matrices.
 
 ```python title="Model definition"
 --8<-- "docs/examples/wppm/full_wppm_fit_example.py:build_model"
@@ -148,12 +139,18 @@ In `psyphy`, think of model as simply a container of the prior and the likelihoo
 
 ---
 
-## Step 3 — Evaluate the covariance field $\Sigma(x)$
+## Step 3 — A Draw from the Prior a.k.a Evaluate the covariance field $\Sigma(x)$
 
-The example uses a convenience wrapper:
+Now that we have the model, we can evaluate the
+the covariance field at $x$
+\[
+\Sigma(x) = U(x)U(x)^\top + \varepsilon I.
+\]
 
-```python title="Covariance field evaluation (Σ(x))"
---8<-- "docs/examples/wppm/full_wppm_fit_example.py:simulate_data"
+where $x$ is `ref_points` in the code:
+
+```python title="Covariance field evaluation ($\Sigma(x)$), here Prior"
+--8<-- "docs/examples/wppm/full_wppm_fit_example.py:prior"
 ```
 <div align="center">
     <picture>
@@ -161,45 +158,6 @@ The example uses a convenience wrapper:
     </picture>
     <p><em>A sample from the prior</em></p>
 </div>
-
-
-### What `field(x)` does
-
-At a high level:
-
-- Input: `x` with shape `(D,)` or `(..., D)`.
-- Output: covariance matrix/matrices $\Sigma(x)$ with shape `(..., D, D)`.
-
-Mathematically:
-
-1. Compute a basis feature vector $\phi(x)$ (Chebyshev basis products).
-2. Form a matrix
-
-\[
-U(x) = \sum_{i,j} W_{ij}\, \phi_{ij}(x)
-\]
-
-(where indices suppressed; the actual tensor contraction is done via `einsum`).
-
-3. Produce
-
-\[
-\Sigma(x) = U(x)U(x)^\top + \varepsilon I.
-\]
-
-In the code, the name “sqrt” is often used for $U(x)$: it is a *square-root factor* of the covariance (up to the diagonal term).
-
-> If you’re looking for the implementation details of the “sqrt” computation, search in `src/psyphy/model/wppm.py` for a helper named like `_compute_sqrt` (or similarly named). That’s where you’ll find the `einsum` contraction turning `W` and basis features into `U(x)`.
-
-### Corresponding code block in the example
-
-- Field wrapper construction:
-  - `truth_field = WPPMCovarianceField(truth_model, truth_params)`
-  - `init_field = WPPMCovarianceField(model, init_params)`
-  - `map_field = WPPMCovarianceField(model, map_posterior.params)`
-
-- Batched evaluation:
-  - `gt_covs = truth_field(ref_points)`
 
 
 ---
@@ -250,28 +208,28 @@ The result in this example is a `MAPPosterior` object that contains a point esti
 
 ---
 
-## Minimal recipe (copy/paste mental model)
+## To recap: Minimal recipe (copy/paste mental model)
 
 To use WPPM on your own data, these are the essential calls:
 
-1. **Create** task + noise + prior:
+**1. Create** task + noise + prior:
    - `task = OddityTask()`
    - `noise = GaussianNoise(sigma=...)`
    - `prior = Prior(input_dim=..., basis_degree=..., extra_embedding_dims=..., decay_rate=..., variance_scale=...)`
 
-2. **Create** WPPM:
+**2. Create** WPPM:
    - `model = WPPM(input_dim=..., prior=prior, task=task, noise=noise, diag_term=...)`
 
-3. **Initialize** parameters:
+**3. Initialize** parameters:
    - `params0 = model.init_params(jax.random.PRNGKey(...))`  (draws from `Prior.sample_params`)
 
-4. **Load/build** a dataset:
+**4. Load/build** a dataset:
       - `data = TrialData(refs=..., comparisons=..., responses=...)`
 
-5. **Fit**:
+**5. Fit**:
    - `map = MAPOptimizer(...).fit(model, data, init_params=params0, ...)`
 
-6. **Inspect** $\Sigma(x)$:
+**6. Inspect** $\Sigma(x)$:
    - `field = WPPMCovarianceField(model, map.params)`
    - `Sigmas = field(xs)`
 
