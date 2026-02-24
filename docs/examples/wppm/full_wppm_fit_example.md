@@ -69,8 +69,10 @@ For OddityTask, we store trials as (ref, comparison) even though the task involv
 `psyphy` provides two lightweight containers for trial data (defined in [`src/psyphy/data/dataset.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/data/dataset.py)):
 
 **`TrialData` (compute-first; used for fitting):**
+
 - The canonical, (batched) input expected by likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)).
 It holds JAX arrays:
+
    - refs: (N, d)
    - comparisons: (N, d)
    - responses: (N,)
@@ -113,8 +115,10 @@ W \in \mathbb{R}^{(d+1) \times (d+1) \times D \times E},
 where:
 
 - $d$ = `basis_degree`
-   - -> we're representing a function using a Chebychev expansion with terms up to degree `basis_degree`, which is 4 here
-   - T_0(x), T_1(x), T_2(x), T_3(x), T_4(x)
+
+      - -> we're representing a function using a Chebychev expansion with terms up to degree `basis_degree`, which is 4 here
+
+      - T_0(x), T_1(x), T_2(x), T_3(x), T_4(x)
 - $D$ = `input_dim` (here 2)
 - $E$ = `embedding_dim = input_dim + extra_embedding_dims`
 
