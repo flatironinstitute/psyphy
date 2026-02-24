@@ -223,7 +223,7 @@ To see how we generate the covariance field figures, checkout the plotting code 
     <picture>
     <img align="center" src="../plots/ellipses.png" width="600"/>
     </picture>
-    <p><em>Fitted ellipsoids (red) overlayed with ground truth (gray) and model initialization (blue), a sample from the prior. The fitted ellipsoids (read) are very close to the ground truth (gray). Note the bottom right corner, where they diverge.</em></p>
+    <p><em>Fitted ellipsoids (red) overlayed with ground truth (gray) and model initialization (blue), a sample from the prior. The fitted ellipsoids (read) are very close to the ground truth (gray). Note the top left or bottom right corner, where they diverge.</em></p>
 </div>
 ---
 
