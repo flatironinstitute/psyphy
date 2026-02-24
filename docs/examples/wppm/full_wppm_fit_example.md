@@ -69,8 +69,10 @@ For OddityTask, we store trials as (ref, comparison) even though the task involv
 `psyphy` provides two lightweight containers for trial data (defined in [`src/psyphy/data/dataset.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/data/dataset.py)):
 
 **`TrialData` (compute-first; used for fitting):**
+
 - The canonical, (batched) input expected by likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)).
 It holds JAX arrays:
+
    - refs: (N, d)
    - comparisons: (N, d)
    - responses: (N,)
