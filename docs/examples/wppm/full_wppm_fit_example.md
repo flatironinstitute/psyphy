@@ -4,7 +4,7 @@ This tutorial explains how to use the Wishart Psychophysical Process Model (WPPM
 > You can treat this as a ``recipe'' for using the Wishart Psychophysical Process Model (WPPM) in your own project: build a model, initialize parameters, fit the model, and visualize fitted predicted thresholds.
 
 This tutorial explains the example that can be found and run
- [`full_wppm_fit_example.py`](full_wppm_fit_example.py) and exposes key code snippets.
+ [`full_wppm_fit_example.py`](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py) and exposes key code snippets.
 
 
 
@@ -229,11 +229,12 @@ The result in this example is a `MAPPosterior` object that contains a point esti
 ---
 
 ## Step 6 — Visualize fit vs. truth vs. prior sample
+To see how we generate the covariance field figures, checkout the plotting code in this [script](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py), which reproduces the figures in this tutorial.
 <div align="center">
     <picture>
     <img align="center" src="../plots/ellipses.png" width="600"/>
     </picture>
-    <p><em>Fitted ellipsoids overlayed with ground truth and model initialization, a sample from the prior.</em></p>
+    <p><em>Fitted ellipsoids (red) overlayed with ground truth (gray) and model initialization (blue), a sample from the prior. The fitted ellipsoids (read) are very close to the ground truth (gray). Note the bottom right corner, where they diverge.</em></p>
 </div>
 ---
 
