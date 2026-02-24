@@ -4,7 +4,7 @@ This tutorial explains how to use the Wishart Psychophysical Process Model (WPPM
 > You can treat this as a ``recipe'' for using the Wishart Psychophysical Process Model (WPPM) in your own project: build a model, initialize parameters, fit the model, and visualize fitted predicted thresholds.
 
 This tutorial explains the example that can be found and run
- [`full_wppm_fit_example.py`](full_wppm_fit_example.py) and exposes key code snippets.
+ [`full_wppm_fit_example.py`](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py) and exposes key code snippets.
 
 
 
@@ -26,7 +26,7 @@ num_steps = 2000
 ```
 
 
-### What the [script](full_wppm_fit_example.py) does in a nutshell
+### What the [script](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py) does in a nutshell
 - **Task:** Fit a *spatially varying covariance field* $\Sigma(x)$ over a 2D stimulus space $x \in [-1,1]^2$ using the **Wishart Process Psychophysical Model (WPPM)**.
 - **Data:** synthetic oddity-task responses simulated from a ``ground-truth'' WPPM.
 - **Inference:** MAP (maximum a posteriori) optimization of the WPPM parameters.
@@ -38,6 +38,7 @@ num_steps = 2000
 ## What the Wishart Psychophysical Process Model (WPPM) is in a nutshell
 
 WPPM defines a *covariance matrix field* $\Sigma(x)$ over stimulus space (e.g. color represented in RGB). Intuitively, $\Sigma(x)$ describes the local noise/uncertainty ellipse around stimulus $x$ where stimuli within that ellipse will be perceived as identical to the human observer.
+
 
 The model represents $\Sigma(x)$ as
 
@@ -66,6 +67,10 @@ For OddityTask, we store trials as (ref, comparison) even though the task involv
 --8<-- "docs/examples/wppm/full_wppm_fit_example.py:data"
 ```
 
+Note on data used in this script: here, we simulate data (and hence have a ground truth to compare agains). To how to conveniently simulate data yourself, checkout  the [script](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py)
+
+<details>
+<summary>### 2 ways of representing data in `psyphy` (important)</summary>
 `psyphy` provides two lightweight containers for trial data (defined in [`src/psyphy/data/dataset.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/data/dataset.py)):
 
 **`TrialData` (compute-first; used for fitting):**
@@ -83,15 +88,15 @@ where $d$ refers to the input dimension, here 2.
 - A Python-friendly log (stores trials in lists) designed for incremental collection, saving/loading (e.g., CSV), and adaptive experiments but expensive for computation
 
 #### Typical workflow:
-Avoid repeatedly converting Python lists → JAX arrays inside tight loops.
+Avoid repeatedly converting Python lists -> JAX arrays inside tight loops.
 
 - If you’re doing online fitting with adaptive trial placement, it’s usually better to:
 -  collect trials in ResponseData (easy incremental updates).
 - then convert to `TrialData` with `to_trial_data()` when you’re ready to fit/evaluate a model once or  in batches (e.g. every K trials) before running expensive optimizaiton.
 
 
-Note that here, we simlulate data, foe details check out  [`full_wppm_fit_example.py`](full_wppm_fit_example.py) directly resulting in a `TrialData` object.
-
+Note that here, we simlulate data, for details check out  [`full_wppm_fit_example.py`](full_wppm_fit_example.py) directly resulting in a `TrialData` object.
+</details>
 
 ---
 
@@ -103,11 +108,11 @@ The WPPM parameters are basis weights stored as a dict:
 
 where `W` is a tensor of Chebyshev-basis coefficients.
 
-### Prior distribution over weights
 
-See `src/psyphy/model/prior.py`:
+<details>
+  <summary>### Prior distribution over weights:</summary>
 
-- `Prior.sample_params(key)` samples weights `W` from a **zero-mean Gaussian** with a *degree-dependent variance*.
+`Prior.sample_params(key)` samples weights `W` from a **zero-mean Gaussian** with a *degree-dependent variance*.
 
 For 2D, the weight tensor shape is
 
@@ -141,6 +146,9 @@ W_{ijde} \sim \mathcal{N}(0, \sigma^2_{ij}).
 \]
 
 This is the  state of the  WPPM: **before any data**, WPPM draws smooth random fields because high-frequency coefficients are shrunk by the decay.
+</details>
+
+---
 
 
 ```python title="Ground-truth model + prior sample"
@@ -148,15 +156,19 @@ This is the  state of the  WPPM: **before any data**, WPPM draws smooth random f
 ```
 
 
+
+### A convenient way to evaluate the covariance field $\Sigma(x)$
+
+```python title="Covariance field evaluation, here Prior"
+--8<-- "docs/examples/wppm/full_wppm_fit_example.py:prior"
+```
 <div align="center">
     <picture>
     <img align="center" src="../plots/prior_sample.png" width="600"/>
     </picture>
     <p><em>A sample from the prior</em></p>
 </div>
-
-
-
+To see how we generate the covariance field figures, checkout the plotting code in this [script](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py), which reproduces the figures in this tutorial.
 
 ---
 
@@ -179,30 +191,7 @@ In `psyphy`, `model` acts as  a container for both
 
 ---
 
-## Step 3 — A Draw from the Prior a.k.a Evaluate the covariance field $\Sigma(x)$
-
-Now that we have the model, we can evaluate the
-the covariance field at $x$
-\[
-\Sigma(x) = U(x)U(x)^\top + \varepsilon I.
-\]
-
-where $x$ is `ref_points` in the code:
-
-```python title="Covariance field evaluation ($\Sigma(x)$), here Prior"
---8<-- "docs/examples/wppm/full_wppm_fit_example.py:prior"
-```
-<div align="center">
-    <picture>
-    <img align="center" src="../plots/prior_sample.png" width="600"/>
-    </picture>
-    <p><em>A sample from the prior</em></p>
-</div>
-
-
----
-
-## Step 4 — Fit with MAP optimization
+## Step 3 — Fit with MAP optimization
 
 We obtain a MAP estimate over weights $W$ by  computing the negative log likelihood  using
 SGD + momentum:
@@ -228,12 +217,13 @@ The result in this example is a `MAPPosterior` object that contains a point esti
 
 ---
 
-## Step 6 — Visualize fit vs. truth vs. prior sample
+## Step 4 — Visualize fit vs. truth vs. prior sample
+To see how we generate the covariance field figures, checkout the plotting code in this [script](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py), which reproduces the figures in this tutorial.
 <div align="center">
     <picture>
     <img align="center" src="../plots/ellipses.png" width="600"/>
     </picture>
-    <p><em>Fitted ellipsoids overlayed with ground truth and model initialization, a sample from the prior.</em></p>
+    <p><em>Fitted ellipsoids (red) overlayed with ground truth (gray) and model initialization (blue), a sample from the prior. The fitted ellipsoids (read) are very close to the ground truth (gray). Note the bottom right corner, where they diverge.</em></p>
 </div>
 ---
 

@@ -562,8 +562,10 @@ fig_prior.savefig(
 print("[5/5] Plotting learning curve...")
 # --8<-- [start:plot_learning_curve]
 steps_hist, loss_hist = map_optimizer.get_history()
+# plotting code
+# --8<-- [end:plot_learning_curve]
 print(f"num steps: {len(steps_hist)}, num losses: {len(loss_hist)}")
-# --8<-- [start:plot_learning_curve]
+
 if steps_hist:
     print(f"history step range: [{steps_hist[0]}, {steps_hist[-1]}]")
 if steps_hist and loss_hist:
@@ -584,5 +586,3 @@ if steps_hist and loss_hist:
     )
 else:
     print("No history recorded — set track_history=True in MAPOptimizer to enable.")
-
-# --8<-- [end:plot_learning_curve]
