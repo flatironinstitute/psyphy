@@ -89,7 +89,10 @@ Avoid repeatedly converting Python lists → JAX arrays inside tight loops.
 -  collect trials in ResponseData (easy incremental updates).
 - then convert to `TrialData` with `to_trial_data()` when you’re ready to fit/evaluate a model once or  in batches (e.g. every K trials) before running expensive optimizaiton.
 
-- Note that here, we simlulate data, foe details check out  [`full_wppm_fit_example.py`](full_wppm_fit_example.py) directly resulting in a `TrialData` object.
+
+Note that here, we simlulate data, foe details check out  [`full_wppm_fit_example.py`](full_wppm_fit_example.py) directly resulting in a `TrialData` object.
+
+
 ---
 
 ## Step 1 — Define the prior (how weights are distributed initially)
