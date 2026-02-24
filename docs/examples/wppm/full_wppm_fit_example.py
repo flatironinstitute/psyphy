@@ -183,6 +183,11 @@ noise = GaussianNoise(sigma=0.1)
 #
 
 # --8<-- [start:truth_model]
+task = OddityTask(
+    config=OddityTaskConfig(num_samples=int(MC_SAMPLES), bandwidth=float(bandwidth))
+)
+noise = GaussianNoise(sigma=0.1)
+
 # Set all Wishart process hyperparameters in Prior
 truth_prior = Prior(
     input_dim=input_dim,  # (2D)

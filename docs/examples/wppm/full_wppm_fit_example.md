@@ -87,6 +87,7 @@ Avoid repeatedly converting Python lists → JAX arrays inside tight loops.
 -  collect trials in ResponseData (easy incremental updates).
 - then convert to `TrialData` with `to_trial_data()` when you’re ready to fit/evaluate a model once or  in batches (e.g. every K trials) before running expensive optimizaiton.
 
+- Note that here, we simlulate data, foe details check out  [`full_wppm_fit_example.py`](full_wppm_fit_example.py) directly resulting in a `TrialData` object.
 ---
 
 ## Step 1 — Define the prior (how weights are distributed initially)
@@ -209,11 +210,11 @@ SGD + momentum:
 We compute a MAP estimate of weights $W$:
 
 \[
-W_\text{MAP} = \arg\max_{W} \big[\log p(\mathcal{D}\midW) + \log p(W)\big].
+W_\text{MAP} = \arg\max_{W} \big[\log p(\mathcal{D}\mid W) + \log p(W)\big].
 \]
 
 - $\log p(W)$ is from `Prior.log_prob(params)` (see `prior.py`).
-- $\log p(\mathcal{D}\midW)$ is computed by the task’s log-likelihood (here via Monte Carlo inside `OddityTask.loglik`).
+- $\log p(\mathcal{D}\mid W)$ is computed by the task’s log-likelihood (here via Monte Carlo inside `OddityTask.loglik`).
 
 The result in this example is a `MAPPosterior` object that contains a point estimate `map_posterior.params`.
 
