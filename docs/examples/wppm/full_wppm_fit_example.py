@@ -33,9 +33,13 @@ import jax.random as jr
 # --8<-- [start:imports]
 from psyphy.data import TrialData  # (batched trial container)
 from psyphy.inference import MAPOptimizer  # fitter
-from psyphy.model import WPPM, GaussianNoise, OddityTask, OddityTaskConfig, Prior
-from psyphy.model.covariance_field import (
+from psyphy.model import (
+    GaussianNoise,
+    OddityTask,
+    OddityTaskConfig,
+    Prior,
     WPPMCovarianceField,  # (fast (\Sigma) evaluation)
+    WPPM,
 )
 
 # --8<-- [end:imports]
