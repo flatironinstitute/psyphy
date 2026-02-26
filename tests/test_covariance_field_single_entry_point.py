@@ -14,10 +14,8 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
+from psyphy.model import WPPM, OddityTask, Prior
 from psyphy.model.covariance_field import WPPMCovarianceField
-from psyphy.model.prior import Prior
-from psyphy.model.task import OddityTask
-from psyphy.model.wppm import WPPM
 
 # ==============================================================================
 # Fixtures

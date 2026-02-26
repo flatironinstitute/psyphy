@@ -13,9 +13,7 @@ families later (each basis can define its own expected domain).
 import jax.numpy as jnp
 import pytest
 
-from psyphy.model import WPPM, Prior
-from psyphy.model.noise import GaussianNoise
-from psyphy.model.task import OddityTask
+from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
 
 
 @pytest.mark.parametrize("input_dim", [2, 3])

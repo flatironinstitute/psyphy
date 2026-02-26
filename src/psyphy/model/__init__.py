@@ -22,7 +22,7 @@ Typical usage
 from .base import Model, OnlineConfig
 from .noise import GaussianNoise, StudentTNoise
 from .prior import Prior
-from .task import OddityTask, TaskLikelihood
+from .task import OddityTask, OddityTaskConfig, TaskLikelihood
 from .wppm import WPPM
 
 __all__ = [
@@ -36,6 +36,7 @@ __all__ = [
     # Tasks
     "TaskLikelihood",
     "OddityTask",
+    "OddityTaskConfig",
     # Noise models
     "GaussianNoise",
     "StudentTNoise",

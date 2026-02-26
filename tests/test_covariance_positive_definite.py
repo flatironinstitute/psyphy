@@ -3,10 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from psyphy.model.noise import GaussianNoise
-from psyphy.model.prior import Prior
-from psyphy.model.task import OddityTask
-from psyphy.model.wppm import WPPM
+from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
 
 
 @pytest.mark.parametrize("diag_term", [1e-6, 1e-4, 1e-3, 1e-2])

@@ -91,7 +91,7 @@ from .inference.laplace import LaplaceApproximation
 from .inference.map_optimizer import MAPOptimizer
 from .model.noise import GaussianNoise, StudentTNoise
 from .model.prior import Prior
-from .model.task import OddityTask
+from .model.task import OddityTask, OddityTaskConfig
 from .model.wppm import WPPM
 
 # Posterior
@@ -105,6 +105,7 @@ __all__ = [
     "WPPM",  # needs task for likelihood and noise model
     "Prior",
     "OddityTask",
+    "OddityTaskConfig",
     "GaussianNoise",  # default noise model
     "StudentTNoise",
     # Inference

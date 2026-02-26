@@ -9,10 +9,8 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.model import WPPM, Prior
+from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
 from psyphy.model.covariance_field import WPPMCovarianceField
-from psyphy.model.noise import GaussianNoise
-from psyphy.model.task import OddityTask
 
 # ==============================================================================
 # Test WPPM constructor should NOT accept embedding_dim parameter

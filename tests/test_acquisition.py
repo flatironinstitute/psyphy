@@ -26,9 +26,7 @@ from psyphy.acquisition import (
     optimize_acqf_random,
     upper_confidence_bound,
 )
-from psyphy.model import WPPM, Prior
-from psyphy.model.noise import GaussianNoise
-from psyphy.model.task import OddityTask
+from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
 
 # ============================================================================
 # Fixtures
