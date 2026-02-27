@@ -11,9 +11,7 @@ where U(x) is computed from Chebyshev basis expansion.
 import jax.numpy as jnp
 import jax.random as jr
 
-from psyphy.model import WPPM, Prior
-from psyphy.model.noise import GaussianNoise
-from psyphy.model.task import OddityTask
+from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
 
 
 class TestWishartParameters:

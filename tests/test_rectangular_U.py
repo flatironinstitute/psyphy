@@ -17,9 +17,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.model.prior import Prior
-from psyphy.model.task import OddityTask
-from psyphy.model.wppm import WPPM
+from psyphy.model import WPPM, OddityTask, Prior
 
 
 class TestRectangularUShape:

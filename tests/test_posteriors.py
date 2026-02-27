@@ -13,10 +13,7 @@ import pytest
 
 from psyphy.data import TrialData
 from psyphy.inference import MAPOptimizer
-from psyphy.model import WPPM
-from psyphy.model.noise import GaussianNoise
-from psyphy.model.prior import Prior
-from psyphy.model.task import OddityTask
+from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
 from psyphy.posterior import (
     MAPPosterior,
     ParameterPosterior,

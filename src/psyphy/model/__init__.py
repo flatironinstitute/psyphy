@@ -20,15 +20,19 @@ Typical usage
 """
 
 from .base import Model, OnlineConfig
+from .covariance_field import CovarianceField, WPPMCovarianceField
 from .noise import GaussianNoise, StudentTNoise
 from .prior import Prior
-from .task import OddityTask, TaskLikelihood
+from .task import OddityTask, OddityTaskConfig, TaskLikelihood
 from .wppm import WPPM
 
 __all__ = [
     # Base
     "Model",
     "OnlineConfig",
+    # Covariance fields
+    "CovarianceField",
+    "WPPMCovarianceField",
     # Models
     "WPPM",
     # Priors
@@ -36,6 +40,7 @@ __all__ = [
     # Tasks
     "TaskLikelihood",
     "OddityTask",
+    "OddityTaskConfig",
     # Noise models
     "GaussianNoise",
     "StudentTNoise",

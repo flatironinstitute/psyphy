@@ -20,10 +20,8 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.data.dataset import ResponseData, TrialData
-from psyphy.model import WPPM, Prior
-from psyphy.model.noise import GaussianNoise
-from psyphy.model.task import OddityTask, OddityTaskConfig
+from psyphy.data import ResponseData, TrialData
+from psyphy.model import WPPM, GaussianNoise, OddityTask, OddityTaskConfig, Prior
 
 
 class TestMCLikelihood:

@@ -9,10 +9,15 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.data.dataset import ResponseData
-from psyphy.model import WPPM, Prior
-from psyphy.model.noise import GaussianNoise, StudentTNoise
-from psyphy.model.task import OddityTask, OddityTaskConfig
+from psyphy.data import ResponseData
+from psyphy.model import (
+    WPPM,
+    GaussianNoise,
+    OddityTask,
+    OddityTaskConfig,
+    Prior,
+    StudentTNoise,
+)
 
 
 class TestNoiseModels:

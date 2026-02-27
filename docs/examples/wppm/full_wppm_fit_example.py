@@ -31,15 +31,16 @@ sys.path.insert(
 import jax.random as jr
 
 # --8<-- [start:imports]
-from psyphy.data.dataset import TrialData  # (batched trial container)
-from psyphy.inference.map_optimizer import MAPOptimizer  # fitter
-from psyphy.model.covariance_field import (
+from psyphy.data import TrialData  # (batched trial container)
+from psyphy.inference import MAPOptimizer  # fitter
+from psyphy.model import (
+    GaussianNoise,
+    OddityTask,
+    OddityTaskConfig,
+    Prior,
     WPPMCovarianceField,  # (fast (\Sigma) evaluation)
+    WPPM,
 )
-from psyphy.model.noise import GaussianNoise  # for model
-from psyphy.model.prior import Prior
-from psyphy.model.task import OddityTask, OddityTaskConfig
-from psyphy.model.wppm import WPPM
 
 # --8<-- [end:imports]
 PLOTS_DIR = os.path.join(os.path.dirname(__file__), "plots")
