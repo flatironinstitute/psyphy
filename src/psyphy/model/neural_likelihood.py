@@ -14,10 +14,9 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-import jax
 import jax.numpy as jnp
 
-from psyphy.model.likelihood import Stimulus, TaskLikelihood
+from psyphy.model.likelihood import TaskLikelihood
 
 # Type alias for neural network parameter PyTree
 NNParams = Any
@@ -29,6 +28,9 @@ class NeuralSurrogateOddityTask(TaskLikelihood):
 
     This class skeleton shows how to plug in a pre-trained neural network
     to estimate P(correct) instead of running MC simulations.
+
+    Only ``predict`` needs to be implemented — ``loglik`` and ``simulate``
+    are inherited from ``TaskLikelihood`` for free.
     """
 
     def __init__(
@@ -45,7 +47,7 @@ class NeuralSurrogateOddityTask(TaskLikelihood):
             The frozen parameters (weights/biases) of the pre-trained neural network.
         forward : Callable[[NNParams, jnp.ndarray], jnp.ndarray]
             The JAX function that runs the forward pass:
-            `p_correct = forward(params, features)`.
+            ``p_correct = forward(nn_params, features)``.
         """
         # If you're coming from PyTorch: JAX vs PyTorch difference:
         # in JAX, the "model" function is typically pure and stateless.
@@ -55,61 +57,32 @@ class NeuralSurrogateOddityTask(TaskLikelihood):
         self.forward = forward  # The pure FUNCTION (stateless logic)
 
     def predict(
-        self, params: Any, stimuli: Stimulus, model: Any, noise: Any
+        self,
+        params: Any,
+        ref: jnp.ndarray,
+        comparison: jnp.ndarray,
+        model: Any,
+        *,
+        key: Any = None,
     ) -> jnp.ndarray:
         """
-        Predict p(correct) for a single stimulus pair using the Neural Net.
+        Predict p(correct) for a single stimulus pair using the neural network.
 
         Implementation steps:
-        1. Extract relevant geometry (e.g. covariance matrices, x_0, x_1, z_0, z_0', z_1) from `model`
-           at the stimulus locations.
-        2. Format these as features for the neural network.
-        3. Run `self.forward`.
-        """
-        # ref, comparison = stimuli
+        1. Extract relevant geometry (e.g. covariance matrices at ref/comparison)
+           from ``model`` using ``model._compute_sqrt(params, ref)`` etc.
+        2. Format these as a feature vector for the network.
+        3. Run ``self.forward(self.nn_params, features)``.
 
-        # Placeholder: Extract features from the model based on ref/comparison
-        # e.g., features = custom_feature_extractor(model, ref, comparison, ...)
+        ``loglik`` and ``simulate`` are inherited from ``TaskLikelihood`` and will
+        vmap this method automatically — no further implementation needed.
+        """
+        # Placeholder: extract features from the model at ref/comparison.
+        # e.g., features = custom_feature_extractor(model, params, ref, comparison)
         features = jnp.zeros(10)  # Dummy features
 
-        # Forward pass through the surrogate
-        # Unlike PyTorch `model(x)`, JAX requires explicit parameter passing: `f(params, x)`
+        # Forward pass through the surrogate.
+        # Unlike PyTorch `model(x)`, JAX requires explicit parameter passing.
         p_correct = self.forward(self.nn_params, features)
 
         return p_correct
-
-    def loglik(
-        self, params: Any, data: Any, model: Any, noise: Any, **kwargs: Any
-    ) -> jnp.ndarray:
-        """
-        Compute total log-likelihood for a dataset using the Neural Net.
-
-        This allows you to vectorize the neural network application across all trials.
-        """
-        # 1. Access data arrays
-        # The data object is expected to be a TrialData instance or similar PyTree
-        # compatible with JIT compilation.
-        refs = data.refs
-        comparisons = data.comparisons
-        responses = data.responses
-
-        # 2. Define single-trial logic (same as predict, but efficient for vmap)
-        def single_trial_prob(r, c):
-            # Same feature extraction logic as predict
-            features = jnp.zeros(10)  # Dummy features
-            return self.forward(self.nn_params, features)
-
-        # 3. Vectorize prediction across all trials
-        probs = jax.vmap(single_trial_prob)(refs, comparisons)
-
-        # 4. Compute standard Bernoulli log-likelihood
-        # LL = Σ [y * log(p) + (1-y) * log(1-p)]
-        # Add clipping for numerical stability
-        probs = jnp.clip(probs, 1e-6, 1.0 - 1e-6)
-        log_likelihoods = jnp.where(
-            responses == 1,
-            jnp.log(probs),
-            jnp.log(1.0 - probs),
-        )
-
-        return jnp.sum(log_likelihoods)
