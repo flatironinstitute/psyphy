@@ -28,8 +28,10 @@ Core design
    - WPPM: structured prior over basis weights and
      decay_rate-controlled covariance fields.
 
-3. TaskLikelihood (model/likelihood.py):
+3. TaskLikelihood (model/likelihood/base.py):
    - Encodes the psychophysical decision rule.
+   - Concrete tasks live in model/likelihood/oddity.py (MC-based)
+     and model/likelihood/neural.py (NN surrogate).
    - WPPM: loglik and predict implemented via Monte Carlo
      observer simulations, using the noise model explicitly.
 
@@ -63,7 +65,9 @@ Data flow
 
 Extensibility
 -------------
-- To add a new task: subclass TaskLikelihood, implement predict/loglik.
+- To add a new task: subclass TaskLikelihood, implement predict() only
+  (loglik and simulate are inherited). Add the class to
+  model/likelihood/ and re-export from model/likelihood/__init__.py.
 - To add a new noise model: subclass NoiseModel, implement logpdf/sample.
 
 
@@ -71,6 +75,7 @@ Extensibility
 ----------------------------------------------------------------------
 """
 
+# from . import session as session
 # Data
 # Re-export subpackages for unified import style (e.g., psyphy.model, psyphy.inference)
 # from . import acquisition as acquisition
@@ -78,8 +83,6 @@ from . import data as data
 from . import inference as inference
 from . import model as model
 from . import posterior as posterior
-
-# from . import session as session
 from . import trial_placement as trial_placement
 from . import utils as utils
 from .data.dataset import ResponseData, TrialBatch
@@ -89,6 +92,12 @@ from .inference.laplace import LaplaceApproximation
 # Inference
 from .inference.map_optimizer import MAPOptimizer
 from .model.likelihood import OddityTask, OddityTaskConfig
+
+# TODO: expose NN surrogate at top level once NeuralSurrogateOddityTask.predict()
+# is fully implemented (feature extraction + trained forward function).
+# Add here:
+#   from .model.likelihood import NeuralSurrogateTask, NeuralSurrogateOddityTask
+# And add both names to __all__ below alongside OddityTask.
 from .model.noise import GaussianNoise, StudentTNoise
 from .model.prior import Prior
 from .model.wppm import WPPM
