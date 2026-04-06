@@ -21,7 +21,13 @@ Typical usage
 
 from .base import Model
 from .covariance_field import CovarianceField, WPPMCovarianceField
-from .likelihood import OddityTask, OddityTaskConfig, TaskLikelihood
+from .likelihood import (
+    NeuralSurrogateOddityTask,
+    NeuralSurrogateTask,
+    OddityTask,
+    OddityTaskConfig,
+    TaskLikelihood,
+)
 from .noise import GaussianNoise, StudentTNoise
 from .prior import Prior
 from .wppm import WPPM
@@ -40,6 +46,8 @@ __all__ = [
     "TaskLikelihood",
     "OddityTask",
     "OddityTaskConfig",
+    "NeuralSurrogateTask",
+    "NeuralSurrogateOddityTask",
     # Noise models
     "GaussianNoise",
     "StudentTNoise",
