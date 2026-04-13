@@ -4,8 +4,7 @@ parameter_posterior.py
 
 Protocol and implementations for posterior distributions over model parameters.
 
-This module defines the ParameterPosterior interface representing p(θ | data),
-used for research workflows: diagnostics, parameter uncertainty, sampling.
+This module defines the ParameterPosterior interface representing p(θ | data).
 
 Design
 ------
