@@ -71,7 +71,7 @@ Include:
 
 ---
 
-# Documentation
+## Documentation
 
 Build docs locally:
 ```
@@ -88,7 +88,7 @@ mkdocs gh-deploy --clean
 ```
 ---
 
-# License
+## License
 
 By contributing, you agree that your contributions will be licensed under the project’s [`LICENSE.md`](LICENSE.md) .
 
