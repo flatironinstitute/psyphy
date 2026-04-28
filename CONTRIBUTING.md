@@ -120,8 +120,9 @@ git remote -v
 ```
 
 
-GitHub:
+#### Summary:
 ```
+- GitHub:
 
   upstream (canonical repo)
   flatironinstitute/psyphy
@@ -131,7 +132,7 @@ GitHub:
   yourusername/psyphy
             │  git push
             │
-Local machine:
+- Local machine:
 
   your local repository
             |
