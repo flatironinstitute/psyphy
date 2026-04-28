@@ -118,6 +118,27 @@ git remote -v
 # origin   → your fork
 # upstream → Flatiron repo
 ```
+
+```
+GitHub:
+
+  upstream (canonical repo)
+  flatironinstitute/psyphy
+            │  Pull Request (PR)
+            │
+  origin (your fork)
+  yourusername/psyphy
+            │  git push
+            │
+Local machine:
+
+  your local repository
+            |
+            │  git commit
+            │
+        your changes
+```
+
 ---
 
 ### 2. Development setup
