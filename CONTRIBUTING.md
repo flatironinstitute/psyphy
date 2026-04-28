@@ -145,18 +145,18 @@ git push origin main
 ---
 
 ### 4. Create a feature branch
-
+```
 git checkout -b feature/my-feature
 # create a new branch from updated main
-
+```
 ---
 
 ### 5. Work and commit
-
+```
 git add .
 git commit -m "Describe your change clearly"
 # pre-commit hooks run automatically here
-
+```
 ---
 
 ### 6. Push to your fork
@@ -235,7 +235,7 @@ upstream code
 How to resolve:
 
 1. Open the file
-2. Decide how to combine the changes
+2. Decide how to combine the changes (your IDE, like VSCode will visualize each merge conflict making it straight forward whether to keep the upstream version of your local one)
 3. Remove the conflict markers
 
 Then:
@@ -256,7 +256,7 @@ Don’t try to resolve line-by-line blindly. Instead:
 
 * Understand what upstream changed
 * Understand your intended behavior
-* Update your code accordingly,  (your IDE, like VSCode will visualize each merge conflict making it straight forward whether to keep the upstream version of your local one)
+* Update your code accordingly 
 
 ---
 
