@@ -8,7 +8,7 @@ We welcome contributions from both experienced developers and researchers who ma
 
 ## Quick Start (TL;DR)
 
-If you’re already familiar with GitHub workflows, this is the minimal path:
+If you’re already familiar with GitHub workflows, this is the minimal path. For a detailed version scroll down to "Standard Workflow (Step-by-Step)".
 ```
 # fork repo on GitHub first
 git clone https://github.com/YOUR_USERNAME/psyphy.git   # clone your fork (origin)
@@ -26,7 +26,75 @@ git push origin feature/my-feature   # push to your fork (origin)
 ```
 ---
 
-## Standard Workflow (Step-by-Step)
+
+## Development Tools
+
+We use:
+
+* Ruff → formatting + linting (See [LINTING_SETUP.md](LINTING_SETUP.md) for details.)
+* mypy → type checking
+* pre-commit → runs checks automatically
+
+You can also run manually:
+```
+pre-commit run --all-files
+```
+---
+
+## Code Standards
+
+* Keep PRs focused and reasonably small (ideally < 300 lines)
+* Write clear commit messages
+* Add tests when appropriate
+* Update documentation if APIs change
+
+---
+
+## Pull Request Guidelines
+
+A good PR should:
+
+* Clearly describe what changed and why
+* Reference related issues if applicable
+* Be easy to review (avoid large unrelated changes)
+
+---
+
+## Issues
+
+Use GitHub issues to report bugs or suggest features.
+
+Include:
+
+* clear description and acceptance criteria
+* steps to reproduce (for bugs)
+
+---
+
+# Documentation
+
+Build docs locally:
+```
+pip install mkdocs mkdocs-material 'mkdocstrings[python]'
+mkdocs serve
+```
+Build static site:
+```
+mkdocs build
+```
+Deploy:
+```
+mkdocs gh-deploy --clean
+```
+---
+
+# License
+
+By contributing, you agree that your contributions will be licensed under the project’s [`LICENSE.md`](LICENSE.md) .
+
+---
+
+# Standard Workflow (Step-by-Step)
 
 This section explains the full workflow in detail.
 
@@ -50,7 +118,7 @@ git remote -v
 # origin   → your fork
 # upstream → Flatiron repo
 ```
-⸻
+---
 
 ### 2. Development setup
 
@@ -62,7 +130,7 @@ pre-commit install
 This project uses automated checks (formatting, linting, type checking) via pre-commit  ￼.
 These run automatically when you commit.
 
-⸻
+---
 
 ### 3. Sync with upstream before starting work
 ```
@@ -74,14 +142,14 @@ git merge upstream/main
 git push origin main
 # push updated main → your fork (origin)
 ```
-⸻
+---
 
 ### 4. Create a feature branch
 
 git checkout -b feature/my-feature
 # create a new branch from updated main
 
-⸻
+---
 
 ### 5. Work and commit
 
@@ -89,14 +157,14 @@ git add .
 git commit -m "Describe your change clearly"
 # pre-commit hooks run automatically here
 
-⸻
+---
 
 ### 6. Push to your fork
-
-g```it push origin feature/my-feature
+```
+git push origin feature/my-feature
 # pushes your branch → your fork (origin)
 ```
-⸻
+---
 
 ### 7. Open a Pull Request
 
@@ -105,7 +173,7 @@ On GitHub:
 * Base repo: flatironinstitute/psyphy (upstream)
 * Compare: your branch on your fork (origin)
 
-⸻
+---
 
 ### 8. Iterate on feedback
 ```
@@ -114,7 +182,7 @@ git commit -m "Address review feedback"
 git push origin feature/my-feature
 # updates PR automatically
 ```
-⸻
+---
 
 ### 9. After merge
 ```bash
@@ -127,7 +195,7 @@ git push origin main
 git branch -d feature/my-feature
 # delete local branch
 ```
-⸻
+---
 
 ###  Keeping Your Branch Up-to-Date
 
@@ -148,7 +216,7 @@ Then:
 git push --force-with-lease origin feature/my-feature
 # update your branch on your fork (origin) safely
 ```
-⸻
+---
 
 #### When Things Diverge (Merge Conflicts)
 
@@ -164,7 +232,7 @@ your code
 upstream code
 >>>>>>> upstream/main
 ```
-How to resolve
+How to resolve:
 
 1. Open the file
 2. Decide how to combine the changes
@@ -180,7 +248,7 @@ git rebase --continue
 ```
 Repeat until complete.
 
-⸻
+---
 
 If conflicts are complex
 
@@ -188,72 +256,7 @@ Don’t try to resolve line-by-line blindly. Instead:
 
 * Understand what upstream changed
 * Understand your intended behavior
-* Update your code accordingly
+* Update your code accordingly,  (your IDE, like VSCode will visualize each merge conflict making it straight forward whether to keep the upstream version of your local one)
 
-⸻
-
-# Development Tools
-
-We use:
-
-* Ruff → formatting + linting (See [LINTING_SETUP.md](LINTING_SETUP.md) for details.)
-* mypy → type checking
-* pre-commit → runs checks automatically
-
-You can also run manually:
-```
-pre-commit run --all-files
-```
-⸻
-
-# Code Standards
-
-* Keep PRs focused and reasonably small (ideally < 300 lines)
-* Write clear commit messages
-* Add tests when appropriate
-* Update documentation if APIs change
-
-⸻
-
-# Pull Request Guidelines
-
-A good PR should:
-
-* Clearly describe what changed and why
-* Reference related issues if applicable
-* Be easy to review (avoid large unrelated changes)
-
-⸻
-
-# Issues
-
-Use GitHub issues to report bugs or suggest features.
-
-Include:
-
-* clear description
-* steps to reproduce (for bugs)
-
-⸻
-
-# Documentation
-
-Build docs locally:
-```
-pip install mkdocs mkdocs-material 'mkdocstrings[python]'
-mkdocs serve
-```
-Build static site:
-```
-mkdocs build
-```
-Deploy:
-```
-mkdocs gh-deploy --clean
-```
-⸻
-
-# License
-
-By contributing, you agree that your contributions will be licensed under the project’s [`LICENSE.md`](LICENSE.md) .
+---
 
