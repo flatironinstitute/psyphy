@@ -22,7 +22,7 @@ git checkout -b feature/my-feature
 git add .
 git commit -m "Add feature"
 git push origin feature/my-feature   # push to your fork (origin)
-# open PR: origin → upstream (GitHub UI)
+# open PR: origin -> upstream (GitHub UI)
 ```
 ---
 
@@ -31,9 +31,9 @@ git push origin feature/my-feature   # push to your fork (origin)
 
 We use:
 
-* Ruff → formatting + linting (See [LINTING_SETUP.md](LINTING_SETUP.md) for details.)
-* mypy → type checking
-* pre-commit → runs checks automatically
+* Ruff -> formatting + linting (See [LINTING_SETUP.md](LINTING_SETUP.md) for details.)
+* mypy -> type checking
+* pre-commit -> runs checks automatically
 
 You can also run manually:
 ```
@@ -107,20 +107,21 @@ On GitHub:
 Then locally:
 ```
 git clone https://github.com/YOUR_USERNAME/psyphy.git
-# clones your fork → sets origin = your GitHub repo
+# clones your fork -> sets origin = your GitHub repo
 cd psyphy
 git remote add upstream https://github.com/flatironinstitute/psyphy.git
-# adds upstream → the canonical Flatiron repo
+# adds upstream -> the canonical Flatiron repo
 ```
 Check:
 ```
 git remote -v
-# origin   → your fork
-# upstream → Flatiron repo
+# origin   -> your fork (you push here)
+# upstream -> Flatiron repo (you pull from here, never push)
 ```
 
-```
+
 GitHub:
+```
 
   upstream (canonical repo)
   flatironinstitute/psyphy
@@ -161,7 +162,7 @@ git fetch upstream
 git merge upstream/main
 # update your local main with upstream changes
 git push origin main
-# push updated main → your fork (origin)
+# push updated main -> your fork (origin)
 ```
 ---
 
@@ -183,7 +184,7 @@ git commit -m "Describe your change clearly"
 ### 6. Push to your fork
 ```
 git push origin feature/my-feature
-# pushes your branch → your fork (origin)
+# pushes your branch -> your fork (origin)
 ```
 ---
 
