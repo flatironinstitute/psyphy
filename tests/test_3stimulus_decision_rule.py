@@ -387,7 +387,6 @@ class TestEdgeCases:
             "With large num_samples, results should be stable across seeds."
         )
 
-    @pytest.mark.skip(reason="Unexplained failure unrelated to update")
     def test_multiple_trials_accumulates_loglik(self):
         """
         Test that log-likelihood correctly accumulates across multiple trials.
