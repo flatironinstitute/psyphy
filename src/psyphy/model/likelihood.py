@@ -132,7 +132,7 @@ class TaskLikelihood(ABC):
         params : Any
             Model parameters.
         data : Any
-            Object with ``.inputs``, ``.responses`` 3D array attributes.
+            Object with ``.inputs``, ``.responses`` array attributes.
         model : Any
             Model instance.
         key : jax.random.KeyArray, optional
@@ -148,6 +148,7 @@ class TaskLikelihood(ABC):
         refs = inputs[:, 0, :]
         comparisons = inputs[:, 1, :]
         responses = jnp.asarray(data.responses)
+        responses = responses.astype(int)
         n_trials = int(refs.shape[0])
 
         base_key = key if key is not None else jr.PRNGKey(0)
@@ -158,6 +159,7 @@ class TaskLikelihood(ABC):
                 params, ref, comparison, model, key=k
             )
         )(refs, comparisons, trial_keys)
+        print(probs)
 
         log_likelihoods = jnp.where(
             responses == 1,

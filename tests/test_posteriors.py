@@ -42,7 +42,9 @@ class TestParameterPosterior:
         refs = jnp.array([[0.0, 0.0], [1.0, 1.0]])
         comparisons = jnp.array([[0.5, 0.5], [1.5, 1.0]])
         responses = jnp.array([1, 0], dtype=jnp.int32)
-        return TrialData(refs=refs, comparisons=comparisons, responses=responses)
+        return TrialData(
+            inputs=jnp.stack([refs, comparisons], axis=1), responses=responses
+        )
 
     @pytest.fixture
     def param_posterior(self, model, data):
@@ -103,7 +105,9 @@ class TestPredictivePosterior:
         refs = jr.normal(jr.PRNGKey(0), (10, 2))
         comparisons = refs + jr.normal(jr.PRNGKey(1), (10, 2)) * 0.3
         responses = jnp.ones((10,), dtype=jnp.int32)
-        return TrialData(refs=refs, comparisons=comparisons, responses=responses)
+        return TrialData(
+            inputs=jnp.stack([refs, comparisons], axis=1), responses=responses
+        )
 
     @pytest.fixture
     def param_posterior(self, model, data):
@@ -206,7 +210,9 @@ class TestIntegration:
         refs = jr.normal(k_ref, (20, 2))
         comparisons = refs + jr.normal(k_eps, (20, 2)) * 0.5
         responses = jnp.ones((20,), dtype=jnp.int32)
-        data = TrialData(refs=refs, comparisons=comparisons, responses=responses)
+        data = TrialData(
+            inputs=jnp.stack([refs, comparisons], axis=1), responses=responses
+        )
 
         # 3. Fit model -> ParameterPosterior
         optimizer = MAPOptimizer(steps=50)

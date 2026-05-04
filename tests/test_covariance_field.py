@@ -59,7 +59,7 @@ def sample_data():
         key, subkey = jr.split(key)
         probe = ref + 0.1 * jr.normal(subkey, shape=(2,))
         response = 1 if i % 2 == 0 else 0
-        data.add_trial(ref, probe, response)
+        data.add_trial((ref, probe), response)
     return data
 
 
