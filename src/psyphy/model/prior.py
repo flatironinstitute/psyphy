@@ -94,9 +94,12 @@ class Prior:
                 + jnp.arange(self.basis_degree + 1)[None, :, None]
                 + jnp.arange(self.basis_degree + 1)[None, None, :]
             )
+        elif self.input_dim == 1:
+            # 1D: degree[i] = i for i in 0..basis_degree
+            basis_degrees = jnp.arange(self.basis_degree + 1)  # shape (degree+1,)
         else:
             raise NotImplementedError(
-                f"Wishart process only supports 2D and 3D. Got input_dim={self.input_dim}"
+                f"Wishart process only supports 1D, 2D and 3D. Got input_dim={self.input_dim}"
             )
 
         return basis_degrees
@@ -172,9 +175,15 @@ class Prior:
                     embedding_dim,
                 ),
             )
+        elif self.input_dim == 1:
+            # Shape: (degree+1, input_dim, embedding_dim)
+            W = jnp.sqrt(variances)[:, None, None] * jr.normal(
+                key,
+                shape=(self.basis_degree + 1, self.input_dim, embedding_dim),
+            )
         else:
             raise NotImplementedError(
-                f"Wishart process only supports 2D and 3D. Got input_dim={self.input_dim}"
+                f"Wishart process only supports 1D, 2D and 3D. Got input_dim={self.input_dim}"
             )
 
         return {"W": W}
@@ -211,5 +220,7 @@ class Prior:
                 return -0.5 * jnp.sum((W**2) / (variances[:, :, None, None] + 1e-10))
             elif self.input_dim == 3:
                 return -0.5 * jnp.sum((W**2) / (variances[:, :, :, None, None] + 1e-10))
+            elif self.input_dim == 1:
+                return -0.5 * jnp.sum((W**2) / (variances[:, None, None] + 1e-10))
 
         raise ValueError("params must contain weights 'W'")
