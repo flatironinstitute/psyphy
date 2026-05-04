@@ -166,9 +166,8 @@ ys, p_correct = task.simulate(truth_params, refs, comparisons, truth_model, key=
 # --8<-- [end:simulate_data]
 
 # --8<-- [start:data]
-data = TrialData(
-    refs=refs, comparisons=comparisons, responses=ys
-)  # contains 3 JAX arrays
+inputs = jnp.stack([refs, comparisons], axis=1)
+data = TrialData(inputs=inputs, responses=ys)  # contains 2 JAX arrays
 # --8<-- [end:data]
 
 

@@ -159,7 +159,6 @@ class TaskLikelihood(ABC):
                 params, ref, comparison, model, key=k
             )
         )(refs, comparisons, trial_keys)
-        print(probs)
 
         log_likelihoods = jnp.where(
             responses == 1,
