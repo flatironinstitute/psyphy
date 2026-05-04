@@ -54,9 +54,12 @@ class TestMCLikelihood:
 
     def test_mc_likelihood_shape_and_dtype(self, model, simple_params):
         """Test MC likelihood returns scalar with correct dtype."""
+
+        refs = jnp.array([[0.0, 0.0]])
+        comparisons = jnp.array([[0.1, 0.1]])
+
         data = TrialData(
-            refs=jnp.array([[0.0, 0.0]]),
-            comparisons=jnp.array([[0.1, 0.1]]),
+            inputs=jnp.stack([refs, comparisons], axis=1),
             responses=jnp.array([1], dtype=jnp.int32),
         )
 
@@ -86,8 +89,7 @@ class TestMCLikelihood:
         ref = jnp.array([0.0, 0.0])
         comparison = jnp.array([0.5, 0.5])  # Far enough for clear discrimination
         data = TrialData(
-            refs=jnp.array([ref]),
-            comparisons=jnp.array([comparison]),
+            inputs=jnp.stack([jnp.array([ref]), jnp.array([comparison])], axis=1),
             responses=jnp.array([1], dtype=jnp.int32),
         )
 
@@ -137,9 +139,11 @@ class TestMCLikelihood:
             noise=model.noise,
         )
         data = ResponseData()
+        refs = jnp.array([[0.0, 0.0]])
+        comparisons = jnp.array([[0.2, 0.1]])
+
         data = TrialData(
-            refs=jnp.array([[0.0, 0.0]]),
-            comparisons=jnp.array([[0.2, 0.1]]),
+            inputs=jnp.stack([refs, comparisons], axis=1),
             responses=jnp.array([1], dtype=jnp.int32),
         )
 
@@ -176,9 +180,11 @@ class TestMCLikelihood:
 
     def test_mc_likelihood_batch_correctness(self, model, simple_params):
         """MC likelihood should handle multiple trials correctly."""
+        refs = jnp.array([[0.0, 0.0], [0.5, 0.5], [-0.3, 0.2]])
+        comparisons = jnp.array([[0.1, 0.1], [0.6, 0.4], [-0.2, 0.3]])
+
         data = TrialData(
-            refs=jnp.array([[0.0, 0.0], [0.5, 0.5], [-0.3, 0.2]]),
-            comparisons=jnp.array([[0.1, 0.1], [0.6, 0.4], [-0.2, 0.3]]),
+            inputs=jnp.stack([refs, comparisons], axis=1),
             responses=jnp.array([1, 0, 1], dtype=jnp.int32),
         )
 
@@ -202,9 +208,10 @@ class TestMCLikelihood:
         Smaller bandwidth -> sharper transitions (closer to step function).
         """
         data = ResponseData()
+        refs = jnp.array([[0.0, 0.0]])
+        comparisons = jnp.array([[0.1, 0.1]])
         data = TrialData(
-            refs=jnp.array([[0.0, 0.0]]),
-            comparisons=jnp.array([[0.1, 0.1]]),
+            inputs=jnp.stack([refs, comparisons], axis=1),
             responses=jnp.array([1], dtype=jnp.int32),
         )
 
@@ -237,9 +244,7 @@ class TestMCLikelihood:
             noise=model.noise,
         )
         data = ResponseData()
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.1, 0.1]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.1, 0.1])), resp=1)
 
         ll_1 = model.likelihood.loglik(
             params=simple_params,
@@ -268,9 +273,7 @@ class TestMCLikelihood:
             noise=model.noise,
         )
         data = ResponseData()
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.1, 0.1]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.1, 0.1])), resp=1)
 
         ll_1 = model.likelihood.loglik(
             params=simple_params,
@@ -327,8 +330,7 @@ class TestMCLikelihoodEdgeCases:
         # Create oddity trial data
         data = ResponseData()
         data.add_trial(
-            ref=jnp.array([0.0, 0.0]),
-            comparison=jnp.array([0.5, 0.0]),
+            input=(jnp.array([0.0, 0.0]), jnp.array([0.5, 0.0])),
             resp=1,
         )
 
@@ -356,7 +358,7 @@ class TestMCLikelihoodEdgeCases:
         data = ResponseData()
         # Identical stimuli
         stim = jnp.array([0.5, 0.5])
-        data.add_trial(ref=stim, comparison=stim, resp=1)
+        data.add_trial(input=(stim, stim), resp=1)
 
         model = WPPM(
             input_dim=model.input_dim,
@@ -383,9 +385,7 @@ class TestMCLikelihoodEdgeCases:
         params = model.init_params(jr.PRNGKey(0))
         data = ResponseData()
         # Very far apart
-        data.add_trial(
-            ref=jnp.array([-0.9, -0.9]), comparison=jnp.array([0.9, 0.9]), resp=1
-        )
+        data.add_trial(input=(jnp.array([-0.9, -0.9]), jnp.array([0.9, 0.9])), resp=1)
 
         model = WPPM(
             input_dim=model.input_dim,
@@ -454,9 +454,7 @@ class TestGradientCompatibility:
 
         # Create simple dataset: one trial with moderate discriminability
         data = ResponseData()
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.5, 0.5]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.5, 0.5])), resp=1)
 
         # Define loss function (negative log-likelihood)
         def loss_fn(p):
@@ -501,9 +499,7 @@ class TestGradientCompatibility:
 
         data = ResponseData()
         # Identical stimuli - observer is just guessing
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.0, 0.0]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.0, 0.0])), resp=1)
 
         def loss_fn(p):
             return -model.likelihood.loglik(
@@ -534,9 +530,7 @@ class TestGradientCompatibility:
 
         data = ResponseData()
         # Very far apart stimuli - near perfect discrimination
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([5.0, 5.0]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([5.0, 5.0])), resp=1)
 
         def loss_fn(p):
             return -model.likelihood.loglik(
@@ -574,9 +568,7 @@ class TestGradientCompatibility:
         params = model.init_params(jr.PRNGKey(0))
 
         data = ResponseData()
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.3, 0.3]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.3, 0.3])), resp=1)
 
         def loss_fn(p):
             return -model.likelihood.loglik(
@@ -628,9 +620,7 @@ class TestProbabilityClipping:
 
         data = ResponseData()
         # Identical stimuli -> chance performance
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.0, 0.0]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.0, 0.0])), resp=1)
 
         ll = model.likelihood.loglik(
             params=params,
@@ -661,9 +651,7 @@ class TestProbabilityClipping:
 
         data = ResponseData()
         # Very far apart -> near perfect discrimination
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([10.0, 10.0]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([10.0, 10.0])), resp=1)
 
         ll = model.likelihood.loglik(
             params=params,
@@ -701,7 +689,7 @@ class TestProbabilityClipping:
 
         for ref, comp, description in test_cases:
             data = ResponseData()
-            data.add_trial(ref=ref, comparison=comp, resp=1)
+            data.add_trial(input=(ref, comp), resp=1)
 
             ll = model.likelihood.loglik(
                 params=params,
@@ -750,8 +738,7 @@ class TestNumericalStability:
 
         data = ResponseData()
         data.add_trial(
-            ref=jnp.array([0.0, 0.0, 0.0]),
-            comparison=jnp.array([0.1, 0.1, 0.1]),
+            input=(jnp.array([0.0, 0.0, 0.0]), jnp.array([0.1, 0.1, 0.1])),
             resp=1,
         )
 
@@ -788,8 +775,7 @@ class TestNumericalStability:
 
         data = ResponseData()
         data.add_trial(
-            ref=jnp.array([0.0, 0.0, 0.0]),
-            comparison=jnp.array([0.5, 0.5, 0.5]),
+            input=(jnp.array([0.0, 0.0, 0.0]), jnp.array([0.5, 0.5, 0.5])),
             resp=1,
         )
 
@@ -838,9 +824,7 @@ class TestConvergenceRate:
 
         data = ResponseData()
         # Use intermediate discriminability for variance (not too easy, not too hard)
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.3, 0.3]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.3, 0.3])), resp=1)
 
         # Test with small and large sample sizes
         sample_sizes = [100, 1600]  # 16x difference

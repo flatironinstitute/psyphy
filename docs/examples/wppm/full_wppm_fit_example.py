@@ -140,8 +140,8 @@ def _ellipse_segments_from_covs(
 
 
 NUM_GRID_PTS = 10  # Number of reference points over stimulus space.
-MC_SAMPLES = 500  # Number of Monte Carlo samples per trial in the likelihood. # 500
-NUM_TRIALS_Per_Ref = 4000  # Total number of trials in the simulated dataset.
+MC_SAMPLES = 5  # Number of Monte Carlo samples per trial in the likelihood. # 500
+NUM_TRIALS_Per_Ref = 40  # Total number of trials in the simulated dataset.
 # 4000 trials does not work on cpu
 
 
@@ -257,13 +257,16 @@ ys, p_correct = task.simulate(truth_params, refs, comparisons, truth_model, key=
 # Build the canonical batched dataset for compute.
 #
 # Notes:
-# - This is equivalent to storing X with shape (N, 2, d) and y with shape (N,)
-#   where X[:,0,:]=refs and X[:,1,:]=comparisons.
-# - We keep named fields because it's currently native to OddityTask.
-# - Even though oddity is a 3-item task, we only store (ref, comparison)
+# - This is equivalent to storing X with shape (N, s, d) and y with shape (N, d)
+#   For OddityTask, X[:,0,:]=refs and X[:,1,:]=comparisons.
+# - It is assumed that N is number of trials, s number of distinct stimuli, and
+#   d is stimulus dimensions.
+# - Note that even though oddity is a 3-item task, we only store (ref, comparison)
 #   because the oddity trial is assumed to be (ref, ref, comparison)
+#
 # --8<-- [start:data]
-data = TrialData(refs=refs, comparisons=comparisons, responses=ys)
+inputs = jnp.stack([refs, comparisons], axis=1)
+data = TrialData(inputs=inputs, responses=ys)
 # --8<-- [end:data]
 
 # --8<-- [end:simulate_data]

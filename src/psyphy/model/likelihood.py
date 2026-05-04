@@ -132,7 +132,7 @@ class TaskLikelihood(ABC):
         params : Any
             Model parameters.
         data : Any
-            Object with ``.refs``, ``.comparisons``, ``.responses`` array attributes.
+            Object with ``.inputs``, ``.responses`` 3D array attributes.
         model : Any
             Model instance.
         key : jax.random.KeyArray, optional
@@ -144,8 +144,9 @@ class TaskLikelihood(ABC):
         jnp.ndarray
             Scalar sum of Bernoulli log-likelihoods over all trials.
         """
-        refs = jnp.asarray(data.refs)
-        comparisons = jnp.asarray(data.comparisons)
+        inputs = jnp.asarray(data.inputs)
+        refs = inputs[:, 0, :]
+        comparisons = inputs[:, 1, :]
         responses = jnp.asarray(data.responses)
         n_trials = int(refs.shape[0])
 

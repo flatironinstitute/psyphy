@@ -56,9 +56,7 @@ class TestNoiseModels:
 
         # Create a trial
         data = ResponseData()
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.1, 0.1]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.1, 0.1])), resp=1)
 
         # Compute likelihood with Gaussian noise
         ll_gaussian = model_gaussian.likelihood.loglik(
@@ -88,9 +86,7 @@ class TestNoiseModels:
         """
         params = model_student_t.init_params(jr.PRNGKey(0))
         data = ResponseData()
-        data.add_trial(
-            ref=jnp.array([0.0, 0.0]), comparison=jnp.array([0.5, 0.5]), resp=1
-        )
+        data.add_trial(input=(jnp.array([0.0, 0.0]), jnp.array([0.5, 0.5])), resp=1)
 
         # Override MC fidelity for this test via task config.
         model_student_t = WPPM(

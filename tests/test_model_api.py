@@ -48,7 +48,7 @@ class TestModelFit:
         # Create ResponseData object
         data = ResponseData()
         for i in range(n):
-            data.add_trial(refs[i], comparisons[i], int(y[i]))
+            data.add_trial((refs[i], comparisons[i]), int(y[i]))
         return data
 
     def test_optimizer_fit(self, model, data_arrays):
@@ -89,7 +89,7 @@ class TestModelPosterior:
 
         data = ResponseData()
         for i in range(n):
-            data.add_trial(refs[i], comparisons[i], int(y[i]))
+            data.add_trial((refs[i], comparisons[i]), int(y[i]))
 
         optimizer = MAPOptimizer(steps=20)
         return optimizer.fit(model, data)
@@ -158,7 +158,7 @@ class TestConditionOnObservations:
 
         data = ResponseData()
         for i in range(n):
-            data.add_trial(refs[i], comparisons[i], int(y[i]))
+            data.add_trial((refs[i], comparisons[i]), int(y[i]))
         return data
 
     def test_initial_fit(self, model, initial_data):
@@ -191,7 +191,7 @@ class TestIntegrationWorkflow:
 
         data = ResponseData()
         for i in range(n):
-            data.add_trial(refs[i], comparisons[i], int(y[i]))
+            data.add_trial((refs[i], comparisons[i]), int(y[i]))
 
         # 3. Fit model (new API)
         optimizer = MAPOptimizer(steps=50)
@@ -234,7 +234,7 @@ class TestIntegrationWorkflow:
             key, subkey = jr.split(key)
             comp = ref + jr.normal(subkey, (2,)) * 0.1
 
-            data.add_trial(ref, comp, 1)
+            data.add_trial((ref, comp), 1)
 
             # Re-fit every step (naive online learning)
             posterior = optimizer.fit(model, data)
