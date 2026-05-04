@@ -31,7 +31,10 @@ PathLike = Union[str, Path]
 
 def save_responses_csv(data: TrialData | ResponseData, path: PathLike) -> None:
     """
-    Save ResponseData to a CSV file.
+    Save ResponseData to a CSV file. This is completely task agnostic. In the
+    current implementation, it will simply create as many stimulus columns as
+    inputs in the data and will label them "stimulus 1", "stimulus 2", etc. The
+    response column will be labeled "response"
 
     Parameters
     ----------
