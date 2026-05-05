@@ -64,7 +64,7 @@ def save_responses_csv(data: TrialData | ResponseData, path: PathLike) -> None:
 def load_responses_csv(path: PathLike) -> TrialData:
     """
     Load ResponseData from a CSV file.
-    Currently catering to OddityTask data format.
+    Currently catering to OddityTask data format ONLY.
 
     Parameters
     ----------
