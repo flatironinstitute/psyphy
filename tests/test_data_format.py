@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+import numpy as np
 import pytest
 
 from psyphy.data.dataset import ResponseData
@@ -53,7 +54,7 @@ class TestResponses:
             1,
             0.5,
             jnp.array([0.5, 0.5]),
-            jnp.array([1, 23, 0.1]),
+            np.array([1, 23, 0.1]),
             [1, 3],
             [1, 0.2, 0.9],
         ]
@@ -62,14 +63,14 @@ class TestResponses:
         for resp in responses:
             data = ResponseData()
             data.add_trial(stimuli, resp)
-            assert data.responses == [resp], (
+            assert (data.responses[0] == np.asarray(resp)).all(), (
                 f"The response value of {resp} was incorrectly saved as \
                     {data.responses} in ResponseData"
             )
             td_data = data.to_trial_data()
             assert (td_data.responses == jnp.asarray(resp)).all(), (
-                f"The response value of {resp} was incorrectly saved as \
-                    {td_data.responses} in TrialData"
+                f"The response value of {resp} was incorrectly saved as\
+                {td_data.responses} in TrialData"
             )
 
 
@@ -128,3 +129,55 @@ class TestInputs:
                 f"TrialData was given {dim}-dim stimuli, but represented \
                     {data.stim_shape[0]} dimensions."
             )
+
+
+class TestContext:
+    """Ensure that the optional attribute context behaves as expected for all
+    data structures.
+    """
+
+    def test_add_1Dcontext_to_ResponseData(self):
+        """Add 1D contexts"""
+        data = ResponseData()
+        stimuli = ([0.5, 0.5], [1, 0])
+        response = 1
+        c1 = 2
+        c2 = 9.2
+        data.add_trial(input=stimuli, resp=response, context=c1)
+        assert data.contexts == [c1]
+        data.add_trial(input=stimuli, resp=response, context=c2)
+        assert data.contexts == [c1, c2]
+
+    def test_add_nDcontext_to_ResponseData(self):
+        """Add n-dimensional contexts"""
+        data = ResponseData()
+        stimuli = ([0.5, 0.5], [1, 0])
+        response = 1
+        c1 = [0, 2, 0.1]
+        c2 = [3, 1, 2]
+        data.add_trial(input=stimuli, resp=response, context=c1)
+        assert (data.contexts[0] == np.asarray(c1)).all()
+        data.add_trial(input=stimuli, resp=response, context=c2)
+        for i, c in enumerate([c1, c2]):
+            assert (data.contexts[i] == c).all()
+
+    def convert_data_with_context(self):
+        """test conversions between ResponseData and TrialData for instances
+        with context."""
+
+        # Create ResponseData instance
+        data = ResponseData()
+
+        # Add trial with context to ResponseData
+        stimuli = ([0.5, 0.5], [1, 0])
+        response = 1
+        context = [0, 2, 0.1]
+        data.add_trial(input=stimuli, resp=response, context=context)
+
+        # Convert to TrialData and check context
+        td_data = data.to_trial_data()
+        assert td_data.context == jnp.asarray([context])
+
+        # Convert back to ResponseData and check context
+        r_data = ResponseData.from_trial_data(td_data)
+        assert r_data == [context]
