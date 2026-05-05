@@ -85,10 +85,10 @@ class ResponseData:
     """
 
     def __init__(self) -> None:
-        self.inputs: list[tuple[Any, ...]] = []
+        self.inputs: list[np.array] = []
         self.responses: list[Any] = []
         if self.inputs:
-            self.num_stim = len(self.inputs[0])
+            self.stim_shape = len(self.inputs[0].shape)
 
     def add_trial(self, input: tuple[Any, ...], resp: Any) -> None:
         """
@@ -97,23 +97,22 @@ class ResponseData:
         Parameters
         ----------
         input : tuple(Any, ...)
-            Group of presented stimuli represented in any format (numpy array,
+            Group of presented stimuli each represented in any format (numpy array,
             list, etc.)
-            Tuple must contain appropriate number of stimuli
-        comparison : Any
-            Probe stimulus
+            Input must contain appropriate number of stimuli of appropriate dimension.
         resp : Any
-            Subject response (binary or categorical)
+            Subject response
         """
-        if self.inputs and self.num_stim != len(input):
+        input_arr = np.asarray(input)
+        if self.inputs and self.stim_shape != input_arr.shape:
             raise ValueError(
-                f"inputs must always contain the same number of stimuli. \
-                Expected {self.num_stim}, but received {len(input)}"
+                f"inputs must contain a consistent number of stimuli and number of \
+                stimulus dimensions. Expected {self.stim_shape}, but received {input_arr.shape}"
             )
         else:
-            self.num_stim = len(input)
+            self.stim_shape = input_arr.shape
 
-        self.inputs.append(input)
+        self.inputs.append(input_arr)
         self.responses.append(resp)
 
     def add_batch(self, responses: list[Any], trial_batch: TrialBatch) -> None:
@@ -204,8 +203,8 @@ class ResponseData:
             X = np.reshape(X, new_dims)
         elif X.ndim != 3:
             raise ValueError(
-                "X must be shape (n_trials, n_stimuli, input_dim) or "
-                "(n_trials, input_dim)."
+                "X must be shape (n_trials, n_stimuli, input_dim) or \
+                (n_trials, input_dim)"
             )
         if y.shape[0] != X.shape[0]:
             raise ValueError("X and y must contain the same n_trials")
