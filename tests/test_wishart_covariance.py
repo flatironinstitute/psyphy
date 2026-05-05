@@ -259,7 +259,8 @@ class TestWishartIntegration:
         # X = jnp.stack([refs, comparisons], axis=1)
         responses = jnp.ones((n,), dtype=jnp.int32)
 
-        data = TrialData(refs=refs, comparisons=comparisons, responses=responses)
+        inputs = jnp.stack([refs, comparisons], axis=1)
+        data = TrialData(inputs=inputs, responses=responses)
 
         # fit
         optimizer = MAPOptimizer(steps=10)

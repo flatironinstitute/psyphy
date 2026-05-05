@@ -31,7 +31,10 @@ PathLike = Union[str, Path]
 
 def save_responses_csv(data: TrialData | ResponseData, path: PathLike) -> None:
     """
-    Save ResponseData to a CSV file.
+    Save ResponseData to a CSV file. This is completely task agnostic. In the
+    current implementation, it will simply create as many stimulus columns as
+    inputs in the data and will label them "stimulus 1", "stimulus 2", etc. The
+    response column will be labeled "response"
 
     Parameters
     ----------
@@ -39,27 +42,34 @@ def save_responses_csv(data: TrialData | ResponseData, path: PathLike) -> None:
     path : str or Path
     """
     if isinstance(data, TrialData):
-        refs, comparisons, resps = (
-            np.asarray(data.refs),
-            np.asarray(data.comparisons),
+        inputs, resps = (
+            np.asarray(data.inputs),
             np.asarray(data.responses),
         )
     else:
-        refs, comparisons, resps = data.to_numpy()
+        inputs, resps = data.to_numpy()
+    row_names = []
+    for s in range(inputs.shape[1]):
+        row_names.append("stimulus " + str(s))
+    row_names.append("response")
     with open(path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["ref", "probe", "response"])
-        for r, p, y in zip(refs, comparisons, resps):
-            writer.writerow([r.tolist(), p.tolist(), int(y)])
+        writer.writerow(row_names)
+        for x, y in zip(inputs, resps):
+            row = x.tolist()
+            row.append(y.tolist())
+            writer.writerow(row)
 
 
 def load_responses_csv(path: PathLike) -> TrialData:
     """
     Load ResponseData from a CSV file.
+    Currently catering to OddityTask data format.
 
     Parameters
     ----------
     path : str or Path
+    - must be of expected format for OddityTask
 
     Returns
     -------
@@ -72,7 +82,7 @@ def load_responses_csv(path: PathLike) -> TrialData:
             ref = ast.literal_eval(row["ref"])
             probe = ast.literal_eval(row["probe"])
             resp = int(row["response"])
-            data.add_trial(ref, probe, resp)
+            data.add_trial((ref, probe), resp)
     return data.to_trial_data()
 
 

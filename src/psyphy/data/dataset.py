@@ -33,44 +33,36 @@ class TrialData:
 
     Shapes
     ------
-    refs : (N, d)
-    comparisons : (N, d)
-    responses : (N,)
+    inputs : (N, s, d)
+    responses : (N, d)
 
     Notes
     -----
     - You can also think of this as a more generic ML-style dataset
-      ``X`` with shape (N, 2, d) plus ``y`` with shape (N,). The explicit
-      field names (refs/comparisons) are currently native to :class:`OddityTask`.
+      ``X`` with shape (N, s, d) plus ``y`` with shape (N, d). N corresponds to
+      number of trials, s to number of stimuli, and d to the feature dimensions
+      of a given stimulus or response.
     - This is intended to be JAX-friendly (PyTree of arrays) so likelihood and
       inference code can be JIT-compiled without touching Python containers.
     """
 
-    refs: jnp.ndarray  # TODO: references
-    comparisons: jnp.ndarray
+    inputs: jnp.ndarray
     responses: jnp.ndarray
 
     def __post_init__(self) -> None:
         # Basic shape validation (keep lightweight; raise early for common mistakes).
-        if self.refs.ndim != 2:
-            raise ValueError(f"refs must be 2D (N,d), got shape {self.refs.shape}")
-        if self.comparisons.ndim != 2:
+        if self.inputs.ndim > 3:
             raise ValueError(
-                f"comparisons must be 2D (N,d), got shape {self.comparisons.shape}"
+                f"inputs must be < 3D (N, s, d), got shape {self.inputs.shape}"
             )
-        if self.responses.ndim != 1:
+        if self.responses.ndim > 2:
             raise ValueError(
-                f"responses must be 1D (N,), got shape {self.responses.shape}"
+                f"responses must be < 2D (N, d), got shape {self.responses.shape}"
             )
-        if self.refs.shape[0] != self.comparisons.shape[0]:
+        if self.inputs.shape[0] != self.responses.shape[0]:
             raise ValueError(
-                "refs and comparisons must have same first dimension; "
-                f"got {self.refs.shape[0]} vs {self.comparisons.shape[0]}"
-            )
-        if self.refs.shape[0] != self.responses.shape[0]:
-            raise ValueError(
-                "refs and responses must have same first dimension; "
-                f"got {self.refs.shape[0]} vs {self.responses.shape[0]}"
+                "inputs and responses must have same first dimension; "
+                f"got {self.inputs.shape[0]} vs {self.responses.shape[0]}"
             )
 
     def __len__(self) -> int:
@@ -93,144 +85,150 @@ class ResponseData:
     """
 
     def __init__(self) -> None:
-        self.refs: list[Any] = []
-        self.comparisons: list[Any] = []
-        self.responses: list[int] = []
+        self.inputs: list[tuple[Any, ...]] = []
+        self.responses: list[Any] = []
+        if self.inputs:
+            self.num_stim = len(self.inputs[0])
 
-    def add_trial(self, ref: Any, comparison: Any, resp: int) -> None:
+    def add_trial(self, input: tuple[Any, ...], resp: Any) -> None:
         """
         append a single trial.
 
         Parameters
         ----------
-        ref : Any
-            Reference stimulus (numpy array, list, etc.)
+        input : tuple(Any, ...)
+            Group of presented stimuli represented in any format (numpy array,
+            list, etc.)
+            Tuple must contain appropriate number of stimuli
         comparison : Any
             Probe stimulus
-        resp : int
+        resp : Any
             Subject response (binary or categorical)
         """
-        self.refs.append(ref)
-        self.comparisons.append(comparison)
+        if self.inputs and self.num_stim != len(input):
+            raise ValueError(
+                f"inputs must always contain the same number of stimuli. \
+                Expected {self.num_stim}, but received {len(input)}"
+            )
+        else:
+            self.num_stim = len(input)
+
+        self.inputs.append(input)
         self.responses.append(resp)
 
-    def add_batch(self, responses: list[int], trial_batch: TrialBatch) -> None:
+    def add_batch(self, responses: list[Any], trial_batch: TrialBatch) -> None:
         """
         Append responses for a batch of trials.
 
         Parameters
         ----------
-        responses : List[int]
-            Responses corresponding to each (ref, comparison) in the trial batch.
+        responses : List[Any]
+            Responses corresponding to each stimulus group in the trial batch.
         trial_batch : TrialBatch
             The batch of proposed trials.
         """
-        for (ref, comparison), resp in zip(trial_batch.stimuli, responses):
-            self.add_trial(ref, comparison, resp)
+        for input, resp in zip(trial_batch.stimuli, responses):
+            self.add_trial(input, resp)
 
-    def to_numpy(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Return refs, comparisons, responses as NumPy arrays."""
+    def to_numpy(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return inputs and responses as NumPy arrays."""
         return (
-            np.asarray(self.refs),
-            np.asarray(self.comparisons),
+            np.asarray(self.inputs),  # shape = (N, s, d)
             np.asarray(self.responses),
         )
 
     def to_trial_data(self) -> TrialData:
         """Convert this log into the canonical JAX batch (:class:`TrialData`)."""
-        refs, comparisons, responses = self.to_numpy()
+        inputs, responses = self.to_numpy()
         return TrialData(
-            refs=jnp.asarray(refs),
-            comparisons=jnp.asarray(comparisons),
+            inputs=jnp.asarray(inputs),
             responses=jnp.asarray(responses),
         )
 
     @property
-    def trials(self) -> list[tuple[Any, Any, int]]:
+    def trials(self) -> list[tuple[Any, ...]]:
         """
-        Return list of (ref, comparison, response) tuples.
+        Return list of (stim1, stim2, ... , response) tuples.
 
         Returns
         -------
         list[tuple]
-            Each element is (ref, comparison, resp)
+            Each element is tuple representing all stimuli and the associated
+            response for a given trial.
         """
-        return list(zip(self.refs, self.comparisons, self.responses))
+        return [i + (r,) for i, r in zip(self.inputs, self.responses)]
 
     def __len__(self) -> int:
         """Return number of trials."""
-        return len(self.refs)
+        return len(self.inputs)
 
     @classmethod
     def from_arrays(
         cls,
         X: jnp.ndarray | np.ndarray,
         y: jnp.ndarray | np.ndarray,
-        *,
-        comparisons: jnp.ndarray | np.ndarray | None = None,
     ) -> ResponseData:
         """
         Construct ResponseData from arrays.
 
         Parameters
         ----------
-        X : array, shape (n_trials, 2, input_dim) or (n_trials, input_dim)
-            Stimuli. If 3D, second axis is [reference, comparison].
-            If 2D, comparisons must be provided separately.
-        y : array, shape (n_trials,)
+        X : array, shape (n_trials, n_stimuli, input_dim) or (n_trials, input_dim)
+            Stimuli. If 3D, second axis is input stumili. For OddityTask, this is
+            (ref, comparison)
+        y : array, shape (n_trials, response_dim)
             Responses
-        comparisons : array, shape (n_trials, input_dim), optional
-            Probe stimuli. Only needed if X is 2D.
 
         Returns
         -------
         ResponseData
             Data container
 
-        Examples
+        OddityTask Example
         --------
         >>> # From paired stimuli
         >>> X = jnp.array([[[0, 0], [1, 0]], [[1, 1], [2, 1]]])
+        >>> # X is formed from refs = [[0, 0], [1, 1]], comparisons = [[1, 0], [2, 1]]
         >>> y = jnp.array([1, 0])
         >>> data = ResponseData.from_arrays(X, y)
-
-        >>> # From separate refs and comparisons
-        >>> refs = jnp.array([[0, 0], [1, 1]])
-        >>> comparisons = jnp.array([[1, 0], [2, 1]])
-        >>> data = ResponseData.from_arrays(refs, y, comparisons=comparisons)
         """
         data = cls()
 
         X = np.asarray(X)
         y = np.asarray(y)
 
-        if X.ndim == 3:
-            # X is (n_trials, 2, input_dim)
-            refs = X[:, 0, :]
-            comparisons_arr = X[:, 1, :]
-        elif X.ndim == 2 and comparisons is not None:
-            refs = X
-            comparisons_arr = np.asarray(comparisons)
-        else:
+        if X.ndim == 2:
+            # reshape to ensure appropriate conversion to stimuli groups
+            dims = X.shape()
+            new_dims = (dims[0], 1, dims[1])
+            X = np.reshape(X, new_dims)
+        elif X.ndim != 3:
             raise ValueError(
-                "X must be shape (n_trials, 2, input_dim) or "
-                "(n_trials, input_dim) with comparisons argument"
+                "X must be shape (n_trials, n_stimuli, input_dim) or "
+                "(n_trials, input_dim)."
             )
+        if y.shape[0] != X.shape[0]:
+            raise ValueError("X and y must contain the same n_trials")
 
-        for ref, comparison, response in zip(refs, comparisons_arr, y):
-            data.add_trial(ref, comparison, int(response))
+        # X is (n_trials, n_stim, input_dim)
+        inputs = []
+        for plane in X:
+            inputs.append(tuple(plane))
+        # --> X is(n_trials,) where each entry is tuple of stimuli
+
+        for input, response in zip(inputs, y):
+            data.add_trial(input, response)
 
         return data
 
     @classmethod
     def from_trial_data(cls, data: TrialData) -> ResponseData:
         """Build a ResponseData log from a :class:`TrialData` batch."""
-        refs = np.asarray(data.refs)
-        comps = np.asarray(data.comparisons)
+        inputs = np.asarray(data.inputs)
         ys = np.asarray(data.responses)
         out = cls()
-        for r, c, y in zip(refs, comps, ys):
-            out.add_trial(r, c, int(y))
+        for i, y in zip(inputs, ys):
+            out.add_trial(i, y)
         return out
 
     def merge(self, other: ResponseData) -> None:
@@ -242,8 +240,7 @@ class ResponseData:
         other : ResponseData
             Dataset to merge
         """
-        self.refs.extend(other.refs)
-        self.comparisons.extend(other.comparisons)
+        self.inputs.extend(other.inputs)
         self.responses.extend(other.responses)
 
     def tail(self, n: int) -> ResponseData:
@@ -261,8 +258,7 @@ class ResponseData:
             New dataset with last n trials
         """
         new_data = ResponseData()
-        new_data.refs = self.refs[-n:]
-        new_data.comparisons = self.comparisons[-n:]
+        new_data.inputs = self.inputs[-n:]
         new_data.responses = self.responses[-n:]
         return new_data
 
@@ -276,8 +272,7 @@ class ResponseData:
             New dataset with copied data
         """
         new_data = ResponseData()
-        new_data.refs = list(self.refs)
-        new_data.comparisons = list(self.comparisons)
+        new_data.inputs = list(self.inputs)
         new_data.responses = list(self.responses)
         return new_data
 
@@ -288,16 +283,17 @@ class TrialBatch:
 
     Attributes
     ----------
-    stimuli : List[Tuple[Any, Any]]
-        Each trial is a (reference, comparison) tuple.
+    stimuli : List[Tuple[Any, ...]]
+        Each trial is a tuple of all presented stimuli (stim1, stim2, ...).
+        For OddityTask this is (reference, comparison)
     """
 
-    def __init__(self, stimuli: list[tuple[Any, Any]]) -> None:
+    def __init__(self, stimuli: list[tuple[Any, ...]]) -> None:
         self.stimuli = list(stimuli)
 
     @classmethod
-    def from_stimuli(cls, pairs: list[tuple[Any, Any]]) -> TrialBatch:
+    def from_stimuli(cls, groups: list[tuple[Any, ...]]) -> TrialBatch:
         """
-        Construct a TrialBatch from a list of stimuli (ref, comparison) pairs.
+        Construct a TrialBatch from a list of stimuli (stim1, stim2, ...) groups.
         """
-        return cls(pairs)
+        return cls(groups)
