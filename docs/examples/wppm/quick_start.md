@@ -129,5 +129,5 @@ initialization (blue), and the MAP fit (red) at the single reference point:
 ## Next steps
 
 - **Spatially-varying field:** scale up to a full 2-D grid → [full example](full_wppm_fit_example.md).
-- **Your own data:** replace the simulated `TrialData` with your own `refs`, `comparisons`, and `responses` arrays.
+- **Your own data:** replace the simulated `TrialData` with your own `inputs` and `responses` arrays. (currently calculations are only supported when the inputs are "refs" and "comparisons.")
 - **API reference:** see [`MAPOptimizer`](../../reference/inference.md), [`WPPM`](../../reference/model.md), and [`WPPMCovarianceField`](../../reference/model.md).
