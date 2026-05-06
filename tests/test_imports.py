@@ -14,5 +14,6 @@ def test_top_level_api_imports():
         "MAPPosterior",
         "ResponseData",
         "TrialBatch",
+        "TrialData",
     ]:
         assert hasattr(p, name)

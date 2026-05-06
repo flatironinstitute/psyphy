@@ -336,7 +336,7 @@ src/psyphy/
 │   └── expected_improvement.py
 │
 ├── data/             # Data handling
-│   ├── dataset.py   # ResponseData class
+│   ├── dataset.py   # ResponseData class, TrialData class
 │   └── io.py        # Loading/saving
 │
 └── utils/            # Utilities

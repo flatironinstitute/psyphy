@@ -82,7 +82,7 @@ from . import posterior as posterior
 # from . import session as session
 from . import trial_placement as trial_placement
 from . import utils as utils
-from .data.dataset import ResponseData, TrialBatch
+from .data.dataset import ResponseData, TrialBatch, TrialData
 from .inference.langevin import LangevinSampler
 from .inference.laplace import LaplaceApproximation
 
@@ -116,6 +116,7 @@ __all__ = [
     # Data handling
     "ResponseData",
     "TrialBatch",
+    "TrialData",
     # Subpackages
     "model",
     "inference",
