@@ -234,3 +234,52 @@ class TestContext:
         # Convert back to ResponseData and check context
         r_data = ResponseData.from_trial_data(td_data)
         np.testing.assert_allclose(r_data.contexts[0], context)
+
+
+class TestStimulusNames:
+    """TrialData.stimulus_names and the .stimulus() named accessor."""
+
+    _stimuli = jnp.array(
+        [[[0.3, -0.5], [0.4, -0.4]], [[0.1, 0.2], [0.5, 0.6]]]
+    )  # (N=2, K=2, d=2)
+    _responses = jnp.array([[1], [0]])  # (N=2, R=1)
+
+    def test_stimulus_names_default_empty(self):
+        """stimulus_names defaults to an empty tuple when not provided."""
+        data = TrialData(stimuli=self._stimuli, responses=self._responses)
+        assert data.stimulus_names == ()
+
+    def test_stimulus_names_stored(self):
+        """stimulus_names is stored and retrievable."""
+        data = TrialData(
+            stimuli=self._stimuli,
+            responses=self._responses,
+            stimulus_names=("ref", "comp"),
+        )
+        assert data.stimulus_names == ("ref", "comp")
+
+    def test_stimulus_accessor_returns_correct_slice(self):
+        """data.stimulus('ref') returns stimuli[:, 0, :] for slot 0."""
+        data = TrialData(
+            stimuli=self._stimuli,
+            responses=self._responses,
+            stimulus_names=("ref", "comp"),
+        )
+        np.testing.assert_array_equal(data.stimulus("ref"), self._stimuli[:, 0, :])
+        np.testing.assert_array_equal(data.stimulus("comp"), self._stimuli[:, 1, :])
+
+    def test_stimulus_accessor_unknown_name_raises(self):
+        """data.stimulus() with an unrecognised name raises ValueError."""
+        data = TrialData(
+            stimuli=self._stimuli,
+            responses=self._responses,
+            stimulus_names=("ref", "comp"),
+        )
+        with pytest.raises(ValueError, match="unknown stimulus name"):
+            data.stimulus("nonexistent")
+
+    def test_stimulus_accessor_empty_names_raises(self):
+        """data.stimulus() raises if stimulus_names was not set."""
+        data = TrialData(stimuli=self._stimuli, responses=self._responses)
+        with pytest.raises(ValueError, match="stimulus_names"):
+            data.stimulus("ref")

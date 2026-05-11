@@ -61,6 +61,7 @@ class TrialData:
     stimuli: jnp.ndarray
     responses: jnp.ndarray
     context: jnp.ndarray | None = None
+    stimulus_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         # Callers that construct TrialData directly (bypassing ResponseData.add_trial)
@@ -89,6 +90,32 @@ class TrialData:
                 "if context is provided, it must share the same first dimension;"
                 f"got {self.context.shape[0]} vs {self.stimuli.shape[0]}."
             )
+
+    def stimulus(self, name: str) -> jnp.ndarray:
+        """Return stimuli[:, k, :] for the slot named `name`.
+
+        Parameters
+        ----------
+        name : str
+            Must match one of the entries in ``stimulus_names``.
+
+        Returns
+        -------
+        jnp.ndarray, shape (N, d)
+            Stimulus coordinates for all trials at the named slot.
+        """
+        if not self.stimulus_names:
+            raise ValueError(
+                "stimulus_names is empty — set it at construction time to use "
+                "named access, e.g. stimulus_names=('ref', 'comp')."
+            )
+        if name not in self.stimulus_names:
+            raise ValueError(
+                f"unknown stimulus name '{name}'. "
+                f"Available names: {self.stimulus_names}."
+            )
+        idx = self.stimulus_names.index(name)  # resolved in Python, not JAX-traced
+        return self.stimuli[:, idx, :]
 
     def __len__(self) -> int:
         """Number of trials (N)."""
