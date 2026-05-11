@@ -257,8 +257,9 @@ ys, p_correct = task.simulate(truth_params, refs, comparisons, truth_model, key=
 # Build the canonical batched dataset for compute.
 #
 # Notes:
-# - This is equivalent to storing X with shape (N, s, d) and y with shape (N, d)
-#   Where N is trials, s is distinct stimuli, and d is stimulus dimensions.
+# - This is equivalent to storing X with shape (N, K, d) and y with shape (N, R)
+#   where N is trials, K is number of distinct stimuli per trial, d is stimulus
+#   dimensionality, and R is number of response channels.
 # - For OddityTask, X[:,0,:]=refs and X[:,1,:]=comparisons.
 # - Note that even though oddity is a 3-item task, we only store (ref, comparison)
 #   because the oddity trial is assumed to be (ref, ref, comparison)

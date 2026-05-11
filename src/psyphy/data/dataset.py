@@ -33,20 +33,29 @@ class TrialData:
 
     Shapes
     ------
-    inputs : (N, s, d)
-    responses : (N, r)
-    context : optional (N, c)
+    inputs : (N, K, d)
+    responses : (N, R)
+    context : optional (N, C)
+
+    Dimension key
+    -------------
+    N : number of trials (batch dimension)
+    K : number of stimuli per trial (e.g. K=2 for a two-alternative task;
+        K=2 for the oddity task, where the reference is presented twice but
+        only the unique mean is stored — the duplication is encoded in the
+        task likelihood, not here)
+    d : dimensionality of each stimulus coordinate
+    R : number of response channels (R=1 for binary; R=2 for e.g. (choice, RT))
+    C : number of context channels (observer-state covariates that condition the
+        likelihood but are not part of the stimulus space, e.g. fatigue level)
 
     Notes
     -----
     - You can also think of this as a more generic ML-style dataset
-      ``X`` with shape (N, s, d) plus ``y`` with shape (N, r). N corresponds to
-      number of trials, s to number of stimuli, d to the feature dimensions
-      of a given stimulus, and r to dimensions of a given response.
+      ``X`` with shape (N, K, d) plus ``y`` with shape (N, R).
     - This is intended to be JAX-friendly (PyTree of arrays) so likelihood and
       inference code can be JIT-compiled without touching Python containers.
-    - Context is optional with N trials and c context dimensions. No current
-        inbuilt uses.
+    - Context is optional. No current inbuilt uses.
     """
 
     inputs: jnp.ndarray
@@ -57,11 +66,11 @@ class TrialData:
         # Basic shape validation (keep lightweight; raise early for common mistakes).
         if self.inputs.ndim > 3:
             raise ValueError(
-                f"inputs must be < 3D (N, s, d), got shape {self.inputs.shape}"
+                f"inputs must be 3D (N, K, d), got shape {self.inputs.shape}"
             )
         if self.responses.ndim > 2:
             raise ValueError(
-                f"responses must be < 2D (N, d), got shape {self.responses.shape}"
+                f"responses must be 2D (N, R), got shape {self.responses.shape}"
             )
         if self.inputs.shape[0] != self.responses.shape[0]:
             raise ValueError(
@@ -169,7 +178,7 @@ class ResponseData:
         Will NOT include contexts by default. Output always fixed length of 2.
         """
         return (
-            np.asarray(self.inputs),  # shape = (N, s, d)
+            np.asarray(self.inputs),  # shape = (N, K, d)
             np.asarray(self.responses),
         )
 

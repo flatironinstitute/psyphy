@@ -77,11 +77,11 @@ Note on data used in this script: here, we simulate data (and hence have a groun
 - The canonical, (batched) input expected by likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)).
 It holds JAX arrays:
 
-   - inputs: (N, s, d)
-   - responses: (N,r)
-   - context: (N, c) (optional)
+   - inputs: (N, K, d)
+   - responses: (N, R)
+   - context: (N, C) (optional)
 
-where $N$ refers to the number of trials included in the sample, $s$ refers to the number of stimuli in the input (e.g. 2 in the Oddity task, "refs" and "comparisons"). $d$, $r$, and $c$ refer to the dimensionality of stimuli, responses, and contexts respectively.
+where $N$ is the number of trials, $K$ is the number of distinct stimuli per trial (e.g. K=2 in the Oddity task: reference and comparison), $d$ is the stimulus space dimensionality, $R$ is the number of response channels, and $C$ is the number of context channels.
 
 Context is an optional attribute which is intended to track task-wide features that vary across trials which might condition likelihoods. For example, psyiological metrics like pupil dilation could be included as context. PsyPhy does not yet have inbuilt uses for context.
 
