@@ -402,11 +402,11 @@ class TestEdgeCases:
         )
         params = model.init_params(jr.PRNGKey(0))
 
-        # Create multiple trials
-        data_multi = ResponseData()
         ref = jnp.array([0.0, 0.0])
         comparison = jnp.array([1.0, 1.0])
 
+        # Create multiple trials
+        data_multi = ResponseData()
         for _ in range(5):
             data_multi.add_trial((ref, comparison), resp=1)
 
@@ -433,8 +433,14 @@ class TestEdgeCases:
         # (with some tolerance for MC variance)
         expected_loglik = 5 * loglik_single
 
-        assert (
-            jnp.abs(loglik_multi - expected_loglik) / jnp.abs(expected_loglik) < 0.1
+        # Use combined absolute +relative tolerance (np.allclose pattern) so the
+        # assertion is robust when expected_loglik is near zero, as
+        #  pure relative
+        # tolerance blows up in that regime due to MC variance across key splits.
+        atol = 0.05
+        rtol = 0.1
+        assert jnp.abs(loglik_multi - expected_loglik) <= atol + rtol * jnp.abs(
+            expected_loglik
         ), (
             f"Multi-trial loglik = {loglik_multi:.3f}, "
             f"expected ≈ {expected_loglik:.3f} (5 × single trial). "
@@ -443,7 +449,8 @@ class TestEdgeCases:
 
     def test_zero_samples_raises_error(self):
         """Test that num_samples=0 raises an error."""
-        # Strict API: num_samples comes from task config, so invalid config should fail at construction.
+        # Strict API: num_samples comes from task config, so invalid
+        # config should fail at construction.
         with pytest.raises(ValueError, match="num_samples must be > 0"):
             _ = OddityTask(config=OddityTaskConfig(num_samples=0, bandwidth=1e-2))
 
