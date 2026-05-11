@@ -161,7 +161,7 @@ class TestContext:
         for i, c in enumerate([c1, c2]):
             assert (data.contexts[i] == c).all()
 
-    def convert_data_with_context(self):
+    def test_convert_data_with_context(self):
         """test conversions between ResponseData and TrialData for instances
         with context."""
 
