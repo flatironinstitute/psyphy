@@ -265,8 +265,8 @@ ys, p_correct = task.simulate(truth_params, refs, comparisons, truth_model, key=
 #   because the oddity trial is assumed to be (ref, ref, comparison)
 #
 # --8<-- [start:data]
-inputs = jnp.stack([refs, comparisons], axis=1)
-data = TrialData(inputs=inputs, responses=ys)
+stimuli = jnp.stack([refs, comparisons], axis=1)
+data = TrialData(stimuli=stimuli, responses=ys)
 # --8<-- [end:data]
 
 # --8<-- [end:simulate_data]

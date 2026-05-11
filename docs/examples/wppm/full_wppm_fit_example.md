@@ -77,7 +77,7 @@ Note on data used in this script: here, we simulate data (and hence have a groun
 - The canonical, (batched) input expected by likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)).
 It holds JAX arrays:
 
-   - inputs: (N, K, d)
+   - stimuli: (N, K, d)
    - responses: (N, R)
    - context: (N, C) (optional)
 

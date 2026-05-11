@@ -43,7 +43,7 @@ class TestParameterPosterior:
         comparisons = jnp.array([[0.5, 0.5], [1.5, 1.0]])
         responses = jnp.array([1, 0], dtype=jnp.int32)
         return TrialData(
-            inputs=jnp.stack([refs, comparisons], axis=1), responses=responses
+            stimuli=jnp.stack([refs, comparisons], axis=1), responses=responses
         )
 
     @pytest.fixture
@@ -106,7 +106,7 @@ class TestPredictivePosterior:
         comparisons = refs + jr.normal(jr.PRNGKey(1), (10, 2)) * 0.3
         responses = jnp.ones((10,), dtype=jnp.int32)
         return TrialData(
-            inputs=jnp.stack([refs, comparisons], axis=1), responses=responses
+            stimuli=jnp.stack([refs, comparisons], axis=1), responses=responses
         )
 
     @pytest.fixture
@@ -211,7 +211,7 @@ class TestIntegration:
         comparisons = refs + jr.normal(k_eps, (20, 2)) * 0.5
         responses = jnp.ones((20,), dtype=jnp.int32)
         data = TrialData(
-            inputs=jnp.stack([refs, comparisons], axis=1), responses=responses
+            stimuli=jnp.stack([refs, comparisons], axis=1), responses=responses
         )
 
         # 3. Fit model -> ParameterPosterior

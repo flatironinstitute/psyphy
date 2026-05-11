@@ -59,7 +59,7 @@ class TestMCLikelihood:
         comparisons = jnp.array([[0.1, 0.1]])
 
         data = TrialData(
-            inputs=jnp.stack([refs, comparisons], axis=1),
+            stimuli=jnp.stack([refs, comparisons], axis=1),
             responses=jnp.array([1], dtype=jnp.int32),
         )
 
@@ -89,7 +89,7 @@ class TestMCLikelihood:
         ref = jnp.array([0.0, 0.0])
         comparison = jnp.array([0.5, 0.5])  # Far enough for clear discrimination
         data = TrialData(
-            inputs=jnp.stack([jnp.array([ref]), jnp.array([comparison])], axis=1),
+            stimuli=jnp.stack([jnp.array([ref]), jnp.array([comparison])], axis=1),
             responses=jnp.array([1], dtype=jnp.int32),
         )
 
@@ -143,7 +143,7 @@ class TestMCLikelihood:
         comparisons = jnp.array([[0.2, 0.1]])
 
         data = TrialData(
-            inputs=jnp.stack([refs, comparisons], axis=1),
+            stimuli=jnp.stack([refs, comparisons], axis=1),
             responses=jnp.array([1], dtype=jnp.int32),
         )
 
@@ -184,7 +184,7 @@ class TestMCLikelihood:
         comparisons = jnp.array([[0.1, 0.1], [0.6, 0.4], [-0.2, 0.3]])
 
         data = TrialData(
-            inputs=jnp.stack([refs, comparisons], axis=1),
+            stimuli=jnp.stack([refs, comparisons], axis=1),
             responses=jnp.array([1, 0, 1], dtype=jnp.int32),
         )
 
@@ -211,7 +211,7 @@ class TestMCLikelihood:
         refs = jnp.array([[0.0, 0.0]])
         comparisons = jnp.array([[0.1, 0.1]])
         data = TrialData(
-            inputs=jnp.stack([refs, comparisons], axis=1),
+            stimuli=jnp.stack([refs, comparisons], axis=1),
             responses=jnp.array([1], dtype=jnp.int32),
         )
 

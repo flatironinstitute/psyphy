@@ -33,7 +33,7 @@ class TrialData:
 
     Shapes
     ------
-    inputs : (N, K, d)
+    stimuli : (N, K, d)
     responses : (N, R)
     context : optional (N, C)
 
@@ -58,29 +58,29 @@ class TrialData:
     - Context is optional. No current inbuilt uses.
     """
 
-    inputs: jnp.ndarray
+    stimuli: jnp.ndarray
     responses: jnp.ndarray
     context: jnp.ndarray | None = None
 
     def __post_init__(self) -> None:
         # Basic shape validation (keep lightweight; raise early for common mistakes).
-        if self.inputs.ndim > 3:
+        if self.stimuli.ndim > 3:
             raise ValueError(
-                f"inputs must be 3D (N, K, d), got shape {self.inputs.shape}"
+                f"stimuli must be 3D (N, K, d), got shape {self.stimuli.shape}"
             )
         if self.responses.ndim > 2:
             raise ValueError(
                 f"responses must be 2D (N, R), got shape {self.responses.shape}"
             )
-        if self.inputs.shape[0] != self.responses.shape[0]:
+        if self.stimuli.shape[0] != self.responses.shape[0]:
             raise ValueError(
-                "inputs and responses must have same first dimension; "
-                f"got {self.inputs.shape[0]} vs {self.responses.shape[0]}."
+                "stimuli and responses must have same first dimension; "
+                f"got {self.stimuli.shape[0]} vs {self.responses.shape[0]}."
             )
-        if self.context is not None and self.context.shape[0] != self.inputs.shape[0]:
+        if self.context is not None and self.context.shape[0] != self.stimuli.shape[0]:
             raise ValueError(
                 "if context is provided, it must share the same first dimension;"
-                f"got {self.context.shape[0]} vs {self.inputs.shape[0]}."
+                f"got {self.context.shape[0]} vs {self.stimuli.shape[0]}."
             )
 
     def __len__(self) -> int:
@@ -103,10 +103,10 @@ class ResponseData:
     """
 
     def __init__(self) -> None:
-        self.inputs: list[np.array] = []
+        self.stimuli: list[np.array] = []
         self.responses: list[np.array] = []
-        if self.inputs:
-            self.stim_shape = self.inputs[0].shape
+        if self.stimuli:
+            self.stim_shape = self.stimuli[0].shape
         self.contexts: list[np.array] = []
 
     def add_trial(self, input: tuple[Any, ...], resp: Any, context: Any = None) -> None:
@@ -124,11 +124,10 @@ class ResponseData:
         """
         input_arr = np.asarray(input)
         resp_arr = np.asarray(resp)
-        if self.inputs:
+        if self.stimuli:
             if self.stim_shape != input_arr.shape:
                 raise ValueError(
-                    f"inputs must contain a consistent number of stimuli and number of \
-                    stimulus dimensions. Expected {self.stim_shape}, but received {input_arr.shape}"
+                    f"stimuli must have consistent shape (K, d). Expected {self.stim_shape}, but received {input_arr.shape}"
                 )
         else:
             self.stim_shape = input_arr.shape
@@ -140,14 +139,14 @@ class ResponseData:
                     "This ResponseData instance expected context but received none."
                 )
         else:
-            if self.contexts or self.inputs == []:
+            if self.contexts or self.stimuli == []:
                 self.contexts.append(np.asarray(context))
             else:
                 raise ValueError(
                     "Context cannot be accepted if it was excluded from prior trials."
                     f"This ResponseData instance expected no context, but received {context}"
                 )
-        self.inputs.append(input_arr)
+        self.stimuli.append(input_arr)
         self.responses.append(resp_arr)
 
     def add_batch(
@@ -174,27 +173,27 @@ class ResponseData:
                 self.add_trial(input, resp, context)
 
     def to_numpy(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return inputs and responses as NumPy arrays.
+        """Return stimuli and responses as NumPy arrays.
         Will NOT include contexts by default. Output always fixed length of 2.
         """
         return (
-            np.asarray(self.inputs),  # shape = (N, K, d)
+            np.asarray(self.stimuli),  # shape = (N, K, d)
             np.asarray(self.responses),
         )
 
     def to_trial_data(self) -> TrialData:
         """Convert this log into the canonical JAX batch (:class:`TrialData`)."""
-        inputs, responses = self.to_numpy()
+        stimuli, responses = self.to_numpy()
         if self.contexts:
             context = np.asarray(self.contexts)
             return TrialData(
-                inputs=jnp.asarray(inputs),
+                stimuli=jnp.asarray(stimuli),
                 responses=jnp.asarray(responses),
                 context=jnp.asarray(context),
             )
         else:
             return TrialData(
-                inputs=jnp.asarray(inputs), responses=jnp.asarray(responses)
+                stimuli=jnp.asarray(stimuli), responses=jnp.asarray(responses)
             )
 
     @property
@@ -209,11 +208,11 @@ class ResponseData:
             Each element is tuple representing all stimuli and the associated
             response for a given trial.
         """
-        return [i + (r,) for i, r in zip(self.inputs, self.responses)]
+        return [i + (r,) for i, r in zip(self.stimuli, self.responses)]
 
     def __len__(self) -> int:
         """Return number of trials."""
-        return len(self.inputs)
+        return len(self.stimuli)
 
     @classmethod
     def from_arrays(
@@ -268,34 +267,33 @@ class ResponseData:
         if c is not None and c.shape[0] != X.shape[0]:
             raise ValueError("c must contain same n_trials as X.")
 
-        # X is (n_trials, n_stim, input_dim)
-        inputs = []
+        # X is (n_trials, K, d) — split into per-trial tuples of K stimulus rows
+        stimuli = []
         for plane in X:
-            inputs.append(tuple(plane))
-        # --> X is(n_trials,) where each entry is tuple of stimuli
+            stimuli.append(tuple(plane))
 
         if c is not None:
-            for input, response, context in zip(inputs, y, c):
-                data.add_trial(input, response, context)
+            for stim, response, context in zip(stimuli, y, c):
+                data.add_trial(stim, response, context)
         else:
-            for input, response in zip(inputs, y):
-                data.add_trial(input, response)
+            for stim, response in zip(stimuli, y):
+                data.add_trial(stim, response)
 
         return data
 
     @classmethod
     def from_trial_data(cls, data: TrialData) -> ResponseData:
         """Build a ResponseData log from a :class:`TrialData` batch."""
-        inputs = np.asarray(data.inputs)
+        stimuli = np.asarray(data.stimuli)
         ys = np.asarray(data.responses)
         out = cls()
         if data.context is not None:
             cs = np.asarray(data.context)
-            for i, y, c in zip(inputs, ys, cs):
-                out.add_trial(i, y, c)
+            for s, y, c in zip(stimuli, ys, cs):
+                out.add_trial(s, y, c)
         else:
-            for i, y in zip(inputs, ys):
-                out.add_trial(i, y)
+            for s, y in zip(stimuli, ys):
+                out.add_trial(s, y)
         return out
 
     def merge(self, other: ResponseData) -> None:
@@ -307,12 +305,12 @@ class ResponseData:
         other : ResponseData
             Dataset to merge
         """
-        no_empty = self.inputs and other.inputs
+        no_empty = self.stimuli and other.stimuli
 
-        if no_empty and self.inputs[0].shape != other.inputs[0].shape:
+        if no_empty and self.stimuli[0].shape != other.stimuli[0].shape:
             raise ValueError(
                 "Cannot merge ResponseData instances with inconsistent input shapes."
-                f"Received input shapes of {self.inputs[0].shape} and {other.inputs[0].shape}"
+                f"Received input shapes of {self.stimuli[0].shape} and {other.stimuli[0].shape}"
             )
         if no_empty and self.responses[0].shape != other.responses[0].shape:
             raise ValueError(
@@ -320,7 +318,7 @@ class ResponseData:
                 f"Received response shapes of {self.responses[0].shape} and {other.responses[0].shape}"
             )
 
-        self.inputs.extend(other.inputs)
+        self.stimuli.extend(other.stimuli)
         self.responses.extend(other.responses)
         both_contexts = self.contexts and other.contexts
 
@@ -348,7 +346,7 @@ class ResponseData:
             New dataset with last n trials
         """
         new_data = ResponseData()
-        new_data.inputs = self.inputs[-n:]
+        new_data.stimuli = self.stimuli[-n:]
         new_data.responses = self.responses[-n:]
         if self.contexts is not None:
             new_data.contexts = self.contexts[-n:]
@@ -364,7 +362,7 @@ class ResponseData:
             New dataset with copied data
         """
         new_data = ResponseData()
-        new_data.inputs = list(self.inputs)
+        new_data.stimuli = list(self.stimuli)
         new_data.responses = list(self.responses)
         if self.contexts is not None:
             new_data.contexts = list(self.contexts)

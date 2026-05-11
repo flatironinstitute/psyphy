@@ -43,7 +43,7 @@ def save_responses_csv(data: TrialData | ResponseData, path: PathLike) -> None:
     """
     if isinstance(data, TrialData):
         inputs, resps = (
-            np.asarray(data.inputs),
+            np.asarray(data.stimuli),
             np.asarray(data.responses),
         )
     else:
