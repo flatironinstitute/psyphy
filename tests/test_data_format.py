@@ -77,10 +77,10 @@ class TestResponses:
 class TestInputs:
     """Test that all data structures correctly handle general response types.
 
-    Should be able to handle stimuli of arbitrary dimension, and inputs with
-    arbitrary stimulus length.
+    Should be able to handle stimuli of arbitrary dimension and arbitrary K
+    (number of stimuli per trial).
 
-    Should NOT accept inputs with altered number of
+    Should NOT accept stimuli with altered number of
     stimuli or altered stimulus dimensions once precedent has already been
     established for a given ResponseData instance.
     """
@@ -102,7 +102,7 @@ class TestInputs:
                 f"ResponseData was given {len(stim)} stimuli, but represented {data.stim_shape[0]}."
             )
             td_data = data.to_trial_data()
-            assert len(stim) == td_data.inputs.shape[1], (
+            assert len(stim) == td_data.stimuli.shape[1], (
                 f"TrialData was given {len(stim)} stimuli, but represented {data.stim_shape[0]}."
             )
 
@@ -125,7 +125,7 @@ class TestInputs:
                     {data.stim_shape[1]} dimensions."
             )
             td_data = data.to_trial_data()
-            assert dim == td_data.inputs.shape[2], (
+            assert dim == td_data.stimuli.shape[2], (
                 f"TrialData was given {dim}-dim stimuli, but represented \
                     {data.stim_shape[0]} dimensions."
             )
@@ -176,8 +176,8 @@ class TestContext:
 
         # Convert to TrialData and check context
         td_data = data.to_trial_data()
-        assert td_data.context == jnp.asarray([context])
+        np.testing.assert_array_equal(td_data.context, jnp.asarray([context]))
 
         # Convert back to ResponseData and check context
         r_data = ResponseData.from_trial_data(td_data)
-        assert r_data == [context]
+        np.testing.assert_allclose(r_data.contexts[0], context)
