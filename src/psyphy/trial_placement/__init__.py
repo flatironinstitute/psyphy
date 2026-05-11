@@ -4,6 +4,8 @@ trial_placement
 
 Non-acquisition-based trial placement strategies.
 
+NOTE: this modeule is currently untested and still in active development.
+
 This module provides classical (non-Bayesian-optimization) placement strategies:
 
 - GridPlacement: Fixed grid designs for systematic exploration

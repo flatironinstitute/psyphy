@@ -4,9 +4,6 @@ grid.py
 
 Grid-based placement strategy.
 
-MVP:
-- Iterates through a fixed list of grid points.
-- Ignores the posterior (non-adaptive).
 
 Full WPPM mode:
 - Could refine the grid adaptively around regions of high posterior uncertainty.
@@ -26,8 +23,11 @@ class GridPlacement:
 
     Notes
     -----
-    - grid = your set of allowable trials.
-    - this class simply walks through that set.
+    - grid = your set of allowable trials; this class simply walks through that set.
+    - Not yet tested. Pending the same ``TrialBatch`` redesign as ``SobolPlacement``:
+      each trial's stimuli should be a single ``np.ndarray`` of shape ``(K, d)``
+      rather than a two-element tuple, to align with the generalised ``TrialData``
+      layout introduced in the data-object refactor.
     """
 
     def __init__(self, grid_points):
@@ -41,7 +41,6 @@ class GridPlacement:
         Parameters
         ----------
         posterior : Posterior
-            Ignored in MVP (grid is non-adaptive).
         batch_size : int
             Number of trials to return.
 
