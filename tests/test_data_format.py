@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from psyphy.data.dataset import ResponseData
+from psyphy.data.dataset import ResponseData, TrialData
 
 
 class TestResponses:
@@ -88,7 +88,7 @@ class TestInputs:
     def test_num_stim(self):
         """Test all data structures can handle when there are not exactly two stimuli"""
         response = 1
-        stimulus_1 = jnp.array([1, 1])
+        stimulus_1 = (jnp.array([1, 1]),)  # K=1: wrap in tuple so len() gives K, not d
         stimulus_2 = (jnp.array([0, 0.5]), jnp.array([1, 1]))
         stimulus_3 = (jnp.array([0, 0.5]), jnp.array([1, 1]), jnp.array([0, 6]))
         stimuli = [stimulus_1, stimulus_2, stimulus_3]
@@ -105,6 +105,19 @@ class TestInputs:
             assert len(stim) == td_data.stimuli.shape[1], (
                 f"TrialData was given {len(stim)} stimuli, but represented {data.stim_shape[0]}."
             )
+
+    def test_stim_shape_none_before_first_trial(self):
+        """stim_shape must be None on a fresh ResponseData, not raise AttributeError."""
+        data = ResponseData()
+        assert data.stim_shape is None
+
+    def test_from_arrays_2d_input(self):
+        """from_arrays must accept 2D X (n_trials, d) and treat it as K=1."""
+        X = np.array([[0.1, 0.2], [0.3, 0.4]])  # shape (2, d) — no K axis
+        y = np.array([[1], [0]])
+        data = ResponseData.from_arrays(X, y)
+        assert len(data) == 2
+        assert data.stim_shape == (1, 2)  # K=1, d=2
 
     def test_stim_dem(self):
         """Test that all data structures correctly handle stimuli that are not 2D"""
@@ -131,10 +144,50 @@ class TestInputs:
             )
 
 
+class TestShapeValidation:
+    """TrialData must reject arrays that are not exactly (N, K, d) and (N, R)."""
+
+    def test_4d_stimuli_raises(self):
+        """A 4D stimuli array must be rejected — previously slipped through > 3 check."""
+        stimuli_4d = jnp.ones((5, 2, 3, 4))  # one extra axis
+        responses = jnp.ones((5, 1))
+        with pytest.raises(ValueError, match="stimuli must be 3D"):
+            TrialData(stimuli=stimuli_4d, responses=responses)
+
+    def test_2d_stimuli_raises(self):
+        """A 2D stimuli array (missing K axis) must be rejected."""
+        stimuli_2d = jnp.ones((5, 3))
+        responses = jnp.ones((5, 1))
+        with pytest.raises(ValueError, match="stimuli must be 3D"):
+            TrialData(stimuli=stimuli_2d, responses=responses)
+
+    def test_3d_responses_raises(self):
+        """A 3D responses array must be rejected — previously slipped through > 2 check."""
+        stimuli = jnp.ones((5, 2, 3))
+        responses_3d = jnp.ones((5, 1, 1))
+        with pytest.raises(ValueError, match="responses must be 2D"):
+            TrialData(stimuli=stimuli, responses=responses_3d)
+
+    def test_valid_shapes_accepted(self):
+        """Correct (N, K, d) / (N, R) shapes must not raise."""
+        TrialData(stimuli=jnp.ones((5, 2, 3)), responses=jnp.ones((5, 1)))
+
+
 class TestContext:
     """Ensure that the optional attribute context behaves as expected for all
     data structures.
     """
+
+    def test_merge_with_1d_context(self):
+        """merge() must not crash when context is 1D (scalar per trial).
+        Previously raised IndexError via .shape[1] on a shape-() array."""
+        stim = ([0.5, 0.5], [1.0, 0.0])
+        a = ResponseData()
+        a.add_trial(stim, 1, context=0.3)
+        b = ResponseData()
+        b.add_trial(stim, 0, context=0.7)
+        a.merge(b)
+        assert len(a) == 2
 
     def test_add_1Dcontext_to_ResponseData(self):
         """Add 1D contexts"""

@@ -63,12 +63,19 @@ class TrialData:
     context: jnp.ndarray | None = None
 
     def __post_init__(self) -> None:
+        # Callers that construct TrialData directly (bypassing ResponseData.add_trial)
+        # may pass responses as a plain 1D array (N,). Expand to
+        # (N, 1) here so strict shape validation below does not break those call sites.
+        # object.__setattr__ is required because the dataclass is frozen; __post_init__
+        # is the only window to mutate fields during construction.
+        if self.responses.ndim == 1:
+            object.__setattr__(self, "responses", self.responses[:, None])
         # Basic shape validation (keep lightweight; raise early for common mistakes).
-        if self.stimuli.ndim > 3:
+        if self.stimuli.ndim != 3:
             raise ValueError(
                 f"stimuli must be 3D (N, K, d), got shape {self.stimuli.shape}"
             )
-        if self.responses.ndim > 2:
+        if self.responses.ndim != 2:
             raise ValueError(
                 f"responses must be 2D (N, R), got shape {self.responses.shape}"
             )
@@ -105,8 +112,7 @@ class ResponseData:
     def __init__(self) -> None:
         self.stimuli: list[np.array] = []
         self.responses: list[np.array] = []
-        if self.stimuli:
-            self.stim_shape = self.stimuli[0].shape
+        self.stim_shape: tuple | None = None  # set on first add_trial call
         self.contexts: list[np.array] = []
 
     def add_trial(self, input: tuple[Any, ...], resp: Any, context: Any = None) -> None:
@@ -122,8 +128,8 @@ class ResponseData:
         resp : Any
             Subject response
         """
-        input_arr = np.asarray(input)
-        resp_arr = np.asarray(resp)
+        input_arr = np.atleast_2d(np.asarray(input))  # (K, d) — 1D input treated as K=1
+        resp_arr = np.atleast_1d(np.asarray(resp))  # (R,)   — scalar treated as R=1
         if self.stimuli:
             if self.stim_shape != input_arr.shape:
                 raise ValueError(
@@ -254,7 +260,7 @@ class ResponseData:
 
         if X.ndim == 2:
             # reshape to ensure appropriate conversion to stimuli groups
-            dims = X.shape()
+            dims = X.shape
             new_dims = (dims[0], 1, dims[1])
             X = np.reshape(X, new_dims)
         elif X.ndim != 3:
@@ -324,7 +330,7 @@ class ResponseData:
 
         if self.contexts == [] and other.contexts == []:
             pass
-        elif both_contexts and self.contexts[0].shape[1] == other.contexts[0].shape[1]:
+        elif both_contexts and self.contexts[0].shape == other.contexts[0].shape:
             self.contexts.extend(other.contexts)
         else:
             raise ValueError(
