@@ -415,7 +415,8 @@ class WPPM(Model):
                 "Configure likelihood behavior via the TaskLikelihood object itself."
             )
 
-        return self.likelihood.predict(params, stimulus, self)
+        stimuli = jnp.stack(stimulus, axis=1)
+        return self.likelihood.predict(params, stimuli, self)
 
     # ----------------------------------------------------------------------
     # LIKELIHOOD (delegates to likelihood component)

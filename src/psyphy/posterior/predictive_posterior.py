@@ -191,9 +191,9 @@ class WPPMPredictivePosterior:
         # Vectorized prediction over parameter samples
         def predict_batch(params):
             """Predict p(correct) for all (ref, probe) pairs given params."""
-            return jax.vmap(lambda r, p: model.predict_prob(params, (r, p)))(
-                self.X, self.comparisons
-            )
+            return jax.vmap(
+                lambda r, p: model.predict_prob(params, jnp.stack([r, p], axis=1))
+            )(self.X, self.comparisons)
 
         # predictions: shape (n_samples, n_test)
         predictions = jax.vmap(predict_batch)(param_samples)
@@ -241,9 +241,9 @@ class WPPMPredictivePosterior:
 
         def predict_one(params):
             """Predict for all test points with given params."""
-            return jax.vmap(lambda r, p: model.predict_prob(params, (r, p)))(
-                self.X, self.comparisons
-            )
+            return jax.vmap(
+                lambda r, p: model.predict_prob(params, jnp.stack([r, p], axis=1))
+            )(self.X, self.comparisons)
 
         samples = jax.vmap(predict_one)(param_samples)
 
