@@ -79,11 +79,8 @@ class TaskLikelihood(ABC):
     - ``predict(params, stimuli, model, *, key)`` → probability parameters for one trial
 
     The base class provides concrete implementations of:
-    - ``loglik(params, data, model, *, key)`` → Bernoulli log-likelihood over a batch
+    - ``loglik(params, data, model, *, key)`` → log-likelihood over a batch
     - ``simulate(params, stimuli, model, *, key)`` → simulated responses & probability parameters
-
-    The Bernoulli log-likelihood step is identical for all binary-response tasks,
-    so it lives here rather than being re-implemented in every subclass.
     """
 
     @abstractmethod
@@ -186,8 +183,6 @@ class TaskLikelihood(ABC):
         probability parameters : tuple[jnp.ndarray, ...], each array has shape[0] = n_trials
             Bernoulli: Estimated (P(correct)) per trial used to draw the responses. shape = (n_trials)
             Gaussian: Estimated (mu, sigma) per trial used to draw the responses. shape for mu = (n_trials, r_dims); shape for sigma = (n_trials, r_dims, r_dims).
-
-        Note: not yet implemented for Gaussians
         """
         ...
 
