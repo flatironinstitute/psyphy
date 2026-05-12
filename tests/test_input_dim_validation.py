@@ -1,12 +1,12 @@
 import jax.numpy as jnp
 import pytest
 
-from psyphy.model.likelihood import TaskLikelihood
+from psyphy.model.likelihood import BernoulliTaskLikelihood
 from psyphy.model.prior import Prior
 from psyphy.model.wppm import WPPM
 
 
-class MockTask(TaskLikelihood):
+class MockTask(BernoulliTaskLikelihood):
     def predict(self, params, stimuli, model, noise=None):
         return jnp.array(0.5)
 
