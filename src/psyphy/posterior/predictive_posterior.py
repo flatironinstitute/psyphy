@@ -130,12 +130,12 @@ class WPPMPredictivePosterior:
     ----------
     param_posterior : ParameterPosterior
         Posterior over model parameters
-    X : jnp.ndarray, shape (n_test, input_dim)
-        Test reference stimuli
-    comparisons : jnp.ndarray, shape (n_test, input_dim), optional
-        Test probe stimuli. If None, predictions are over thresholds.
+    X : jnp.ndarray, shape (n_test, k_stimuli, input_dim)
+        Test stimuli
     n_samples : int, default=100
         Number of posterior samples for MC integration
+    threshold_pred: bool, default = False
+        Whether the given X should be used for threshold prediction (not yet implemented)
 
     Attributes
     ----------
@@ -143,10 +143,10 @@ class WPPMPredictivePosterior:
         Wrapped parameter posterior
     X : jnp.ndarray
         Test stimuli
-    comparisons : jnp.ndarray | None
-        Test comparisons
     n_samples : int
         MC sample count
+    threshold_pred: bool
+        Whether threshold prediction (not yet implemented)
 
     Notes
     -----
@@ -157,13 +157,13 @@ class WPPMPredictivePosterior:
         self,
         param_posterior: ParameterPosterior,
         X: jnp.ndarray,
-        comparisons: jnp.ndarray | None = None,
         n_samples: int = 100,
+        threshold_pred: bool = False,
     ):
         self.param_posterior = param_posterior
         self.X = X
-        self.comparisons = comparisons
         self.n_samples = n_samples
+        self.threshold_pred = threshold_pred
 
         # Lazy evaluation cache
         self._mean = None
@@ -181,19 +181,18 @@ class WPPMPredictivePosterior:
 
         model = self.param_posterior.model
 
-        if self.comparisons is None:
+        if self.threshold_pred:
             # TODO: Implement threshold prediction
             raise NotImplementedError(
                 "Threshold prediction not yet implemented. "
-                "Pass comparisons argument for pairwise discrimination."
+                "Current version requires X to include all stimuli in relevant task."
             )
 
         # Vectorized prediction over parameter samples
         def predict_batch(params):
-            """Predict p(correct) for all (ref, probe) pairs given params."""
-            return jax.vmap(
-                lambda r, p: model.predict_prob(params, jnp.stack([r, p], axis=1))
-            )(self.X, self.comparisons)
+            """Predict distribution parameters for given params
+            For OddityTask, this is p(correct) for all (ref, probe) pairs given params."""
+            return jax.vmap(lambda x: model.predict_prob(params, x))(self.X)
 
         # predictions: shape (n_samples, n_test)
         predictions = jax.vmap(predict_batch)(param_samples)
@@ -236,14 +235,12 @@ class WPPMPredictivePosterior:
 
         model = self.param_posterior.model
 
-        if self.comparisons is None:
+        if self.threshold_pred:
             raise NotImplementedError("Threshold sampling not yet implemented")
 
         def predict_one(params):
             """Predict for all test points with given params."""
-            return jax.vmap(
-                lambda r, p: model.predict_prob(params, jnp.stack([r, p], axis=1))
-            )(self.X, self.comparisons)
+            return jax.vmap(lambda x: model.predict_prob(params, x))(self.X)
 
         samples = jax.vmap(predict_one)(param_samples)
 
@@ -258,12 +255,13 @@ class WPPMPredictivePosterior:
         Parameters
         ----------
         X : jnp.ndarray
-            Test stimuli, shape (n_test, input_dim)
+            Test stimuli, shape (n_test, input_dim) OR (n_test, k_stim, input_dim)
+            Note that standard use for OddityTask is 2D with X as test REFS, not all stimuli.
 
         Returns
         -------
         jnp.ndarray
-            Covariance matrices, shape (n_test, input_dim, input_dim)
+            Covariance matrices, shape (n_test, input_dim, input_dim) OR (n_test, k_stim, input_dim, input_dim)
 
         Notes
         -----
@@ -278,10 +276,21 @@ class WPPMPredictivePosterior:
             """Evaluate Σ(x) with given parameters."""
             return model.local_covariance(params, x)
 
-        # Vectorized evaluation: (n_samples, n_test, input_dim, input_dim)
-        cov_samples = jax.vmap(
-            lambda params: jax.vmap(lambda x: cov_at_x(params, x))(X)
-        )(param_samples)
+        # Vectorized evaluation: (n_samples, n_test, k_stim, input_dim, input_dim)
+        if jnp.ndim(X) == 3:  # more than 1 stimulus
+            cov_samples = jax.vmap(
+                lambda params: jax.vmap(jax.vmap(lambda s: cov_at_x(params, s)))(X)
+            )(param_samples)
+        elif jnp.ndim(X) == 2:  # only 1 stimulus
+            cov_samples = jax.vmap(
+                lambda params: jax.vmap(lambda s: cov_at_x(params, s))(X)
+            )(param_samples)
+        else:
+            raise ValueError(
+                "Incorrect input dimensionality"
+                "Expected 2D (n_test, input_dim) or 3D (n_test, k_stim, input_dim)"
+                f"Received {jnp.ndim(X)}D."
+            )
 
         # Return posterior mean
         return jnp.mean(cov_samples, axis=0)

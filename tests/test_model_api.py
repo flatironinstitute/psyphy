@@ -96,15 +96,16 @@ class TestModelPosterior:
 
     def test_posterior_predictive_default(self, posterior):
         """posterior.predict() returns PredictivePosterior by default."""
-        X_test = jnp.array([[0.0, 0.0], [1.0, 1.0]])
+        refs_test = jnp.array([[0.0, 0.0], [1.0, 1.0]])
         comparisons = jnp.array([[0.5, 0.0], [1.5, 1.0]])
+        X_test = jnp.stack([refs_test, comparisons], axis=1)
 
         # In the new API (see WPPMPredictivePosterior), prediction is creating
         # a new predictive object around the parameter posterior.
         from psyphy.posterior.predictive_posterior import WPPMPredictivePosterior
 
         # It's not a method on posterior, but a wrapper class construction
-        pred = WPPMPredictivePosterior(posterior, X_test, comparisons=comparisons)
+        pred = WPPMPredictivePosterior(posterior, X_test)
 
         # Check duck typing
         assert hasattr(pred, "mean")
@@ -117,12 +118,13 @@ class TestModelPosterior:
 
     def test_posterior_predictive_has_correct_shape(self, posterior):
         """Predictive posterior has correct shape."""
-        X_test = jnp.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
+        refs_test = jnp.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
         comparisons = jnp.array([[0.5, 0.0], [1.5, 1.0], [2.5, 2.0]])
+        X_test = jnp.stack([refs_test, comparisons], axis=1)
 
         from psyphy.posterior.predictive_posterior import WPPMPredictivePosterior
 
-        pred = WPPMPredictivePosterior(posterior, X_test, comparisons=comparisons)
+        pred = WPPMPredictivePosterior(posterior, X_test)
 
         # Triggers lazy computation
         mean = pred.mean
@@ -198,12 +200,13 @@ class TestIntegrationWorkflow:
         posterior = optimizer.fit(model, data)
 
         # 4. Get predictive posterior
-        X_test = jnp.array([[0.0, 0.0], [1.0, 1.0]])
+        refs_test = jnp.array([[0.0, 0.0], [1.0, 1.0]])
         probes_test = jnp.array([[0.3, 0.0], [1.3, 1.0]])
+        X_test = jnp.stack([refs_test, probes_test], axis=1)
 
         from psyphy.posterior.predictive_posterior import WPPMPredictivePosterior
 
-        pred = WPPMPredictivePosterior(posterior, X_test, comparisons=probes_test)
+        pred = WPPMPredictivePosterior(posterior, X_test)
 
         # 5. Make predictions
         mean = pred.mean
