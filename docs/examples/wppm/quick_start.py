@@ -160,13 +160,16 @@ L = jnp.linalg.cholesky(Sigmas_ref)  # (N, 2, 2)
 deltas = MAHAL_RADIUS * jnp.einsum("nij,nj->ni", L, unit_dirs)  # (N, 2)
 comparisons = jnp.clip(refs + deltas, -1.0, 1.0)
 
+# Stack refs and comparisons to form representation of all stimuli used in the task.
+stimuli = jnp.stack([refs, comparisons], axis=1)
+
 # --8<-- [start:simulate_data]
 # Simulate observed responses using the likelihood implied by the task
-ys, p_correct = task.simulate(truth_params, refs, comparisons, truth_model, key=k_sim)
+ys, prob_params = task.simulate(truth_params, stimuli, truth_model, key=k_sim)
+p_correct = prob_params[0]  # <- for Bernoulli tasks, p_correct is the only prob_param
 # --8<-- [end:simulate_data]
 
 # --8<-- [start:data]
-stimuli = jnp.stack([refs, comparisons], axis=1)
 data = TrialData(stimuli=stimuli, responses=ys)  # contains 2 JAX arrays
 # --8<-- [end:data]
 
