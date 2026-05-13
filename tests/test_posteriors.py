@@ -118,11 +118,10 @@ class TestPredictivePosterior:
     @pytest.fixture
     def predictive_posterior(self, param_posterior):
         """Create predictive posterior."""
-        X_test = jnp.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
+        refs_test = jnp.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
         comparisons = jnp.array([[0.5, 0.0], [1.5, 1.0], [2.5, 2.0]])
-        return WPPMPredictivePosterior(
-            param_posterior, X_test, comparisons=comparisons, n_samples=10
-        )
+        X_test = jnp.stack([refs_test, comparisons], axis=1)
+        return WPPMPredictivePosterior(param_posterior, X_test, n_samples=10)
 
     def test_is_predictive_posterior(self, predictive_posterior):
         """WPPMPredictivePosterior implements PredictivePosterior protocol."""
@@ -169,8 +168,8 @@ class TestPredictivePosterior:
 
     def test_cov_field_shape(self, predictive_posterior):
         """cov_field returns covariance matrices."""
-        X_test = jnp.array([[0.0, 0.0], [1.0, 1.0]])
-        Sigma = predictive_posterior.cov_field(X_test)
+        refs_test = jnp.array([[0.0, 0.0], [1.0, 1.0]])
+        Sigma = predictive_posterior.cov_field(refs_test)
         assert Sigma.shape == (2, 2, 2)  # (n_test, input_dim, input_dim)
 
     def test_cov_field_psd(self, predictive_posterior):
@@ -183,9 +182,11 @@ class TestPredictivePosterior:
             assert jnp.all(eigvals >= -1e-6)  # Numerically PSD
 
     def test_no_probes_raises(self, param_posterior):
-        """Creating predictive posterior without comparisons raises NotImplementedError."""
+        """Creating predictive posterior with threshold_pred set to True raises NotImplementedError."""
         X_test = jnp.array([[0.0, 0.0]])
-        pred_post = WPPMPredictivePosterior(param_posterior, X_test, comparisons=None)
+        pred_post = WPPMPredictivePosterior(
+            param_posterior, X_test, threshold_pred=True
+        )
 
         with pytest.raises(NotImplementedError, match="Threshold prediction"):
             _ = pred_post.mean
@@ -220,11 +221,10 @@ class TestIntegration:
         assert isinstance(param_post, ParameterPosterior)
 
         # 5. Create PredictivePosterior
-        X_test = jnp.array([[0.0, 0.0], [1.0, 1.0]])
+        refs_test = jnp.array([[0.0, 0.0], [1.0, 1.0]])
         comparisons = jnp.array([[0.3, 0.0], [1.3, 1.0]])
-        pred_post = WPPMPredictivePosterior(
-            param_post, X_test, comparisons, n_samples=20
-        )
+        X_test = jnp.stack([refs_test, comparisons], axis=1)
+        pred_post = WPPMPredictivePosterior(param_post, X_test, n_samples=20)
 
         # 6. Get predictions
         mean = pred_post.mean
@@ -237,6 +237,10 @@ class TestIntegration:
         pred_samples = pred_post.rsample((5,), key=subkey)
         assert pred_samples.shape == (5, 2)
 
-        # 8. Get covariance field
-        Sigma = pred_post.cov_field(X_test)
+        # 8. Get covariance field (just refs)
+        Sigma = pred_post.cov_field(refs_test)
         assert Sigma.shape == (2, 2, 2)
+
+        # 9. Get covariance field (all stimuli)
+        Sigma = pred_post.cov_field(X_test)
+        assert Sigma.shape == (2, 2, 2, 2)
