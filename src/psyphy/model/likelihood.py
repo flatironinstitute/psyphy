@@ -35,6 +35,7 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy.stats as jsp
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,7 +175,9 @@ class TaskLikelihood(ABC):
             Simulated responses.
         probability parameters : list[jnp.ndarray], each array has shape[0] = n_trials
             Bernoulli: Estimated [P(correct)] per trial used to draw the responses. shape = (n_trials)
-            Gaussian: Estimated [mu, sigma] per trial used to draw the responses. shape for mu = (n_trials, r_dims); shape for sigma = (n_trials, r_dims, r_dims)
+            Gaussian: Estimated [mu, sigma] per trial used to draw the responses. shape for mu = (n_trials, r_dims); shape for sigma = (n_trials, r_dims, r_dims).
+
+        Note: not yet implemented for Gaussians
         """
         ...
 
@@ -238,10 +241,11 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         )
 
         log_likelihoods = jnp.where(
-            responses == 1,
+            jnp.squeeze(responses) == 1,
             jnp.log(probs),
             jnp.log(1.0 - probs),
         )
+
         return jnp.sum(log_likelihoods)
 
     def simulate(
@@ -284,6 +288,111 @@ class BernoulliTaskLikelihood(TaskLikelihood):
 
         responses = jr.bernoulli(k_bernoulli, p_correct).astype(jnp.int32)
         return (responses, [p_correct])
+
+
+class GaussianTaskLikelihood(TaskLikelihood):
+    """
+    Intermediate abstract subclass for task likelihoods.
+
+    Subclasses must implement:
+    - ``predict(params, stimuli, model, *, key)`` → (mu, sigma) of distribution for one trial
+
+    This abstract subclass provides concrete implementations of:
+    - ``loglik(params, data, model, *, key)`` → Gaussian log-likelihood over a batch
+    - ``simulate(params, inputs, model, *, key)`` → simulated responses
+
+    The Gaussian log-likelihood step is identical for all tasks with the assumption
+    of Gaussian response distributions, so it lives here rather than being
+    re-implemented in every subclass.
+    """
+
+    def loglik(
+        self,
+        params: Any,
+        data: Any,
+        model: Any,
+        *,
+        key: Any = None,
+    ) -> jnp.ndarray:
+        """Compute Gaussian log-likelihood over a batch of trials.
+
+        This is a concrete base-class method: it vmaps ``predict`` over trials
+        then applies the Gaussian log-likelihood formula. Subclasses only need
+        to implement ``predict``.
+
+        Parameters
+        ----------
+        params : Any
+            Model parameters.
+        data : Any
+            Object with ``.stimuli``, ``.responses`` array attributes.
+        model : Any
+            Model instance.
+        key : jax.random.KeyArray, optional
+            PRNG key. Passed as independent per-trial subkeys to ``predict``.
+            When None, falls back to ``key=jr.PRNGKey(0)`` (deterministic).
+
+        Returns
+        -------
+        jnp.ndarray
+            Scalar sum of Gaussian log-likelihoods over all trials.
+        """
+        stimuli = jnp.asarray(data.stimuli)
+        responses = jnp.asarray(data.responses)
+        responses = responses.astype(int)
+        n_trials = int(stimuli.shape[0])
+
+        base_key = key if key is not None else jr.PRNGKey(0)
+        trial_keys = jr.split(base_key, n_trials)
+
+        mu, sigma = jax.vmap(lambda stim, k: self.predict(params, stim, model, key=k))(
+            stimuli, trial_keys
+        )
+
+        log_likelihoods = jax.vmap(
+            lambda resp, m, s: jsp.multivariate_normal.logpdf(x=resp, mean=m, cov=s)
+        )(responses, mu, jnp.squeeze(sigma))
+
+        if any(jnp.isnan(log_likelihoods)):
+            raise ValueError(
+                ""
+                "Error in calculating log-likelihoods. Jax.scipy.multivariate_normal.logpdf"
+                "returned nan values."
+                "This could be due to attempting to calculate likelihood with a covariance"
+                "matrix that is not positive definite."
+            )
+
+        return jnp.sum(log_likelihoods)
+
+    def simulate(
+        self,
+        params: Any,
+        stimuli: jnp.ndarray,
+        model: Any,
+        *,
+        key: Any,
+    ) -> tuple[jnp.ndarray, list[jnp.ndarray]]:
+        """Simulate observed responses for a batch of trials.
+
+        Parameters
+        ----------
+        params : Any
+            Model parameters.
+        stimuli : jnp.ndarray, shape (n_trials, k_stim, input_dim)
+            Stimuli.
+        model : Any
+            Model instance.
+        key : jax.random.KeyArray
+            PRNG key (required; split internally for prediction and sampling).
+
+        Returns
+        -------
+        responses : jnp.ndarray, shape (n_trials, r_dims),
+            Simulated responses.
+        p_correct : jnp.ndarray, shape (n_trials,)
+            Estimated [mu, sigma] per trial used to draw the responses.
+        """
+        raise NotImplementedError("Gaussian Task simulations not yet implemented")
 
 
 class OddityTask(BernoulliTaskLikelihood):
