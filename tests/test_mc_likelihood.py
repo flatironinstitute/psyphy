@@ -885,49 +885,55 @@ class TestSimulate:
     def test_simulate_returns_correct_shapes(self, model, simple_params):
         refs = jnp.array([[0.0, 0.0], [0.3, 0.1]])
         comparisons = jnp.array([[0.1, 0.1], [0.4, 0.2]])
+        stimuli = jnp.stack([refs, comparisons], axis=1)
         responses, p_correct = model.likelihood.simulate(
-            simple_params, refs, comparisons, model, key=jr.PRNGKey(0)
+            simple_params, stimuli, model, key=jr.PRNGKey(0)
         )
         assert responses.shape == (2,)
-        assert p_correct.shape == (2,)
+        assert p_correct[0].shape == (2,)
         assert responses.dtype == jnp.int32
 
     def test_simulate_responses_are_binary(self, model, simple_params):
         refs = jnp.array([[0.0, 0.0]] * 20)
         comparisons = jnp.array([[0.2, 0.2]] * 20)
+        stimuli = jnp.stack([refs, comparisons], axis=1)
         responses, _ = model.likelihood.simulate(
-            simple_params, refs, comparisons, model, key=jr.PRNGKey(1)
+            simple_params, stimuli, model, key=jr.PRNGKey(1)
         )
         assert jnp.all((responses == 0) | (responses == 1))
 
     def test_simulate_p_correct_in_range(self, model, simple_params):
         refs = jnp.array([[0.0, 0.0]])
         comparisons = jnp.array([[0.3, 0.3]])
+        stimuli = jnp.stack([refs, comparisons], axis=1)
         _, p_correct = model.likelihood.simulate(
-            simple_params, refs, comparisons, model, key=jr.PRNGKey(2)
+            simple_params, stimuli, model, key=jr.PRNGKey(2)
         )
+        p_correct = p_correct[0]
         assert jnp.all(p_correct > 0) and jnp.all(p_correct < 1)
 
     def test_simulate_reproducible_with_same_key(self, model, simple_params):
         refs = jnp.array([[0.0, 0.0]] * 5)
         comparisons = jnp.array([[0.2, 0.2]] * 5)
+        stimuli = jnp.stack([refs, comparisons], axis=1)
         r1, p1 = model.likelihood.simulate(
-            simple_params, refs, comparisons, model, key=jr.PRNGKey(7)
+            simple_params, stimuli, model, key=jr.PRNGKey(7)
         )
         r2, p2 = model.likelihood.simulate(
-            simple_params, refs, comparisons, model, key=jr.PRNGKey(7)
+            simple_params, stimuli, model, key=jr.PRNGKey(7)
         )
         assert jnp.array_equal(r1, r2)
-        assert jnp.allclose(p1, p2)
+        assert jnp.allclose(p1[0], p2[0])
 
     def test_simulate_differs_with_different_key(self, model, simple_params):
         refs = jnp.array([[0.0, 0.0]] * 50)
         comparisons = jnp.array([[0.2, 0.2]] * 50)
+        stimuli = jnp.stack([refs, comparisons], axis=1)
         r1, _ = model.likelihood.simulate(
-            simple_params, refs, comparisons, model, key=jr.PRNGKey(0)
+            simple_params, stimuli, model, key=jr.PRNGKey(0)
         )
         r2, _ = model.likelihood.simulate(
-            simple_params, refs, comparisons, model, key=jr.PRNGKey(99)
+            simple_params, stimuli, model, key=jr.PRNGKey(99)
         )
         assert not jnp.array_equal(r1, r2)
 
