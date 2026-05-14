@@ -210,9 +210,10 @@ print("=" * 70)
 model = WPPM(
     input_dim=2,
     prior=Prior(input_dim=2, basis_degree=4, variance_scale=0.03, decay_rate=0.3),
+    # ^note that model inherits basis_degree from prior.
+    # basis_degree=4 gives Wishart mode with 5x5 basis functions
     likelihood=OddityTask(),
     noise=GaussianNoise(sigma=0.1),
-    basis_degree=4,  # Wishart mode with 5x5 basis functions
     extra_dims=1,
     diag_term=1e-3,
 )
