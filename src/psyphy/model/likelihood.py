@@ -5,11 +5,16 @@ Task likelihoods for psychophysical experiments.
 This module defines task-specific mappings from a model (e.g., WPPM) and stimuli
 to response likelihoods.
 
-Current direction
+Task likelihoods are organized into subcategories according to assumptions about
+the distribution of responses.
+
+Current Likelihoods/Tasks:
 -----------------
-`OddityTask`: the log-likelihood is computed via Monte Carlo observer
-simulation of the full 3-stimulus oddity decision rule (two identical references,
-one comparison).
+Bernoulli Tasks:
+    `OddityTask`: the log-likelihood is computed via Monte Carlo observer
+    simulation of the full 3-stimulus oddity decision rule (two identical references,
+    one comparison).
+Gaussian Tasks: No current concrete implementations
 
 The public API is:
 
