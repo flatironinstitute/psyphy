@@ -196,8 +196,8 @@ DIAG_TERM = 1e-6  # numerical stability jitter — shared by WeberGroundTruth AN
 # fitted WPPM so the generative model and the fitting model have
 # identical parameterisations. Removing from WPPM risks NaN gradients
 # when U(x) ≈ 0 during early optimisation; 1e-6 ≪ (k*s)^2 ≈ 0.0016.
-N_TRIALS = 1000
-MC_SAMPLES = 600  # MC samples for simulation and fitting
+N_TRIALS = 2000
+MC_SAMPLES = 1000  # MC samples for simulation and fitting
 
 # basis_degree=2 is the  minimum that works well for this demo:
 # - degree 1 U(x) is sufficient to represent Weber (linear U -> quadratic Sigma)
@@ -205,7 +205,7 @@ MC_SAMPLES = 600  # MC samples for simulation and fitting
 # See module docstring for the full argument.
 BASIS_DEGREE = 2
 
-NUM_STEPS = 200  # 1000 gets close for 3 param model (0 additional embedding dims)
+NUM_STEPS = 500  # 1000 gets close for 3 param model (0 additional embedding dims)
 LEARNING_RATE = 5e-4
 
 # Reference levels for the psychometric function panel (in physical units)
@@ -268,7 +268,8 @@ comparisons = comps_x[:, None]  # (N, 1)
 responses, p_correct_sim = task.simulate(
     params=None, refs=refs, comparisons=comparisons, model=weber_gt, key=k_sim
 )
-data = TrialData(refs=refs, comparisons=comparisons, responses=responses)
+stimuli = jnp.stack([refs, comparisons], axis=1)  # (N, 2, d)
+data = TrialData(stimuli=stimuli, responses=responses, stimulus_names=("ref", "comp"))
 
 print(
     f"  {N_TRIALS} trials simulated, "
