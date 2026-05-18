@@ -41,11 +41,11 @@ Sigma(s) = U(s)^2                    [degree 4 in s — can represent k^2*s^2]
 Weber's law needs only degree-1 U (i.e., basis_degree=1 is the minimum).
 We use basis_degree=2 because:
   1. It gives the model one extra degree of freedom to fit deviations from
-     Weber's law (e.g., a constant offset — Near's law / high-threshold).
+     Weber's law (e.g., a constant offset).
   2. It still forces the prior to strongly regularise: only 3 Chebyshev
      coefficients (W shape (3, 1, 1) = 3 parameters with extra_dims=0).
-  3. It is the smallest degree that can represent both Weber (linear U) and
-     Near's law (affine U = W_0 + W_1*s), so the test is more principled:
+  3. It is the smallest degree that can represent Weber (linear U) ,
+    so the test is more principled:
      the model cannot cheat by relying on higher-frequency components.
   basis_degree=4 with extra_dims=1 (the previous setting) had W shape
   (5, 1, 2) = 10 parameters, with the extra capacity driven by the prior
