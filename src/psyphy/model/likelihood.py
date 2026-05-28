@@ -14,7 +14,10 @@ Bernoulli Tasks:
     `OddityTask`: the log-likelihood is computed via Monte Carlo observer
     simulation of the full 3-stimulus oddity decision rule (two identical references,
     one comparison).
-Gaussian Tasks: No current concrete implementations
+Gaussian Tasks:
+    `ContinuousTouchTask`: the log-likelihood is computed directly using the
+    relationship between a single two-feature stimulus and the two-dimensional
+    coordinates of the corresponding touch/tap location.
 
 The public API is:
 
@@ -35,12 +38,168 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax.scipy.stats as jsp
+
+
+class ContinuousTouchRule:
+    """
+    This is the current representation of a rule implemented for the Continuous Touch Task.
+
+    - Represents function which maps any given stimulus to corresponding response.
+    - Represents whether MC simulation will be necessary for log likelihood calculation
+    or if there is a closed0form solution.
+    - Includes logic for calculating a closed-form solution if one is available.
+
+
+    Attributes
+    ----------
+    _linear_coeff : Any (array-like)
+        The linear transformation which relates a stim_dimensional stimulus to
+        the final coordinate.
+        Applied *after* any other function. For any linear rule, this can act
+        as the application of the rule itself. For non-linear rules given via
+        explicit function, can be left as the identity matrix.
+    _offset : Any (array-like)
+        Offsets to be applied to calculated coordinates to get the true final
+        coordinate. If the offsets are included in the rule given via explicit
+        function, offset can be left as 0 vector.
+    _nonlinear_func : function | None
+        User-specified non-linear function to be applied to the features to get
+        the final coordinates.
+        If a linear function will suffice, please input it as linear_coeff & offset
+    func : function
+        The total function which maps from a stimulus to a touch response.
+    requires_simulation : boolean
+        Whether MC simulation will be required for log likelihood calculation.
+
+    """
+
+    def __init__(
+        self,
+        linear_coeff=None,  # array-like
+        offset=None,  # array-like
+        nonlinear_func: Callable | None = None,  # function
+    ):
+        # Coefficients for linear portion
+        self.linear_coeff = jnp.asarray(jnp.asarray(linear_coeff)) or jnp.array(
+            [[1, 0], [0, 1]]
+        )
+        self.offset = jnp.squeeze(jnp.asarray(offset)) or jnp.array([0, 0]).T
+
+        # Check appropriate shapes:
+        if self.offset.shape != (2,):
+            raise ValueError(
+                "Expected an offset with shape (2, ) to be applied "
+                f"to 2D touch coordinates. Received {offset.shape}."
+            )
+        if self.linear_coeff.shape[0] != 2:
+            raise ValueError(
+                "Expected linear_coeff with shape (2, X) to map to"
+                f"2D touch coordinates. Received ({self.linear_coeff.shape[0]}, X)"
+            )
+
+        self.nonlinear_func = nonlinear_func
+        self.update_rule()
+
+    def apply_rule(self, stimulus: jnp.array):
+        """
+        Applies the rule to a given stimulus. Returns the associated response.
+        (Note that this also serves to get the adjusted mu for closed-form calculations.)
+
+        Returns
+        ----------
+        Response (jnp.array)
+        """
+        stimulus = jnp.squeeze(stimulus)
+        if jnp.ndim(stimulus) != 1:
+            raise ValueError(
+                "Expected a single stimulus in the form of a vector."
+                f"Received {jnp.ndim(stimulus) - 1} unexpected additional dimensions."
+            )
+        return self.func(stimulus)
+
+    def get_rule_adjusted_sigma(self, stim_sigma):
+        """
+        If the rule is a simple linear function, we can calculate the Σ_response
+        based on the known Σ_stimulus and known linear rule.
+
+        This holds for linear rules since linear transformations of Gaussians are
+        still Gaussian, with known closed-form solutions to adjust mean and
+        variance.
+
+        For non-linear rules, the results are not guaranteed to be Gaussian, nor
+        are they guaranteed to have a closed form solution at all.
+
+        Returns
+        ----------
+        Σ_response (jnp.array)
+        """
+        if self.requires_simulation:
+            raise NotImplementedError(
+                "There is no closed-form solution currently"
+                "implemented for this rule type."
+            )
+
+        return self.linear_coeff @ stim_sigma @ self.linear_coeff.T
+
+    def scale_from_examples(self, stimuli, correct_responses):
+        """
+        Can appropriately scale a known rule if the scale of response coordinates
+        is unknown.
+
+        This is NOT for discovering an unknown rule. This is simply for adjusting
+        simple linear scaling (e.g. to fit different screen dimensions.)
+
+        Accordingly, note that correct_responses is the correct responses
+        according to the true underlying rule, NOT real subject behavior. There
+        is very little noise tolerance, as this function expects
+        experimenter generated correct_responses.
+
+        Example use:
+            user knows their rule maps a moving stimulus = [speed (visual deg/sec), orientation (degrees)]
+            to a tap location = [r, theta]. The speed of the stimulus directly
+            determines the r value and the orientation directly determines the
+            theta, such that the rule can be appropriately expressed as:
+                [(1/c1) * r, (1/c2) * theta] = linear_coeff @ [speed, orientation].
+            That is, the relationship is essentially known but for scaling at each
+            coordinate (i.e. that corresponds to different coordinate systems on
+            different screens)
+        """
+
+        unscaled_responses = jax.vmap(self.apply_rule)(stimuli)
+        scales = correct_responses / unscaled_responses
+        scale = scales[0, :]
+        scaled_responses = unscaled_responses * scale[:, None]
+
+        if not jnp.allclose(scaled_responses, correct_responses):
+            raise ValueError(
+                "The provided stimuli and responses are not"
+                "adequately described by a rescaling of the current rule relationship."
+            )
+
+        self.linear_coeff = self.linear_coeff * scale[:, None]
+        self.update_rule()
+
+    def update_rule(self):
+        """Generates & updates the complete rule function based on the current attributes.
+        Updates whether or not MC simulation will be required for
+        log-likelihood calculations under this rule."""
+        if self.nonlinear_func is None:
+            self.func = lambda x: jnp.matmul(self.linear_coeff, x) + self.offset
+            self.requires_simulation = False
+            # If there is no nonlinear component, we can find a closed form solution!
+        else:
+            self.func = (
+                lambda x: jnp.matmul(self.linear_coeff, self.nonlinear_func(x))
+                + self.offset
+            )
+            self.requires_simulation = True
+            # If there is a nonlinear component, we will require MC simulation.
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +228,33 @@ class OddityTaskConfig:
             raise ValueError(f"num_samples must be > 0, got {self.num_samples}")
         if float(self.bandwidth) <= 0:
             raise ValueError(f"bandwidth must be > 0, got {self.bandwidth}")
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousTouchTaskConfig:
+    """Configuration for :class:`ContinuousTouchTask`.
+
+    This is the single source of truth for MC likelihood controls.
+
+    Attributes
+    ----------
+    num_samples : int
+     Number of Monte Carlo samples per trial.
+    default_key_seed : int
+        Seed used when no key is provided (keeps behavior deterministic by
+        default while allowing reproducibility control upstream).
+    rule : ContinuousTouchRule
+        The rule which relates stimulus inputs to correct tap locations
+
+    """
+
+    num_samples: int = 1000
+    default_key_seed: int = 0
+    rule: ContinuousTouchRule = ContinuousTouchRule()
+
+    def __post_init__(self) -> None:
+        if self.rule.requires_simulation and int(self.num_samples) <= 0:
+            raise ValueError(f"num_samples must be > 0, got {self.num_samples}")
 
 
 class TaskLikelihood(ABC):
@@ -414,6 +600,7 @@ class GaussianTaskLikelihood(TaskLikelihood):
             Estimated (mu, sigma) per trial used to draw the responses.
         """
         raise NotImplementedError("Gaussian Task simulations not yet implemented")
+        # TODO: Gaussian Task Simulations
 
 
 class OddityTask(BernoulliTaskLikelihood):
@@ -771,4 +958,232 @@ class OddityTask(BernoulliTaskLikelihood):
         # - Clipping here (before return) ensures gradients stay finite
         # - Without this, prob=1.0 -> log(1.0)=0.0 -> grad through clip at boundary -> NaN
         eps = 1e-6
-        return (jnp.clip(prob, eps, 1.0 - eps),)
+        return jnp.clip(prob, eps, 1.0 - eps)
+
+
+class ContinuousTouchTask(GaussianTaskLikelihood):
+    """
+    Continuous touch task using a single two-feature stimulus to guide a
+    two-dimensional touch response (closed form solution).
+
+    Implements the full single-stimulus based continous touch response task:
+        - Applies the known rule to relate the stimulus Gaussian distribution
+        features to the resulting tap location.
+
+    """
+
+    def __init__(self, config: ContinuousTouchTaskConfig | None = None) -> None:
+        self.config = config or ContinuousTouchTaskConfig()
+
+    def predict(
+        self,
+        params: Any,
+        stimuli: jnp.ndarray,  # (k_stimuli, dimensions)
+        model: Any,
+        *,
+        key: Any = None,
+    ) -> jnp.ndarray:
+        """Return (mu, sigma) for a single trial
+
+        Will used closed-form calculation if possible (determined by the rule
+        in config). Will use MC simulation if there is no closed form solution.
+
+        Gets (mu, sigma) for the stimulus itself, then calculates (or simulates)
+        the adjustment in (mu, sigma) according to the known rule relating
+        stimulus to tap location.
+        """
+        if key is None:
+            key = jr.PRNGKey(int(self.config.default_key_seed))
+
+        if jnp.ndim(stimuli) != 2:
+            raise ValueError(
+                "ContinuousTouchTask expects a 2D array of "
+                "(k_stimuli, dimensions) representing a single stimulus."
+                f"Received {jnp.ndim(stimuli)}D array."
+            )
+
+        if jnp.size(stimuli, axis=0) != 1:
+            raise ValueError(
+                "ContinuousTouchTask is currently only implemented"
+                f"for a single stimulus. Received {jnp.size(stimuli, axis=0)}."
+            )
+
+        simulation = self.config.rule.requires_simulation
+
+        if simulation:
+            return self._simulate_trial_mc(
+                params=params,
+                stimuli=stimuli,
+                model=model,
+                num_samples=self.config.num_samples,
+                key=key,
+                rule=self.config.rule,
+            )
+        else:
+            return self._calculate_trial(
+                params=params, stimuli=stimuli, model=model, rule=self.config.rule
+            )
+
+    def _calculate_trial(
+        self, params: Any, stimuli: jnp.array, model: Any, rule: ContinuousTouchRule
+    ):
+        """
+        Calculates the closed-form solution to predict the response distribution
+        for any given trial.
+
+        Returns
+        -------
+        Response (mu, sigma)
+        """
+        # We assume that stim noise distribution is centered at true stim:
+        stim_mu = stimuli
+
+        input_dim = stimuli.shape[1]
+
+        # Diagonal noise term (small regularization)
+        diag_term = model.diag_term
+
+        # U_stim defines the distribution.
+        U_stim = model._compute_sqrt(params, stimuli)  # (input_dim, embedding_dim)
+
+        # Σ_stim = U_stim @ U_stim.T + diag_term * I
+        stim_sigma = U_stim @ U_stim.T + diag_term * jnp.eye(input_dim)
+
+        resp_mu = rule.apply_rule(stim_mu)
+        resp_sigma = rule.get_rule_adjusted_sigma(stim_sigma)
+
+        return (resp_mu, resp_sigma)
+
+    def _simulate_trial_mc(
+        self,
+        params: Any,
+        stimuli: jnp.ndarray,
+        model: Any,
+        num_samples: int,
+        key: Any,
+        rule: ContinuousTouchRule,
+    ) -> jnp.ndarray:
+        """
+        Simulate a single continuous touch task trial via Monte Carlo.
+
+        This implements the continuous touch task where the observer sees one stimulus
+        whose features map, under a known rule, to a 2D planar coordinate. The
+        task is to tap the appropriate coordinate.
+
+        Parameters
+        ----------
+        params : Any
+            Model parameters as expected by ``model._compute_sqrt``.
+        stimuli : jnp.ndarray, shape (input_dim,)
+            Stimulus
+        model : WPPM
+            Model instance providing covariance structure and ``model.noise``.
+        num_samples : int
+            Number of Monte Carlo samples for estimating (mu, sigma)
+        key : PRNGKey
+            JAX random key for sampling
+
+        Returns
+        -------
+        tuple of jnp.arrays
+            Estimated (mu, sigma) for this trial.
+
+        Notes
+        -----
+
+        1. Sample the internal stimulus representation:
+           - z_stim ~ N(stim, Σ_stim)
+
+        2. Apply rule (correct response):
+           - Uses the ContinuousTouchRule to apply the appropriate rule to the sample.
+
+        3. Get statistics on Monte Carlo simulated data:
+           - (mu, sigma) \approx mean and covariance over num_samples
+
+        """
+
+        # Before we start, we check to ensure that MC simulation is actually necessary.
+        # MC simulation should *never* be used when there is a closed-form
+        # implementation, as this is a costly step.
+        if not rule.requires_simulation:
+            raise TypeError(
+                "MC simulation should only be used when there is no"
+                "closed form solution. The given rule has a closed form solution."
+            )
+
+        # Get input dimension and require Wishart mode.
+        # OddityTask is intentionally MC-only and currently only supports the
+        # WPPM/Wishart covariance parameterization.
+        input_dim = stimuli.shape[1]
+        if model.basis_degree is None:
+            raise ValueError(
+                "(Expected a basis degree, got None. model.basis_degree must not be None)."
+            )
+
+        # ========================================================================
+        # STEP 1A: Compute covariance structure at stimulus
+        # ========================================================================
+
+        # Wishart mode: Spatially-varying covariance
+        # Compute U matrices that define covariances at each location
+        # These U matrices define the two distributions:
+
+        # U_stim defines covariance: Σ_stim = U_stim @ U_stim.T + diag_term * I
+        U_stim = model._compute_sqrt(params, stimuli)  # (input_dim, embedding_dim)
+
+        # Diagonal noise term (small regularization)
+        diag_term = model.diag_term
+        sqrt_diag = jnp.sqrt(diag_term)
+
+        # ========================================================================
+        # STEP 1B: Sample internal representations
+        # ========================================================================
+        # Split random key: 1 for embedding sample + 1 for diagonal noise
+        keys = jr.split(key, 2)
+
+        # manual sampling using reparameterization trick
+        # Covariance structure: Σ = U @ U.T + diag_term * I
+        # Reparameterization: z = n_embed @ U.T + mean + sqrt(diag_term) * n_diag
+
+        embed_dim = U_stim.shape[1]  # type: ignore
+
+        # Samples from standard normal
+        n_stim_embed = model.noise.sample_standard(keys[0], (num_samples, embed_dim))
+
+        # Sample diagonal noise (independent across dimensions)
+        n_stim_diag = model.noise.sample_standard(keys[1], (num_samples, input_dim))
+
+        # =================================================================
+        # SAMPLING: Transform standard normal to samples from our distribution
+        # =================================================================
+
+        # SAMPLE: z_stim ~ N(stim, Σ_stim)
+        # where Σ_stim = U_stim @ U_stim.T + diag_term * I
+        z_stim = n_stim_embed @ U_stim.T + stimuli[None, :] + sqrt_diag * n_stim_diag  # type: ignore
+        #       ^^^^^^        ^^^^^       ^^^^^^^
+        #       |                |          |
+        #       |                |          +--- MEAN: stim
+        #       |                +--- COVARIANCE: Uses U_stim (defines Σ_stim)
+        #       +--- Independent noise
+
+        # ========================================================================
+        # STEP 2: apply rule
+        # ========================================================================
+        # We use the rule defined in the configuration.
+        # Rule specifics are delegated to that rule (which must be a ContinuuousTouchRule)
+        # in order to keep logic clean across all continuous touch tasks, and
+        # allow for flexibility in the rule details.
+
+        rule_based_resps = jax.vmap(rule.apply_rule)(z_stim)
+
+        # ========================================================================
+        # STEP 3: Monte Carlo average
+        # ========================================================================
+        # by law of large numbers: mean(samples) -> true mean of responses
+
+        # covariance(samples) -> true covariance of responses
+        resp_mu = jnp.mean(rule_based_resps, axis=0)
+        resp_sigma = jnp.cov(rule_based_resps)
+
+        # return statistics for the response distribution for this trial:
+        return (resp_mu, resp_sigma)
