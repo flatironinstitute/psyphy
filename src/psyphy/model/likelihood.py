@@ -59,12 +59,14 @@ class ContinuousTouchRule:
     Attributes
     ----------
     _linear_coeff : Any (array-like)
+            shape = (stim_dim, 2)
         The linear transformation which relates a stim_dimensional stimulus to
         the final coordinate.
         Applied *after* any other function. For any linear rule, this can act
         as the application of the rule itself. For non-linear rules given via
         explicit function, can be left as the identity matrix.
     _offset : Any (array-like)
+            shape = (2,)
         Offsets to be applied to calculated coordinates to get the true final
         coordinate. If the offsets are included in the rule given via explicit
         function, offset can be left as 0 vector.
@@ -86,10 +88,12 @@ class ContinuousTouchRule:
         nonlinear_func: Callable | None = None,  # function
     ):
         # Coefficients for linear portion
-        self.linear_coeff = jnp.asarray(jnp.asarray(linear_coeff)) or jnp.array(
-            [[1, 0], [0, 1]]
-        )
-        self.offset = jnp.squeeze(jnp.asarray(offset)) or jnp.array([0, 0]).T
+        if linear_coeff is None:
+            linear_coeff = jnp.array([[1, 0], [0, 1]])
+        self.linear_coeff = jnp.asarray(linear_coeff)
+        if offset is None:
+            offset = jnp.array([0, 0])
+        self.offset = jnp.squeeze(jnp.asarray(offset))
 
         # Check appropriate shapes:
         if self.offset.shape != (2,):
@@ -173,16 +177,17 @@ class ContinuousTouchRule:
 
         unscaled_responses = jax.vmap(self.apply_rule)(stimuli)
         scales = correct_responses / unscaled_responses
-        scale = scales[0, :]
-        scaled_responses = unscaled_responses * scale[:, None]
+        scale = jnp.diag(scales[0, :])  # gives the diagonal scaling matrix
+        scaled_responses = jax.vmap(lambda resp: scale @ resp.T)(unscaled_responses)
 
         if not jnp.allclose(scaled_responses, correct_responses):
             raise ValueError(
                 "The provided stimuli and responses are not"
                 "adequately described by a rescaling of the current rule relationship."
+                f"scaled: {scaled_responses}, correct: {correct_responses}"
             )
 
-        self.linear_coeff = self.linear_coeff * scale[:, None]
+        self.linear_coeff = scale @ self.linear_coeff
         self.update_rule()
 
     def update_rule(self):
@@ -190,7 +195,7 @@ class ContinuousTouchRule:
         Updates whether or not MC simulation will be required for
         log-likelihood calculations under this rule."""
         if self.nonlinear_func is None:
-            self.func = lambda x: jnp.matmul(self.linear_coeff, x) + self.offset
+            self.func = lambda x: (jnp.matmul(self.linear_coeff, x)).T + self.offset
             self.requires_simulation = False
             # If there is no nonlinear component, we can find a closed form solution!
         else:
@@ -995,17 +1000,13 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
         if key is None:
             key = jr.PRNGKey(int(self.config.default_key_seed))
 
-        if jnp.ndim(stimuli) != 2:
-            raise ValueError(
-                "ContinuousTouchTask expects a 2D array of "
-                "(k_stimuli, dimensions) representing a single stimulus."
-                f"Received {jnp.ndim(stimuli)}D array."
-            )
+        stimuli = jnp.squeeze(stimuli)
 
-        if jnp.size(stimuli, axis=0) != 1:
+        if jnp.ndim(stimuli) != 1:
             raise ValueError(
-                "ContinuousTouchTask is currently only implemented"
-                f"for a single stimulus. Received {jnp.size(stimuli, axis=0)}."
+                "ContinuousTouchTask expects a 1D array of "
+                "(k_stimuli=1, dimensions) representing a single stimulus."
+                f"Received {jnp.ndim(stimuli)}D array."
             )
 
         simulation = self.config.rule.requires_simulation
@@ -1038,7 +1039,7 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
         # We assume that stim noise distribution is centered at true stim:
         stim_mu = stimuli
 
-        input_dim = stimuli.shape[1]
+        input_dim = stimuli.shape[0]
 
         # Diagonal noise term (small regularization)
         diag_term = model.diag_term
@@ -1114,7 +1115,7 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
         # Get input dimension and require Wishart mode.
         # OddityTask is intentionally MC-only and currently only supports the
         # WPPM/Wishart covariance parameterization.
-        input_dim = stimuli.shape[1]
+        input_dim = stimuli.shape[0]
         if model.basis_degree is None:
             raise ValueError(
                 "(Expected a basis degree, got None. model.basis_degree must not be None)."
@@ -1171,7 +1172,6 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
         # ========================================================================
         # We use the rule defined in the configuration.
         # Rule specifics are delegated to that rule (which must be a ContinuuousTouchRule)
-        # in order to keep logic clean across all continuous touch tasks, and
         # allow for flexibility in the rule details.
 
         rule_based_resps = jax.vmap(rule.apply_rule)(z_stim)
@@ -1183,7 +1183,7 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
 
         # covariance(samples) -> true covariance of responses
         resp_mu = jnp.mean(rule_based_resps, axis=0)
-        resp_sigma = jnp.cov(rule_based_resps)
+        resp_sigma = jnp.cov(rule_based_resps, rowvar=False)
 
         # return statistics for the response distribution for this trial:
         return (resp_mu, resp_sigma)
