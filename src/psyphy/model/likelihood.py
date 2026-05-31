@@ -148,6 +148,12 @@ class TaskLikelihood(ABC):
         refs = stimuli[:, 0, :]
         comparisons = stimuli[:, 1, :]
         responses = jnp.asarray(data.responses)
+        # TrialData normalizes responses to (N,1).
+        # we need to squeeze it to (N,) such that jnp.where
+        # doesn't broadcast against probs (N,) -> (N,N),
+        # which would scramble the gradients
+        if responses.ndim == 2:
+            responses = responses[:, 0]
         responses = responses.astype(int)
         n_trials = int(refs.shape[0])
 
