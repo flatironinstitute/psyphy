@@ -200,6 +200,49 @@ class TestMCLikelihood:
         assert jnp.isfinite(ll_mc)
         assert ll_mc <= 0.0
 
+    def test_loglik_bernoulli_numerical_value(self):
+        """loglik must match the Bernoulli formula exactly.
+
+        Mocks predict to return a fixed p=0.7 so the expected value is
+        analytically known. Catches broadcasting bugs where (N, 1) responses
+        broadcast against (N,) probs to produce an (N, N) sum instead of (N,).
+        """
+
+        # Subclass OddityTask overriding predict to always return a fixed probability.
+        # This makes the expected log-likelihood analytically computable so we can
+        # assert the exact value — no MC variance, no model dependency.
+        # *_args, **_kwargs: accept and ignore all arguments (stimuli, params, key)
+        # since we only care that loglik applies the Bernoulli formula correctly.
+        class FixedProbTask(OddityTask):
+            def predict(self, *_args, **_kwargs):
+                return jnp.array(0.7)
+
+        task = FixedProbTask()
+        refs = jnp.array([[0.0], [0.0], [0.0]])
+        comparisons = jnp.array([[0.1], [0.1], [0.1]])
+
+        data = TrialData(
+            stimuli=jnp.stack([refs, comparisons], axis=1),
+            responses=jnp.array([1, 0, 1], dtype=jnp.int32),
+        )
+
+        model = WPPM(
+            input_dim=1,
+            prior=Prior(input_dim=1, basis_degree=2),
+            likelihood=task,
+            noise=GaussianNoise(sigma=0.0),
+        )
+
+        ll = task.loglik(params=None, data=data, model=model)
+
+        # trials 0 and 2 correct (response=1): log(0.7) each
+        # trial 1 incorrect (response=0): log(1 - 0.7) = log(0.3)
+        expected = 2 * jnp.log(0.7) + 1 * jnp.log(0.3)
+        assert jnp.allclose(ll, expected, atol=1e-5), (
+            f"Expected {float(expected):.4f}, got {float(ll):.4f}. "
+            "If ll \approx N * expected, a (N,1) vs (N,) broadcast bug is likely."
+        )
+
     @pytest.mark.parametrize("bandwidth", [1e-3, 1e-2, 5e-2])
     def test_mc_likelihood_bandwidth_sensitivity(self, model, simple_params, bandwidth):
         """MC likelihood should be sensitive to bandwidth parameter.
