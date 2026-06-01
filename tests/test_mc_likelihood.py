@@ -179,7 +179,7 @@ class TestMCLikelihood:
         assert jnp.abs(ll_1000 - ll_100) < 2.0, "Estimates should be in same ballpark"
 
     def test_mc_likelihood_batch_correctness(self, model, simple_params):
-        """MC likelihood should handle multiple trials correctly."""
+        """MC likelihood should handle multiple trials correctly"""
         refs = jnp.array([[0.0, 0.0], [0.5, 0.5], [-0.3, 0.2]])
         comparisons = jnp.array([[0.1, 0.1], [0.6, 0.4], [-0.2, 0.3]])
 
@@ -199,6 +199,52 @@ class TestMCLikelihood:
         assert ll_mc.shape == ()
         assert jnp.isfinite(ll_mc)
         assert ll_mc <= 0.0
+
+    def test_loglik_bernoulli_exact_value_single_response_channel(self):
+        """loglik must match the Bernoulli formula exactly.
+
+        Uses a stripped down version of predict that always returns p=0.7,
+        so the expected log-likelihood is analytically known. Catches broadcasting
+        bugs where (N, 1) responses broadcast against (N,) probs to produce an
+        (N, N) sum instead of (N,).
+
+        """
+
+        # subclass OddityTask overriding predict to always return a fixed probability.
+        # This makes the expected log-likelihood analytically computable so we can
+        # assert the exact value. ie, no MC variance and no model dependency.
+        # *_args, **_kwargs: accept and ignore all arguments (stimuli, params, key)
+        # since we only care that loglik applies the Bernoulli formula correctly.
+        class FixedProbTask(OddityTask):
+            def predict(self, *_args, **_kwargs):
+                return jnp.array(0.7)
+
+        task = FixedProbTask()
+        # dummy data: 3 data points
+        refs = jnp.array([[0.0], [0.0], [0.0]])
+        comparisons = jnp.array([[0.1], [0.1], [0.1]])
+
+        data = TrialData(
+            stimuli=jnp.stack([refs, comparisons], axis=1),
+            responses=jnp.array([1, 0, 1], dtype=jnp.int32),
+        )
+
+        model = WPPM(
+            input_dim=1,
+            prior=Prior(input_dim=1, basis_degree=2),
+            likelihood=task,
+            noise=GaussianNoise(sigma=0.0),
+        )
+
+        ll = task.loglik(params=None, data=data, model=model)
+
+        # trials 0 and 2 correct (response=1): log(.7) each
+        # trial 1 incorrect (response=0): log(1 - 0.7) = log(0.3)
+        expected = 2 * jnp.log(0.7) + 1 * jnp.log(0.3)  # 2 correct, 1 wrong
+        assert jnp.allclose(ll, expected, atol=1e-5), (
+            f"Expected {float(expected):.4f}, got {float(ll):.4f}. "
+            "If ll \approx N * expected, a (N,1) vs (N,) broadcast bug is likely."
+        )
 
     @pytest.mark.parametrize("bandwidth", [1e-3, 1e-2, 5e-2])
     def test_mc_likelihood_bandwidth_sensitivity(self, model, simple_params, bandwidth):
