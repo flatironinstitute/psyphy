@@ -10,6 +10,8 @@ calculation appropriately depending on the rule type.
 5. MC simulation appropriately approximates known closed-form solutions.
 """
 
+from unittest.mock import Mock
+
 import jax.numpy as jnp
 import jax.random as jr
 import pytest
@@ -21,6 +23,7 @@ from psyphy.model import (
     ContinuousTouchTaskConfig,
     GaussianNoise,
     Prior,
+    StudentTNoise,
 )
 
 
@@ -85,6 +88,100 @@ class TestContinuousTouchRule:
 
 class TestContinuousTouchRulePredicts:
     """Test the rule-based prediction features for ContinuousTouchTask"""
+
+    def test_task_mc_when_appropriate(self):
+        """
+        For a rule that is a linear transformation and with Gaussian noise,
+        we should not use MC simulation.
+
+        All other scenarios should use MC simulation.
+        """
+
+        # Create rule parameters
+        coeff = jnp.array([[0.1, 3], [5, 2]])
+        offset = jnp.array([3, 1.9])
+
+        def rule_func(x):
+            return jnp.array([jnp.exp(x[0]), x[1] * x[0] * x[0]])
+
+        # Create rules
+        linear_rule = ContinuousTouchRule(linear_coeff=coeff, offset=offset)
+        nonlinear_rule = ContinuousTouchRule(
+            nonlinear_func=rule_func, linear_coeff=coeff, offset=offset
+        )
+
+        # Create task objects
+        linear_task = ContinuousTouchTask(
+            config=ContinuousTouchTaskConfig(num_samples=5000, rule=linear_rule)
+        )
+        nonlinear_task = ContinuousTouchTask(
+            config=ContinuousTouchTaskConfig(num_samples=5000, rule=nonlinear_rule)
+        )
+
+        # Create  models
+        gaussian_model = WPPM(
+            input_dim=2,
+            prior=Prior(input_dim=2, basis_degree=2),
+            likelihood=linear_task,  # should not matter which task is used
+            noise=GaussianNoise(sigma=0.01),  # Small noise
+        )
+        gaussian_params = gaussian_model.init_params(jr.PRNGKey(0))
+
+        non_gaussian_model = WPPM(
+            input_dim=2,
+            prior=Prior(input_dim=2, basis_degree=2),
+            likelihood=linear_task,  # should not matter which task is used
+            noise=StudentTNoise(),
+        )
+        non_gaussian_params = gaussian_model.init_params(jr.PRNGKey(0))
+
+        # Create data
+        stim = jnp.array([0.5, 0.9])
+
+        # Test whether the correct methods (MC vs calculation) are called:
+        linear_task._simulate_trial_mc = Mock(return_value=[0.1, 0.1])
+        linear_task._calculate_trial = Mock(return_value=[0.2, 0.2])
+        nonlinear_task._simulate_trial_mc = Mock(return_value=[0.3, 0.3])
+        nonlinear_task._calculate_trial = Mock(return_value=[0.4, 0.4])
+
+        # linear & gaussian should be calculated, not simulated:
+        linear_task.predict(
+            params=gaussian_params,
+            stimuli=stim,
+            model=gaussian_model,
+            key=jr.PRNGKey(42),
+        )
+        linear_task._simulate_trial_mc.assert_not_called()
+        linear_task._calculate_trial.assert_called()
+
+        # nonlinear gaussian should be simulated:
+        nonlinear_task.predict(
+            params=gaussian_params,
+            stimuli=stim,
+            model=gaussian_model,
+            key=jr.PRNGKey(42),
+        )
+        nonlinear_task._simulate_trial_mc.assert_called()
+        nonlinear_task._calculate_trial.assert_not_called()
+
+        # both tasks should be simulated for non-gaussian noise:
+        nonlinear_task.predict(
+            params=non_gaussian_params,
+            stimuli=stim,
+            model=non_gaussian_model,
+            key=jr.PRNGKey(42),
+        )
+        linear_task.predict(
+            params=non_gaussian_params,
+            stimuli=stim,
+            model=non_gaussian_model,
+            key=jr.PRNGKey(42),
+        )
+
+        linear_task._simulate_trial_mc.assert_called()
+        linear_task._calculate_trial.assert_called_once()
+        nonlinear_task._calculate_trial.assert_not_called()
+        assert nonlinear_task._simulate_trial_mc.call_count == 2
 
     def test_mc_vs_closed_form(self):
         """

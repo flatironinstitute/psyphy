@@ -851,6 +851,9 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
             )
 
         simulation = self.config.rule.requires_simulation
+        if model.noise.__class__.__name__ != "GaussianNoise":
+            simulation = True
+        # TODO: separate into MC simulation vs closed-form task classes?
 
         if simulation:
             return self._simulate_trial_mc(
@@ -943,15 +946,6 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
            - (mu, sigma) \approx mean and covariance over num_samples
 
         """
-
-        # Before we start, we check to ensure that MC simulation is actually necessary.
-        # MC simulation should *never* be used when there is a closed-form
-        # implementation, as this is a costly step.
-        if not rule.requires_simulation:
-            raise TypeError(
-                "MC simulation should only be used when there is no"
-                "closed form solution. The given rule has a closed form solution."
-            )
 
         # Get input dimension and require Wishart mode.
         # OddityTask is intentionally MC-only and currently only supports the
