@@ -70,11 +70,11 @@ class TaskLikelihood(ABC):
     Abstract base class for task likelihoods.
 
     Subclasses must implement:
-    - ``predict(params, ref, comparison, model, *, key)`` → p(correct) for one trial
+    - ``predict(params, ref, comparison, model, *, key)`` -> p(correct) for one trial
 
     The base class provides concrete implementations of:
-    - ``loglik(params, data, model, *, key)`` → Bernoulli log-likelihood over a batch
-    - ``simulate(params, refs, comparisons, model, *, key)`` → simulated responses
+    - ``loglik(params, data, model, *, key)`` -> Bernoulli log-likelihood over a batch
+    - ``simulate(params, refs, comparisons, model, *, key)`` -> simulated responses
 
     The Bernoulli log-likelihood step is identical for all binary-response tasks,
     so it lives here rather than being re-implemented in every subclass.
