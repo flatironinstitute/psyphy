@@ -445,8 +445,18 @@ class GaussianTaskLikelihood(TaskLikelihood):
         prob_params : jnp.ndarray, shape (n_trials, )
             Estimated (mu, sigma) per trial used to draw the responses.
         """
-        raise NotImplementedError("Gaussian Task simulations not yet implemented")
-        # TODO: Gaussian Task Simulations
+        stimuli = jnp.asarray(stimuli)
+        n_trials = int(stimuli.shape[0])
+
+        k_pred, k_gaussian = jr.split(key)
+        trial_keys = jr.split(k_pred, n_trials)
+
+        mu, sigma = jax.vmap(lambda stim, k: self.predict(params, stim, model, key=k))(
+            stimuli, trial_keys
+        )
+
+        responses = jr.multivariate_normal(k_gaussian, mu, sigma)
+        return (responses, [mu, sigma])
 
 
 class OddityTask(BernoulliTaskLikelihood):
