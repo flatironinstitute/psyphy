@@ -2,60 +2,45 @@
 Weber's Law Recovery with 1D WPPM
 ----------------------------------
 
-Demonstrates that a 1D WPPM can recover Weber's law — the finding that the
-just-noticeable difference (JND) is a constant fraction of the stimulus level
-— purely from binary MC-based oddity-task responses.
+Demonstrates that a 1D WPPM can recover Weber's law purely from
+binary MC-based oddity-task responses: Weber's law is the finding that the
+just-noticeable difference (JND) is a constant fraction of the stimulus level.
 
 The core claim
---------------
+------------
 Simulate binary oddity responses from a 1D ground-truth observer whose internal
-variance satisfies Sigma(s) = (k*s)^2.  Fit a 1D WPPM to those responses.
-If the fitted model recovers a variance function whose implied threshold
-scales linearly with stimulus magnitude, the Wishart process is flexible enough
-to represent Weber's law in 1D.
+variance satisfies Sigma(s) = (k*s)^2, ie the Weber Law.  Fit a 1D WPPM
+to those responses. If the fitted model recovers a variance function
+whose implied threshold scales linearly with stimulus magnitude,
+the Wishart process is flexible enough to represent Weber's law in 1D.
 
-Why sqrt(Sigma(s)) is a useful JND proxy
+sqrt(Sigma(s)) as a JND proxy
 ------------------------------------------
-The WPPM oddity task uses a pooled covariance
-    Sigma_avg = (2/3)*Sigma_ref + (1/3)*Sigma_comp
-and three noisy internal representations to compute pairwise Mahalanobis
-distances. This is NOT a simple d' = |delta|/sigma(s_ref). However, in the
-1D equal-variance limit (Sigma_ref = Sigma_comp = Sigma), signal-detection
-theory gives JND = d'*sqrt(Sigma), where d' is a constant that depends on
-criterion performance and the decision rule. So sqrt(Sigma_hat(s)) is
-*proportional* to the implied JND — not equal to it. We test Weber's law by
-checking whether sqrt(Sigma_hat(s)) scales linearly with s, not whether it
-matches k*s exactly. The proportionality constant d' cancels out in that test.
+sqrt(Sigma(s)) is the noise standard deviation at stimulus level s — the scale
+of trial-to-trial perceptual fluctuations. Weber's law predicts this grows
+linearly with s. We test linearity directly; any unknown constant of
+proportionality between noise SD and behavioral threshold cancels in that test.
 
 Weber's law in the WPPM representation
 ---------------------------------------
-Weber's law: JND(s) = k*s, i.e., Sigma(s) = (k*s)^2.
-Since Sigma = U*U^T and Weber requires sqrt(Sigma) = k*s (linear in s),
-U(s) = k*s is itself linear — degree 1 in the Chebyshev basis.
+Weber's law: JND(s) = k*s, i.e., Sigma(s) = (k*s)^2, where Sigma(s) is the variance.
+Since Sigma = U*U^T, Weber requires U(s) = k*s — linear in s, and therefore
+also linear in the normalized coordinate x (degree 1 in the Chebyshev basis).
 
-Why basis_degree=2 is the principled choice
---------------------------------------------
+Basis degree of Chebychev
+--------------------
 The WPPM Chebyshev basis is evaluated in normalized x in [-1, 1], not physical s.
-U(x) = W_0*T_0(x) + W_1*T_1(x) + W_2*T_2(x)
-     = W_0 + W_1*x + W_2*(2x^2-1)   [degree-2 Chebyshev in normalized x]
-Sigma(s) = U(x(s))^2                 [degree 4 in x — can represent k^2*s^2]
+basis_degree is the index of the highest Chebyshev polynomial used; since T_n
+has polynomial degree n, it also equals the polynomial degree of U:
 
-Weber's law needs only degree-1 U (i.e., basis_degree=1 is the minimum).
-We use basis_degree=2 because:
-  1. It gives the model one extra degree of freedom to fit deviations from
-     Weber's law (e.g., a constant offset).
-  2. It still forces the prior to strongly regularise: only 3 Chebyshev
-     coefficients (W shape (3, 1, 1) = 3 parameters with extra_dims=0).
-  3. Degree-1 U(x) = W_0 + W_1*x maps to a line in physical s (since x is an
-     affine function of s) — the generalised Weber law JND(s) = k*s + c.
-     This is empirically more accurate than pure Weber, since a constant noise
-     floor c > 0 appears near absolute threshold. Degree 2 adds one quadratic term
-     that can capture further curvature (e.g., the de Vries-Rose low-intensity
-     regime). The prior's decay rate strongly penalises degree-2, so the model
-     defaults to Weber-like behaviour but can deviate when data demands it.
-  basis_degree=4 with extra_dims=1 (the previous setting) had W shape
-  (5, 1, 2) = 10 parameters, with the extra capacity driven by the prior
-  rather than by data.
+  basis_degree=1  ->  U(x) = W_0*T_0(x) + W_1*T_1(x) = W_0 + W_1*x  [linear in x]
+                  ->  Sigma(x) = U(x)^2 = (W_0 + W_1*x)^2             [degree 2 in x]
+
+
+Two free parameters (W shape (2, 1, 1) with extra_dims=0): W_1 sets the Weber
+slope k and W_0 a constant noise floor (generalised law JND = k*s + c).
+The prior regularizes W_0 toward zero, so the model defaults to pure Weber but
+can deviate when data demand it.
 
 Coordinate system, normalisation, and domain
 ---------------------------------------------
@@ -63,8 +48,8 @@ WPPM does NOT normalise inputs. It enforces x in [-1, 1] and raises ValueError
 otherwise. The Chebyshev polynomials are orthogonal on [-1, 1]; using a
 sub-interval wastes basis capacity and mis-calibrates the smoothness prior.
 
-The Chebyshev domain must span ALL stimuli that appear — both references and
-comparisons. Comparisons extend above the reference range: at reference s_ref
+The Chebyshev domain must span ALL stimuli that appear (both references and
+comparisons). Comparisons extend above the reference range: at reference s_ref
 with r JNDs of displacement, s_comp = s_ref*(1 + r*K_WEBER). We therefore set
 S_MAX = 2.0 so that the worst-case comparison
 (S_MAX_REF*(1 + r_max*K_WEBER) = 1.0*1.8 = 1.8) stays inside the domain.
@@ -131,7 +116,8 @@ print("DEVICE:", jax.devices()[0])
 # The WPPM Chebyshev basis requires inputs in [-1, 1]; we map explicitly.
 
 S_MIN: float = 0.2  # domain minimum (also minimum reference; must be > 0 for Weber)
-S_MAX: float = 2.0  # domain maximum — wide enough to cover all comparisons.
+S_MAX: float = 2.0  # domain maximum — wide enough to cover all comparisons,
+# which are an offset from reference stimulus.
 # worst-case: S_MAX_REF*(1 + r_max*K_WEBER) = 1.0*1.8 = 1.8 < 2.0.
 S_MAX_REF: float = (
     1.0  # maximum reference stimulus; references sampled from [S_MIN, S_MAX_REF].
@@ -176,7 +162,6 @@ class WeberGroundTruth:
             DIAG_TERM  # same jitter as the fitted WPPM (see DIAG_TERM constant).
         )
         self.noise = GaussianNoise(sigma=0.0)
-        self.basis_degree = 2
 
     def _compute_sqrt(self, _params, x: jnp.ndarray) -> jnp.ndarray:
         # _params unused: WeberGroundTruth has no learned parameters.
@@ -195,15 +180,13 @@ K_WEBER = 0.2  # Weber fraction (ground truth)
 DIAG_TERM = 1e-6  # numerical stability jitter — shared by WeberGroundTruth AND the
 # fitted WPPM so the generative model and the fitting model have
 # identical parameterisations. Removing from WPPM risks NaN gradients
-# when U(x) ≈ 0 during early optimisation; 1e-6 ≪ (k*s)^2 ≈ 0.0016.
+# when U(x) \approx 0 during early optimisation
 N_TRIALS = 2000
 MC_SAMPLES = 1000  # MC samples for simulation and fitting
 
-# basis_degree=2 is the  minimum that works well for this demo:
-# - degree 1 U(x) is sufficient to represent Weber (linear U -> quadratic Sigma)
-# - With extra_dims=0: W shape (3, 1, 1) = 3 parameters total (minimum possible)
-# See module docstring for the full argument.
-BASIS_DEGREE = 2
+# degree-1 U(x) = W_0 + W_1*x — sufficient for Weber (linear U -> quadratic Sigma).
+# W shape (2, 1, 1) = 2 parameters with extra_dims=0. See module docstring.
+BASIS_DEGREE = 1
 
 NUM_STEPS = 500  # 1000 gets close for 3 param model (0 additional embedding dims)
 LEARNING_RATE = 5e-4
@@ -251,13 +234,15 @@ refs = refs_x[:, None]  # (N, 1) for WPPM / OddityTask
 
 # Random Mahalanobis radii so the scatter spans a 2D region in (s, delta) space.
 # delta = r * JND(s) = r * k * s  (in physical units)
-# Displacements are one-sided (comp = ref + delta, delta > 0). In 1D with scalar
-# Sigma only |delta|/sqrt(Sigma) enters the decision, so direction does not matter.
+# Displacements of the comparisons are one-sided (comp = ref + delta, delta > 0).
+# In 1D with scalar  Sigma only |delta|/sqrt(Sigma) enters the decision,
+# so direction does not matter.
 # Bidirectional displacements are equivalent but require refs to have a margin above
 # S_MIN; one-sided is simpler here.
 r_vals = jr.uniform(k_radii, (N_TRIALS,), minval=0.5, maxval=4.0)
-delta_s = r_vals * K_WEBER * refs_s  # displacement in physical units
-# Domain check: max(refs_s + delta_s) = S_MAX_REF*(1 + r_max*K_WEBER) = 1.8 < S_MAX ✓
+delta_s = (
+    r_vals * K_WEBER * refs_s
+)  # r JNDs in physical units: delta = r*JND(s) = r*k*s
 
 # Comparisons in normalized coordinates (WPPM and OddityTask expect normalized x)
 comps_x = to_norm(refs_s + delta_s)
@@ -289,7 +274,7 @@ model = WPPM(
     prior=prior,
     likelihood=task,
     noise=GaussianNoise(sigma=0.0),
-    diag_term=DIAG_TERM,  # explicit: matches WeberGroundTruth for a fair comparison
+    diag_term=DIAG_TERM,  # matches WeberGroundTruth for a fair comparison
 )
 
 init_params = model.init_params(jr.PRNGKey(1))
@@ -298,7 +283,7 @@ optimizer = MAPOptimizer(
     steps=NUM_STEPS,
     learning_rate=LEARNING_RATE,
     track_history=True,
-    log_every=50,
+    log_every=1,
 )
 
 map_posterior = optimizer.fit(model, data, init_params=init_params, seed=2)
@@ -316,6 +301,7 @@ print("[3/5] Computing derived quantities ...")
 s_grid = jnp.linspace(S_MIN, S_MAX_REF, 300)  # physical, reference range
 x_grid = to_norm(s_grid)[:, None]  # normalized, shape (300, 1)
 
+# Bind fitted parameters to the model: creates a callable x -> Sigma(x).
 fitted_cov_fn = WPPMCovarianceField(model, map_posterior.params)
 variances = fitted_cov_fn(x_grid)  # (300, 1, 1) — 1x1 "matrix" per grid point;
 # [:, 0, 0] extracts the scalar Sigma(s)
@@ -328,7 +314,7 @@ jnd_truth = K_WEBER * s_grid  # ground truth: k*s
 weber_fraction_fitted = jnd_fitted / s_grid
 
 # Fechner's law: psi(s) = integral_{S_MIN}^{s} 1/JND(s') ds'
-# When JND = k*s, psi = (1/k)*log(s/S_MIN) — the logarithmic sensation scale
+# When JND = k*s, psi = (1/k)*log(s/S_MIN) (the logarithmic magnitude scale)
 ds = float(s_grid[1] - s_grid[0])
 psi_fitted = jnp.cumsum(1.0 / jnd_fitted) * ds
 psi_truth = jnp.cumsum(1.0 / jnd_truth) * ds
@@ -337,7 +323,7 @@ psi_log = jnp.log(s_grid / s_grid[0])
 
 def _norm01(x):
     # Affine rescaling to [0, 1] for visual comparison. sqrt(Sigma) is proportional
-    # to JND (not equal), so absolute scale is arbitrary. Normalisation isolates the
+    # to JND (not equal), so absolute scale is arbitrary. Normalization isolates the
     # shape of the sensation curve (logarithmic growth) from the scale factor d'.
     return (x - x[0]) / (x[-1] - x[0])
 
