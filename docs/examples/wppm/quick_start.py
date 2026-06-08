@@ -294,7 +294,7 @@ plt.tight_layout()
 
 os.makedirs(PLOTS_DIR, exist_ok=True)
 fig.savefig(
-    os.path.join(PLOTS_DIR, "quick_start_ellipses.png"), dpi=200, bbox_inches="tight"
+    os.path.join(PLOTS_DIR, "tquick_start_ellipses.png"), dpi=200, bbox_inches="tight"
 )
 print(f"  Saved → {PLOTS_DIR}/quick_start_ellipses.png")
 # --8<-- [end:plot_ellipses]
@@ -322,7 +322,7 @@ if steps_hist and loss_hist:
     ax2.grid(True, alpha=0.3)
     plt.tight_layout()
     fig2.savefig(
-        os.path.join(PLOTS_DIR, "quick_start_learning_curve.png"),
+        os.path.join(PLOTS_DIR, "tquick_start_learning_curve.png"),
         dpi=200,
         bbox_inches="tight",
     )

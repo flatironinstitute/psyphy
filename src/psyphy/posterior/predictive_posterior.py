@@ -29,6 +29,8 @@ import jax.random as jr
 if TYPE_CHECKING:
     from psyphy.posterior.parameter_posterior import ParameterPosterior
 
+from ..model.likelihood import BernoulliTaskLikelihood
+
 
 @runtime_checkable
 class PredictivePosterior(Protocol):
@@ -192,6 +194,14 @@ class WPPMPredictivePosterior:
         def predict_batch(params):
             """Predict distribution parameters for given params
             For OddityTask, this is p(correct) for all (ref, probe) pairs given params."""
+
+            if not isinstance(model.likelihood, BernoulliTaskLikelihood):
+                raise NotImplementedError(
+                    "WPPMPredictivePosterior currently only supports "
+                    "BernoulliTaskLikelihood. Gaussian support requires "
+                    "updating to handle (mu, sigma) returns."
+                )
+
             return jax.vmap(lambda x: model.predict_prob(params, x))(self.X)
 
         # predictions: shape (n_samples, n_test)

@@ -51,7 +51,12 @@ class TestBernoulli:
 
     @pytest.fixture
     def data(self):
-        """Create simple data for testing."""
+        """Create simple data for testing.
+        Note that the shape of responses for a single trial can be (N,1) or (N,)
+        for loglik. TrialData will normalize to (N,1) allowing for appropriate
+        shape checks. If (N,) is passed directly instead, then checks may be
+        bypassed.
+        """
         stimuli = jnp.array([[[1, 1], [0, 0]], [[1, 1], [0, 0]]])
         responses = jnp.array([1, 0])
         return TrialData(stimuli=stimuli, responses=responses)

@@ -94,13 +94,13 @@ class TaskLikelihood(ABC):
         model: Any,
         *,
         key: Any = None,
-    ) -> list[jnp.ndarray]:
+    ) -> tuple[jnp.ndarray, ...]:
         """Return parameters sufficient to determine probability of any given
         response on a single trial. The parameters will be specific to the
         distribution (specified by abstract subclass)
 
-        BernoulliTaskLikelihood: returns [p(correct)]
-        GaussianTaskLikelihood: returns [mu, sigma], the parameters defining
+        BernoulliTaskLikelihood: returns (p(correct))
+        GaussianTaskLikelihood: returns (mu, sigma), the parameters defining
         a Gaussian distribution.
 
         Parameters
@@ -165,7 +165,7 @@ class TaskLikelihood(ABC):
         model: Any,
         *,
         key: Any,
-    ) -> tuple[jnp.ndarray, list[jnp.ndarray]]:
+    ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
         """Simulate responses for a batch of trials.
 
         Parameters
@@ -183,9 +183,9 @@ class TaskLikelihood(ABC):
         -------
         responses : jnp.ndarray, shape (n_trials, r_dim)
             Simulated responses.
-        probability parameters : list[jnp.ndarray], each array has shape[0] = n_trials
-            Bernoulli: Estimated [P(correct)] per trial used to draw the responses. shape = (n_trials)
-            Gaussian: Estimated [mu, sigma] per trial used to draw the responses. shape for mu = (n_trials, r_dims); shape for sigma = (n_trials, r_dims, r_dims).
+        probability parameters : tuple[jnp.ndarray, ...], each array has shape[0] = n_trials
+            Bernoulli: Estimated (P(correct)) per trial used to draw the responses. shape = (n_trials)
+            Gaussian: Estimated (mu, sigma) per trial used to draw the responses. shape for mu = (n_trials, r_dims); shape for sigma = (n_trials, r_dims, r_dims).
 
         Note: not yet implemented for Gaussians
         """
@@ -244,7 +244,13 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         # we need to squeeze it to (N,) such that jnp.where
         # doesn't broadcast against probs (N,) -> (N,N),
         # which would scramble the gradients
-        if responses.ndim == 2:
+        if responses.ndim > 1:
+            if responses.shape[1] != 1:
+                raise ValueError(
+                    f"BernoulliTaskLikelihood expects R=1 binary responses, "
+                    f"got shape {responses.shape}. For multi-channel responses "
+                    f"use a task-specific loglik."
+                )
             responses = responses[:, 0]
         responses = responses.astype(int)
         n_trials = int(stimuli.shape[0])
@@ -252,9 +258,11 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         base_key = key if key is not None else jr.PRNGKey(0)
         trial_keys = jr.split(base_key, n_trials)
 
-        probs = jax.vmap(lambda stim, k: self.predict(params, stim, model, key=k))(
-            stimuli, trial_keys
-        )
+        prob_params = jax.vmap(
+            lambda stim, k: self.predict(params, stim, model, key=k)
+        )(stimuli, trial_keys)
+
+        probs = prob_params[0]
 
         log_likelihoods = jnp.where(
             jnp.squeeze(responses) == 1,
@@ -271,7 +279,7 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         model: Any,
         *,
         key: Any,
-    ) -> tuple[jnp.ndarray, list[jnp.ndarray]]:
+    ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
         """Simulate observed binary responses for a batch of trials.
 
         Parameters
@@ -290,7 +298,7 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         responses : jnp.ndarray, shape (n_trials,), dtype int32
             Simulated binary responses (1 = correct, 0 = incorrect).
         p_correct : jnp.ndarray, shape (n_trials,)
-            Estimated [P(correct)] per trial used to draw the responses.
+            Estimated (P(correct)) per trial used to draw the responses.
         """
         stimuli = jnp.asarray(stimuli)
         n_trials = int(stimuli.shape[0])
@@ -303,7 +311,7 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         )
 
         responses = jr.bernoulli(k_bernoulli, p_correct).astype(jnp.int32)
-        return (responses, [p_correct])
+        return (responses, (p_correct))
 
 
 class GaussianTaskLikelihood(TaskLikelihood):
@@ -387,7 +395,7 @@ class GaussianTaskLikelihood(TaskLikelihood):
         model: Any,
         *,
         key: Any,
-    ) -> tuple[jnp.ndarray, list[jnp.ndarray]]:
+    ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
         """Simulate observed responses for a batch of trials.
 
         Parameters
@@ -406,7 +414,7 @@ class GaussianTaskLikelihood(TaskLikelihood):
         responses : jnp.ndarray, shape (n_trials, r_dims),
             Simulated responses.
         p_correct : jnp.ndarray, shape (n_trials,)
-            Estimated [mu, sigma] per trial used to draw the responses.
+            Estimated (mu, sigma) per trial used to draw the responses.
         """
         raise NotImplementedError("Gaussian Task simulations not yet implemented")
 
@@ -487,8 +495,6 @@ class OddityTask(BernoulliTaskLikelihood):
 
         ref = stimuli[0, :]
         comparison = stimuli[1, :]
-
-        print(ref)
 
         return self._simulate_trial_mc(
             params=params,
