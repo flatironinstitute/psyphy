@@ -936,7 +936,7 @@ class TestSimulate:
             simple_params, stimuli, model, key=jr.PRNGKey(0)
         )
         assert responses.shape == (2,)
-        assert p_correct.shape == (2,)
+        assert p_correct[0].shape == (2,)
         assert responses.dtype == jnp.int32
 
     def test_simulate_responses_are_binary(self, model, simple_params):
@@ -955,6 +955,7 @@ class TestSimulate:
         _, p_correct = model.likelihood.simulate(
             simple_params, stimuli, model, key=jr.PRNGKey(2)
         )
+        p_correct = p_correct[0]
         assert jnp.all(p_correct > 0) and jnp.all(p_correct < 1)
 
     def test_simulate_reproducible_with_same_key(self, model, simple_params):

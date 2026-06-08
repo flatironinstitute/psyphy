@@ -310,8 +310,8 @@ class BernoulliTaskLikelihood(TaskLikelihood):
             stimuli, trial_keys
         )
 
-        responses = jr.bernoulli(k_bernoulli, p_correct).astype(jnp.int32)
-        return (responses, (p_correct))
+        responses = jr.bernoulli(k_bernoulli, p_correct[0]).astype(jnp.int32)
+        return (responses, p_correct)
 
 
 class GaussianTaskLikelihood(TaskLikelihood):
@@ -776,4 +776,4 @@ class OddityTask(BernoulliTaskLikelihood):
         # - Clipping here (before return) ensures gradients stay finite
         # - Without this, prob=1.0 -> log(1.0)=0.0 -> grad through clip at boundary -> NaN
         eps = 1e-6
-        return jnp.clip(prob, eps, 1.0 - eps)
+        return (jnp.clip(prob, eps, 1.0 - eps),)
