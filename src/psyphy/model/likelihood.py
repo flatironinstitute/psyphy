@@ -415,6 +415,8 @@ class GaussianTaskLikelihood(TaskLikelihood):
 
         jax.debug.callback(nan_loglik, log_likelihoods)
 
+        return jnp.sum(log_likelihoods)
+
     def simulate(
         self,
         params: Any,
@@ -454,7 +456,7 @@ class GaussianTaskLikelihood(TaskLikelihood):
         )
 
         responses = jr.multivariate_normal(k_gaussian, mu, sigma)
-        return (responses, [mu, sigma])
+        return (responses, (mu, sigma))
 
 
 class OddityTask(BernoulliTaskLikelihood):
@@ -812,7 +814,7 @@ class OddityTask(BernoulliTaskLikelihood):
         # - Clipping here (before return) ensures gradients stay finite
         # - Without this, prob=1.0 -> log(1.0)=0.0 -> grad through clip at boundary -> NaN
         eps = 1e-6
-        return jnp.clip(prob, eps, 1.0 - eps)
+        return (jnp.clip(prob, eps, 1.0 - eps),)
 
 
 class ContinuousTouchTask(GaussianTaskLikelihood):
