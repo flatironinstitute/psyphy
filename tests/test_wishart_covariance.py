@@ -236,7 +236,7 @@ class TestWishartIntegration:
         probe = jnp.array([0.6, 0.4])
         stimulus = (ref, probe)
 
-        p_correct = model.predict_prob(params, stimulus)
+        p_correct = model.predict_prob(params, stimulus)[0]
 
         # Should be valid probability
         assert 0.0 <= p_correct <= 1.0

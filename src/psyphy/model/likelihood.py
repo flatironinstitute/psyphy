@@ -115,6 +115,12 @@ class TaskLikelihood(ABC):
     - ``simulate(params, stimuli, model, *, key)`` → simulated responses & probability parameters
     """
 
+    @property
+    @abstractmethod
+    def resp_dim(self):
+        """Each concrete Task must store the dimensionality of its response"""
+        ...
+
     @abstractmethod
     def predict(
         self,
@@ -233,6 +239,12 @@ class BernoulliTaskLikelihood(TaskLikelihood):
     The Bernoulli log-likelihood step is identical for all binary-response tasks,
     so it lives here rather than being re-implemented in every subclass.
     """
+
+    @property
+    def resp_dim(self):
+        """All Bernoulli tasks have a response dimension of 1 as they are
+        binary response tasks."""
+        return 1
 
     def loglik(
         self,
@@ -830,6 +842,14 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
 
     def __init__(self, config: ContinuousTouchTaskConfig | None = None) -> None:
         self.config = config or ContinuousTouchTaskConfig()
+
+    @property
+    def resp_dim(self):
+        """
+        Gaussian tasks can vary in their response dimensions, so each concrete
+        Task must explicitly store or calculate its response dimension.
+        """
+        return 2
 
     def predict(
         self,

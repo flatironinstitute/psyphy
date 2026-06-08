@@ -15,6 +15,10 @@ class MockTask(BernoulliTaskLikelihood):
 
 
 class MockGaussianTask(GaussianTaskLikelihood):
+    @property
+    def resp_dim(self):
+        return 2
+
     def predict(self, params, stimuli, model, noise=None):
         return (jnp.array(0.0), jnp.array([[1.0]]))  # 1D mu, sigma
 
@@ -23,6 +27,10 @@ class MockGaussianTask(GaussianTaskLikelihood):
 
 
 class MockMultiGaussianTask(GaussianTaskLikelihood):
+    @property
+    def resp_dim(self):
+        return 2
+
     def predict(self, params, stimuli, model, noise=None):
         return (jnp.array([0.0, 0.0]), jnp.eye(2))  # 2D mu, sigma
 

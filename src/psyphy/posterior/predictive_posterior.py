@@ -29,7 +29,7 @@ import jax.random as jr
 if TYPE_CHECKING:
     from psyphy.posterior.parameter_posterior import ParameterPosterior
 
-from ..model.likelihood import BernoulliTaskLikelihood
+from ..model.likelihood import BernoulliTaskLikelihood, GaussianTaskLikelihood
 
 
 @runtime_checkable
@@ -192,25 +192,34 @@ class WPPMPredictivePosterior:
 
         # Vectorized prediction over parameter samples
         def predict_batch(params):
-            """Predict distribution parameters for given params
+            """Predict probability parameters for given params
             For OddityTask, this is p(correct) for all (ref, probe) pairs given params."""
-
-            if not isinstance(model.likelihood, BernoulliTaskLikelihood):
-                raise NotImplementedError(
-                    "WPPMPredictivePosterior currently only supports "
-                    "BernoulliTaskLikelihood. Gaussian support requires "
-                    "updating to handle (mu, sigma) returns."
-                )
 
             return jax.vmap(lambda x: model.predict_prob(params, x))(self.X)
 
-        # predictions: shape (n_samples, n_test)
-        predictions = jax.vmap(predict_batch)(param_samples)
+        if isinstance(model.likelihood, BernoulliTaskLikelihood):
+            # p_correct: shape (n_samples, n_test)
+            p_correct = jax.vmap(predict_batch)(param_samples)[0]
 
-        # Compute moments
-        self._mean = jnp.mean(predictions, axis=0)
-        self._variance = jnp.var(predictions, axis=0)
-        self._computed = True
+            # Compute moments
+            self._mean = jnp.mean(p_correct, axis=0)
+            self._variance = jnp.var(p_correct, axis=0)
+            self._computed = True
+        elif isinstance(model.likelihood, GaussianTaskLikelihood):
+            # mu: shape (n_samples, n_test, r_dim)
+            mu = jax.vmap(predict_batch)(param_samples)[0]
+
+            # Compute moments
+            self._mean = jnp.mean(mu, axis=0)
+            self._variance = jax.vmap(lambda m: jnp.cov(m, rowvar=False), in_axes=1)(mu)
+            self._computed = True
+        else:
+            raise NotImplementedError(
+                "WPPMPredictivePosterior Currently only supports Bernoulli and"
+                "Gaussian TaskLikelihoods."
+                "Support for more distributions requires updating to handle"
+                "more prob_parameter returns."
+            )
 
     @property
     def mean(self) -> jnp.ndarray:
@@ -238,7 +247,7 @@ class WPPMPredictivePosterior:
         Returns
         -------
         jnp.ndarray
-            Shape (*sample_shape, n_test)
+            Shape (*sample_shape, n_test, r_dim) or (*sample_shape, n_test) if r_dim == 1
         """
         n = int(jnp.prod(jnp.array(sample_shape))) if sample_shape else 1
         param_samples = self.param_posterior.sample(n, key=key)
@@ -252,10 +261,21 @@ class WPPMPredictivePosterior:
             """Predict for all test points with given params."""
             return jax.vmap(lambda x: model.predict_prob(params, x))(self.X)
 
-        samples = jax.vmap(predict_one)(param_samples)
+        if isinstance(model.likelihood, BernoulliTaskLikelihood) | isinstance(
+            model.likelihood, GaussianTaskLikelihood
+        ):
+            samples = jax.vmap(predict_one)(param_samples)[0]
+        else:
+            raise NotImplementedError(
+                "WPPMPredictivePosterior Currently only supports Bernoulli and"
+                "Gaussian TaskLikelihoods."
+                "Support for more distributions requires updating to handle"
+                "more prob_parameter returns."
+            )
 
         if sample_shape:
-            return samples.reshape(*sample_shape, -1)
+            r_dim = model.likelihood.resp_dim
+            return jnp.squeeze(samples.reshape(*sample_shape, -1, r_dim))
         return samples
 
     def cov_field(self, X: jnp.ndarray) -> jnp.ndarray:

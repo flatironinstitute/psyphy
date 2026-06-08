@@ -23,11 +23,19 @@ class MockBernoulliTask(BernoulliTaskLikelihood):
 
 
 class MockGaussianTask(GaussianTaskLikelihood):
+    @property
+    def resp_dim(self):
+        return 2
+
     def predict(self, params, stimuli, model, key, noise=None):
         return (jnp.array(0), jnp.array(1))  # 1D mu, sigma
 
 
 class MockMultiGaussianTask(GaussianTaskLikelihood):
+    @property
+    def resp_dim(self):
+        return 2
+
     def predict(self, params, stimuli, model, key, noise=None):
         return jnp.array([0, 0]), jnp.array([[1, 0], [0, 1]])  # 2D mu, sigma
 
@@ -39,6 +47,10 @@ class MockEvilGaussianTask(GaussianTaskLikelihood):
     concrete tasks should always implement 'predict' such that it gives positive
     definite covariance matrices.
     """
+
+    @property
+    def resp_dim(self):
+        return 2
 
     def predict(self, params, stimuli, model, key, noise=None):
         return jnp.array([0, 0]), jnp.array([[1, 1], [1, 1]])
