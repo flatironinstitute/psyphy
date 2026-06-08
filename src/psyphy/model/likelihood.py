@@ -415,8 +415,6 @@ class GaussianTaskLikelihood(TaskLikelihood):
 
         jax.debug.callback(nan_loglik, log_likelihoods)
 
-        return jnp.sum(log_likelihoods)
-
     def simulate(
         self,
         params: Any,
