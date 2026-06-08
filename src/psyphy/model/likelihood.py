@@ -265,7 +265,7 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         probs = prob_params[0]
 
         log_likelihoods = jnp.where(
-            jnp.squeeze(responses) == 1,
+            responses == 1,
             jnp.log(probs),
             jnp.log(1.0 - probs),
         )
@@ -363,7 +363,6 @@ class GaussianTaskLikelihood(TaskLikelihood):
         """
         stimuli = jnp.asarray(data.stimuli)
         responses = jnp.asarray(data.responses)
-        responses = responses.astype(int)
         n_trials = int(stimuli.shape[0])
 
         base_key = key if key is not None else jr.PRNGKey(0)
@@ -377,14 +376,17 @@ class GaussianTaskLikelihood(TaskLikelihood):
             lambda resp, m, s: jsp.multivariate_normal.logpdf(x=resp, mean=m, cov=s)
         )(responses, mu, jnp.squeeze(sigma))
 
-        if any(jnp.isnan(log_likelihoods)):
-            raise ValueError(
-                ""
-                "Error in calculating log-likelihoods. Jax.scipy.multivariate_normal.logpdf"
-                "returned nan values."
-                "This could be due to attempting to calculate likelihood with a covariance"
-                "matrix that is not positive definite."
-            )
+        def nan_loglik(logliks):
+            if any(jnp.isnan(logliks)):
+                raise ValueError(
+                    ""
+                    "Error in calculating log-likelihoods. Jax.scipy.multivariate_normal.logpdf"
+                    "returned nan values."
+                    "This could be due to attempting to calculate likelihood with a covariance"
+                    "matrix that is not positive definite."
+                )
+
+        jax.debug.callback(nan_loglik, log_likelihoods)
 
         return jnp.sum(log_likelihoods)
 
@@ -413,7 +415,7 @@ class GaussianTaskLikelihood(TaskLikelihood):
         -------
         responses : jnp.ndarray, shape (n_trials, r_dims),
             Simulated responses.
-        p_correct : jnp.ndarray, shape (n_trials,)
+        prob_params : jnp.ndarray, shape (n_trials, )
             Estimated (mu, sigma) per trial used to draw the responses.
         """
         raise NotImplementedError("Gaussian Task simulations not yet implemented")

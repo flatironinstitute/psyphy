@@ -16,7 +16,7 @@ class MockTask(BernoulliTaskLikelihood):
 
 class MockGaussianTask(GaussianTaskLikelihood):
     def predict(self, params, stimuli, model, noise=None):
-        return jnp.array(0, 1)  # 1D mu, sigma
+        return (jnp.array(0.0), jnp.array([[1.0]]))  # 1D mu, sigma
 
     def loglik(self, params, data, model, noise=None):
         return jnp.array(0.0)
@@ -24,7 +24,7 @@ class MockGaussianTask(GaussianTaskLikelihood):
 
 class MockMultiGaussianTask(GaussianTaskLikelihood):
     def predict(self, params, stimuli, model, noise=None):
-        return jnp.array([0, 0], [1, 1])  # 2D mu, sigma
+        return (jnp.array([0.0, 0.0]), jnp.eye(2))  # 2D mu, sigma
 
     def loglik(self, params, data, model, noise=None):
         return jnp.array(0.0)
