@@ -14,7 +14,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.model import WPPM, OddityTask, Prior
+from psyphy.model import WPPM, ContinuousTouchTask, OddityTask, Prior
 from psyphy.model.covariance_field import WPPMCovarianceField
 
 # ==============================================================================
@@ -23,12 +23,12 @@ from psyphy.model.covariance_field import WPPMCovarianceField
 
 
 @pytest.fixture
-def wishart_field():
-    """Create Wishart mode covariance field for testing."""
+def wishart_field(request):
+    """Create Wishart mode oddity task covariance field for testing."""
     model = WPPM(
         input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
-        likelihood=OddityTask(),
+        likelihood=request.param,
         extra_dims=1,
     )
     key = jr.PRNGKey(123)
@@ -55,6 +55,9 @@ def field_3d():
 class TestSinglePointDispatch:
     """Test that field(x) works for single points."""
 
+    @pytest.mark.parametrize(
+        "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+    )
     def test_single_point_wishart(self, wishart_field):
         """field(x) evaluates single point in Wishart mode."""
         x = jnp.array([0.7, 0.2])
@@ -84,6 +87,9 @@ class TestSinglePointDispatch:
 class TestOneDimensionalBatch:
     """Test field(X) for 1D batches (n_points, input_dim)."""
 
+    @pytest.mark.parametrize(
+        "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+    )
     def test_1d_batch_wishart(self, wishart_field):
         """field(X) handles 1D batch in Wishart mode."""
         X = jnp.array([[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]])
@@ -101,6 +107,9 @@ class TestOneDimensionalBatch:
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 class TestTwoDimensionalGrid:
     """Test field(X) for 2D grids (h, w, input_dim)."""
 
@@ -136,6 +145,9 @@ class TestTwoDimensionalGrid:
 class TestHigherDimensionalBatches:
     """Test field(X) for 3D+ batches."""
 
+    @pytest.mark.parametrize(
+        "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+    )
     def test_3d_batch(self, wishart_field):
         """field(X) handles 3D batches (e.g., temporal × grid)."""
         # Shape: (time, height, width, input_dim)
@@ -145,6 +157,9 @@ class TestHigherDimensionalBatches:
 
         assert Sigmas.shape == (5, 10, 10, 2, 2)
 
+    @pytest.mark.parametrize(
+        "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+    )
     def test_4d_batch(self, wishart_field):
         """field(X) handles 4D batches."""
         X_4d = jnp.ones((2, 3, 5, 5, 2)) * 0.5
@@ -167,6 +182,9 @@ class TestHigherDimensionalBatches:
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 class TestArbitraryBatchDimensions:
     """Parametrized tests for various batch structures."""
 
@@ -209,6 +227,9 @@ class TestArbitraryBatchDimensions:
 class TestInputValidation:
     """Test that field(x) validates inputs properly."""
 
+    @pytest.mark.parametrize(
+        "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+    )
     def test_wrong_input_dim_raises_error(self, wishart_field):
         """field(x) raises clear error for wrong input_dim."""
         # Model expects input_dim=2, give it 3
@@ -217,6 +238,9 @@ class TestInputValidation:
         with pytest.raises(ValueError, match="Last axis must be input_dim=2"):
             wishart_field(x_wrong)
 
+    @pytest.mark.parametrize(
+        "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+    )
     def test_wrong_input_dim_batch_raises_error(self, wishart_field):
         """field(X) raises error for wrong input_dim in batch."""
         X_wrong = jnp.ones((10, 3))  # Should be (10, 2)
@@ -237,6 +261,9 @@ class TestInputValidation:
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 class TestEquivalenceToVmap:
     """Test that field(X) gives same result as manual vmap."""
 
@@ -268,6 +295,9 @@ class TestEquivalenceToVmap:
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 class TestJITCompatibility:
     """Test that field(X) is JIT-compatible."""
 
@@ -310,6 +340,9 @@ class TestJITCompatibility:
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
 
+    @pytest.mark.parametrize(
+        "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+    )
     def test_single_element_batch(self, wishart_field):
         """field(X) handles batch of size 1."""
         X = jnp.array([[0.5, 0.5]])  # Shape (1, 2)
@@ -356,6 +389,9 @@ class TestEdgeCases:
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_field", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 class TestBackwardCompatibility:
     """Test that old API still works with deprecation warnings."""
 

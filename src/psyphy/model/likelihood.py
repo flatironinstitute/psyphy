@@ -411,9 +411,14 @@ class GaussianTaskLikelihood(TaskLikelihood):
             stimuli, trial_keys
         )
 
+        # ensure sigma is correct shape:
+        sigma = jnp.squeeze(sigma)
+        if n_trials == 1:
+            sigma = jnp.expand_dims(sigma, axis=0)
+
         log_likelihoods = jax.vmap(
             lambda resp, m, s: jsp.multivariate_normal.logpdf(x=resp, mean=m, cov=s)
-        )(responses, mu, jnp.squeeze(sigma))
+        )(responses, mu, sigma)
 
         def nan_loglik(logliks):
             if any(jnp.isnan(logliks)):

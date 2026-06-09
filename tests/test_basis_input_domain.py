@@ -13,26 +13,36 @@ families later (each basis can define its own expected domain).
 import jax.numpy as jnp
 import pytest
 
-from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
+from psyphy.model import WPPM, ContinuousTouchTask, GaussianNoise, OddityTask, Prior
 
 
 @pytest.mark.parametrize("input_dim", [2, 3])
 def test_evaluate_basis_at_point_accepts_chebyshev_domain(input_dim: int) -> None:
-    model = WPPM(
+    oddity_model = WPPM(
         input_dim=input_dim,
         prior=Prior(input_dim=input_dim, basis_degree=3),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
     )
 
-    x = jnp.linspace(-1.0, 1.0, input_dim)
-    phi = model._evaluate_basis_at_point(x)
+    touch_model = WPPM(
+        input_dim=input_dim,
+        prior=Prior(input_dim=input_dim, basis_degree=3),
+        likelihood=ContinuousTouchTask(),
+        noise=GaussianNoise(),
+    )
 
-    d = int(model.basis_degree)  # type: ignore[arg-type]
+    x = jnp.linspace(-1.0, 1.0, input_dim)
+    o_phi = oddity_model._evaluate_basis_at_point(x)
+    t_phi = touch_model._evaluate_basis_at_point(x)
+
+    oddity_d = int(oddity_model.basis_degree)  # type: ignore[arg-type]
+    touch_d = int(touch_model.basis_degree)  # type: ignore[arg-type]
     if input_dim == 2:
-        assert phi.shape == (d + 1, d + 1)
+        assert o_phi.shape == (oddity_d + 1, oddity_d + 1)
     else:
-        assert phi.shape == (d + 1, d + 1, d + 1)
+        assert o_phi.shape == (oddity_d + 1, oddity_d + 1, oddity_d + 1)
+        assert t_phi.shape == (touch_d + 1, touch_d + 1, touch_d + 1)
 
 
 @pytest.mark.parametrize("bad_x", [jnp.array([1.1, 0.0]), jnp.array([-1.2, 0.0])])
@@ -48,11 +58,12 @@ def test_evaluate_basis_at_point_rejects_out_of_range_2d(bad_x: jnp.ndarray) -> 
         model._validate_basis_input(bad_x)
 
 
-def test_evaluate_basis_at_point_rejects_wrong_shape() -> None:
+@pytest.mark.parametrize("likelihood", [OddityTask(), ContinuousTouchTask()])
+def test_evaluate_basis_at_point_rejects_wrong_shape(likelihood) -> None:
     model = WPPM(
         input_dim=2,
         prior=Prior(input_dim=2, basis_degree=2),
-        likelihood=OddityTask(),
+        likelihood=likelihood,
         noise=GaussianNoise(),
     )
 
