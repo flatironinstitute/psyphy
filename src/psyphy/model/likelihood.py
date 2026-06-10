@@ -538,8 +538,8 @@ class OddityTask(BernoulliTaskLikelihood):
         model: Any,
         *,
         key: Any = None,
-    ) -> jnp.ndarray:
-        """Return p(correct) for a single (ref, comparison) trial via MC simulation.
+    ) -> tuple[jnp.ndarray]:
+        """Return (p(correct)) for a single (ref, comparison) trial via MC simulation.
 
         MC controls (``num_samples``, ``bandwidth``) are read from
         :class:`OddityTaskConfig`. Pass ``key`` to control randomness; when
@@ -572,7 +572,7 @@ class OddityTask(BernoulliTaskLikelihood):
         num_samples: int,
         bandwidth: float,
         key: Any,
-    ) -> jnp.ndarray:
+    ) -> tuple[jnp.ndarray]:
         """
         Simulate a single 3-stimulus oddity trial via Monte Carlo.
 

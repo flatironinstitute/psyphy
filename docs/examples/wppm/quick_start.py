@@ -103,7 +103,7 @@ learning_rate = 5e-4  # full example: 5e-5. The smaller the lr, the more steps
 # basis_degree = 4  # smoothness / complexity of the basis
 # extra_dims = 1  # embedding dim for the Wishart process
 # decay_rate = 0.4  # how quickly high-frequency basis coefficients are shrunk
-# variance_scale = 4e-3  # 1e-9    # prior scale for the covariance matrices
+# variance_scale = 2e-3  # 1e-9    # prior scale for the covariance matrices
 # diag_term = 1e-4  # small diagonal jitter to keep covariances PD
 # bandwidth = 1e-2  # logistic-CDF bandwidth in the oddity task
 # momentum = 0.9
@@ -135,8 +135,8 @@ truth_params = truth_model.init_params(jax.random.PRNGKey(123))
 # ---------------------------------------------------------------------------
 
 
-# Single reference point at the centre of the stimulus space.
-ref_point = jnp.array([[0.0, 0.0]])  # shape (1, 2) — kept as a batch for generality
+# Single reference point.
+ref_point = jnp.array([[0.5, 0.5]])  # shape (1, 2) — kept as a batch for generality
 
 seed = 3
 key = jr.PRNGKey(seed)
@@ -232,6 +232,11 @@ map_cov_field = WPPMCovarianceField(model, map_estimate.params)
 # Step 5 — Visualize covariance ellipses (truth / prior / fit)
 # ---------------------------------------------------------------------------
 
+# Check covariance magnitudes
+truth_cov = truth_field(ref_point)[0]  # (2, 2)
+fit_cov = map_cov_field(ref_point)[0]  # (2, 2)
+init_cov = prior_field(ref_point)[0]  # (2, 2)
+
 print("[4/5] Plotting covariance ellipses ...")
 
 # --8<-- [start:plot_ellipses]
@@ -279,8 +284,8 @@ for field, color, label in zip(fields, colors, labels):
 ax.scatter(
     ref_point[:, 0], ref_point[:, 1], c="g", s=40, zorder=5, label="Reference Point"
 )
-ax.set_xlim(-0.6, 0.6)
-ax.set_ylim(-0.6, 0.6)
+# ax.set_xlim(-0.6, 0.6)
+# ax.set_ylim(-0.6, 0.6)
 ax.set_aspect("equal", adjustable="box")
 ax.set_xlabel("Stimulus dimension 1")
 ax.set_ylabel("Stimulus dimension 2")
@@ -294,7 +299,7 @@ plt.tight_layout()
 
 os.makedirs(PLOTS_DIR, exist_ok=True)
 fig.savefig(
-    os.path.join(PLOTS_DIR, "tquick_start_ellipses.png"), dpi=200, bbox_inches="tight"
+    os.path.join(PLOTS_DIR, "quick_start_ellipses.png"), dpi=200, bbox_inches="tight"
 )
 print(f"  Saved → {PLOTS_DIR}/quick_start_ellipses.png")
 # --8<-- [end:plot_ellipses]
@@ -322,7 +327,7 @@ if steps_hist and loss_hist:
     ax2.grid(True, alpha=0.3)
     plt.tight_layout()
     fig2.savefig(
-        os.path.join(PLOTS_DIR, "tquick_start_learning_curve.png"),
+        os.path.join(PLOTS_DIR, "quick_start_learning_curve.png"),
         dpi=200,
         bbox_inches="tight",
     )
