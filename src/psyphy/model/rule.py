@@ -64,6 +64,10 @@ class ContinuousTouchRule:
     requires_simulation : boolean
         Whether MC simulation will be required for log likelihood calculation.
 
+    Note that it is up to the user to determine if their rule can be expressed
+    using only the linear coefficient & offset. If any other rule function is
+    given, ContinuousTouchRule will assume MC simulation is required.
+
     """
 
     def __init__(
