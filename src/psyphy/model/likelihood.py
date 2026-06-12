@@ -378,12 +378,10 @@ class GaussianTaskLikelihood(TaskLikelihood):
 
         def nan_loglik(logliks):
             if any(jnp.isnan(logliks)):
-                raise ValueError(
-                    ""
-                    "Error in calculating log-likelihoods. Jax.scipy.multivariate_normal.logpdf"
-                    "returned nan values."
-                    "This could be due to attempting to calculate likelihood with a covariance"
-                    "matrix that is not positive definite."
+                import warnings
+                warnings.warn(
+                    "GaussianTaskLikelihood: NaN log-likelihoods detected. "
+                    "This is likely caused by a non positive-definite covariance matrix"
                 )
 
         jax.debug.callback(nan_loglik, log_likelihoods)
