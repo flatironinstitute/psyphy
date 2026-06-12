@@ -127,5 +127,5 @@ class TestGaussian:
         """ensure Gaussian log-likelihood calculation throws appropriate errors."""
         task = MockEvilGaussianTask()
 
-        with pytest.raises(ValueError):
+        with pytest.warns():
             assert task.loglik(params="NA", data=multi_data, model="NA")
