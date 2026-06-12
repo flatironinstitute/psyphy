@@ -149,9 +149,8 @@ class ContinuousTouchRule:
             self.requires_simulation = False
             # If there is no nonlinear component, we can find a closed form solution!
         else:
-            self.func = (
-                lambda x: jnp.matmul(self.linear_coeff, self.nonlinear_func(x))
-                + self.offset
+            self.func = lambda x: (
+                jnp.matmul(self.linear_coeff, self.nonlinear_func(x)) + self.offset
             )
             self.requires_simulation = True
             # If there is a nonlinear component, we will require MC simulation.
