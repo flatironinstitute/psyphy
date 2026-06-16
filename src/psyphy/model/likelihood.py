@@ -412,7 +412,6 @@ class GaussianTaskLikelihood(TaskLikelihood):
         )
 
         # ensure sigma is correct shape:
-        sigma = jnp.squeeze(sigma)
         if n_trials == 1:
             sigma = jnp.expand_dims(sigma, axis=0)
 
@@ -932,6 +931,10 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
         resp_mu = rule.apply_rule(stim_mu)
         resp_sigma = rule.get_rule_adjusted_sigma(stim_sigma)
 
+        # Sigma should always be (d, d) -- we enforce consistency even if d is 1
+        dim = resp_sigma.shape[0]
+        resp_sigma = jnp.reshape(resp_sigma, (dim, dim))
+
         return (resp_mu, resp_sigma)
 
     def _simulate_trial_mc(
@@ -1054,6 +1057,10 @@ class ContinuousTouchTask(GaussianTaskLikelihood):
         # covariance(samples) -> true covariance of responses
         resp_mu = jnp.mean(rule_based_resps, axis=0)
         resp_sigma = jnp.cov(rule_based_resps, rowvar=False)
+
+        ##Sigma should always be (d, d) -- we enforce consistency even if d is 1
+        dim = resp_sigma.shape[0]
+        resp_sigma = jnp.reshape(resp_sigma, (dim, dim))
 
         # return statistics for the response distribution for this trial:
         return (resp_mu, resp_sigma)
