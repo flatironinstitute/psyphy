@@ -28,7 +28,7 @@ class MockGaussianTask(GaussianTaskLikelihood):
         return 2
 
     def predict(self, params, stimuli, model, key, noise=None):
-        return (jnp.array(0), jnp.array(1))  # 1D mu, sigma
+        return (jnp.array(0), jnp.array([[1]]))  # 1D mu, sigma
 
 
 class MockMultiGaussianTask(GaussianTaskLikelihood):

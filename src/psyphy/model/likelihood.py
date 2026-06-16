@@ -411,9 +411,12 @@ class GaussianTaskLikelihood(TaskLikelihood):
             stimuli, trial_keys
         )
 
-        # ensure sigma is correct shape:
-        if n_trials == 1:
-            sigma = jnp.expand_dims(sigma, axis=0)
+        # Ensure predict returns sigma of correct shape
+        if jnp.ndim(sigma) != 3:
+            raise ValueError(
+                "Gaussian Tasks must output 2D sigma with shape"
+                f"(resp_dim, resp_dim). Received {jnp.ndim(sigma) - 1}D sigma."
+            )
 
         log_likelihoods = jax.vmap(
             lambda resp, m, s: jsp.multivariate_normal.logpdf(x=resp, mean=m, cov=s)
