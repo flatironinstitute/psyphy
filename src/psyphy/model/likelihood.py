@@ -412,10 +412,11 @@ class GaussianTaskLikelihood(TaskLikelihood):
         )
 
         # Ensure predict returns sigma of correct shape
-        if jnp.ndim(sigma) != 3:
+        if jnp.ndim(sigma) != 3 or sigma.shape[1] != sigma.shape[2]:
             raise ValueError(
                 "Gaussian Tasks must output 2D sigma with shape"
-                f"(resp_dim, resp_dim). Received {jnp.ndim(sigma) - 1}D sigma."
+                f"(resp_dim, resp_dim). Received {jnp.ndim(sigma) - 1}D sigma"
+                f"with shape ({sigma.shape[1]}, {sigma.shape[2]})"
             )
 
         log_likelihoods = jax.vmap(
