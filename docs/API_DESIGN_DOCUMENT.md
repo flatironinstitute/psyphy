@@ -316,7 +316,7 @@ src/psyphy/
 │   ├── wppm.py        # Wishart Process model
 │   ├── prior.py       # Parameter priors
 │   ├── covariance_field.py  # Covariance field abstraction
-│   ├── task.py        # Task likelihoods (Oddity, 2AFC)
+│   ├── task.py        # Task likelihoods (Oddity, etc)
 │   ├── noise.py       # Noise models
 │   └── base.py        # Base model interface
 │

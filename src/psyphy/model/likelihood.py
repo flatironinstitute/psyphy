@@ -5,11 +5,16 @@ Task likelihoods for psychophysical experiments.
 This module defines task-specific mappings from a model (e.g., WPPM) and stimuli
 to response likelihoods.
 
-Current direction
+Task likelihoods are organized into subcategories according to assumptions about
+the distribution of responses.
+
+Current Likelihoods/Tasks:
 -----------------
-`OddityTask`: the log-likelihood is computed via Monte Carlo observer
-simulation of the full 3-stimulus oddity decision rule (two identical references,
-one comparison).
+Bernoulli Tasks:
+    `OddityTask`: the log-likelihood is computed via Monte Carlo observer
+    simulation of the full 3-stimulus oddity decision rule (two identical references,
+    one comparison).
+Gaussian Tasks: No current concrete implementations
 
 The public API is:
 
@@ -35,6 +40,7 @@ from typing import Any
 import jax
 import jax.numpy as jnp
 import jax.random as jr
+import jax.scipy.stats as jsp
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,11 +76,11 @@ class TaskLikelihood(ABC):
     Abstract base class for task likelihoods.
 
     Subclasses must implement:
-    - ``predict(params, ref, comparison, model, *, key)`` -> p(correct) for one trial
+    - ``predict(params, stimuli, model, *, key)`` → probability parameters for one trial
 
     The base class provides concrete implementations of:
-    - ``loglik(params, data, model, *, key)`` -> Bernoulli log-likelihood over a batch
-    - ``simulate(params, refs, comparisons, model, *, key)`` -> simulated responses
+    - ``loglik(params, data, model, *, key)`` → Bernoulli log-likelihood over a batch
+    - ``simulate(params, stimuli, model, *, key)`` → simulated responses & probability parameters
 
     The Bernoulli log-likelihood step is identical for all binary-response tasks,
     so it lives here rather than being re-implemented in every subclass.
@@ -84,22 +90,60 @@ class TaskLikelihood(ABC):
     def predict(
         self,
         params: Any,
-        ref: jnp.ndarray,
-        comparison: jnp.ndarray,
+        stimuli: jnp.ndarray,
         model: Any,
         *,
         key: Any = None,
-    ) -> jnp.ndarray:
-        """Return p(correct) for a single (ref, comparison) trial.
+    ) -> tuple[jnp.ndarray, ...]:
+        """Return parameters sufficient to determine probability of any given
+        response on a single trial. The parameters will be specific to the
+        distribution (specified by abstract subclass)
+
+        BernoulliTaskLikelihood: returns (p(correct))
+        GaussianTaskLikelihood: returns (mu, sigma), the parameters defining
+        a Gaussian distribution.
 
         Parameters
         ----------
         params : Any
             Model parameters.
-        ref : jnp.ndarray, shape (input_dim,)
-            Reference stimulus.
-        comparison : jnp.ndarray, shape (input_dim,)
-            Comparison stimulus.
+        stimuli : jnp.ndarray, shape (stim_dim, K)
+            stimuli for a given trial (stimulus dimensions, number of stimuli)
+        model : Any
+            Model instance (provides covariance structure and ``model.noise``).
+        key : jax.random.KeyArray, optional
+            PRNG key for stochastic tasks. When None, the task falls back to
+            its ``config.default_key_seed``.
+
+        Returns
+        -------
+        parameter(s): jnp.ndarray
+            any number of parameters necessary to specify probability for likelihood calculation
+            - for Bernoulli: p(correct) (scalar)
+            - for Gaussian: mu (r_dim vector), sigma (r_dim x r_dim covariance matrix)
+        """
+        ...
+
+    @abstractmethod
+    def loglik(
+        self,
+        params: Any,
+        data: jnp.ndarray,
+        model: Any,
+        *,
+        key: Any = None,
+    ) -> jnp.ndarray:
+        """
+        Compute and return log-likelihood over a batch of trials.
+        Each abstract subclass will concretely implement this for all tasks with
+        the assumption of a given distribution.
+
+        Parameters
+        ----------
+        params : Any
+            Model parameters.
+        data : Any
+            Object with ``.stimuli``, ``.responses`` array attributes.
         model : Any
             Model instance (provides covariance structure and ``model.noise``).
         key : jax.random.KeyArray, optional
@@ -109,9 +153,59 @@ class TaskLikelihood(ABC):
         Returns
         -------
         jnp.ndarray
-            Scalar p(correct) in (0, 1).
+            scalar sum of log-likelihoods over all trials
         """
         ...
+
+    @abstractmethod
+    def simulate(
+        self,
+        params: Any,
+        stimuli: jnp.ndarray,
+        model: Any,
+        *,
+        key: Any,
+    ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
+        """Simulate responses for a batch of trials.
+
+        Parameters
+        ----------
+        params : Any
+            Model parameters.
+        stimuli : jnp.ndarray, shape (n_trials, k_stimuli, input_dim)
+            Stimuli.
+        model : Any
+            Model instance.
+        key : jax.random.KeyArray
+            PRNG key (required; split internally for prediction and sampling).
+
+        Returns
+        -------
+        responses : jnp.ndarray, shape (n_trials, r_dim)
+            Simulated responses.
+        probability parameters : tuple[jnp.ndarray, ...], each array has shape[0] = n_trials
+            Bernoulli: Estimated (P(correct)) per trial used to draw the responses. shape = (n_trials)
+            Gaussian: Estimated (mu, sigma) per trial used to draw the responses. shape for mu = (n_trials, r_dims); shape for sigma = (n_trials, r_dims, r_dims).
+
+        Note: not yet implemented for Gaussians
+        """
+        ...
+
+
+class BernoulliTaskLikelihood(TaskLikelihood):
+    """
+    Intermediate abstract subclass for task likelihoods.
+
+    Subclasses must implement:
+    - ``predict(params, stimuli, model, *, key)`` → p(correct) for one trial
+
+    This abstract subclass provides concrete implementations of:
+    - ``loglik(params, data, model, *, key)`` → Bernoulli log-likelihood over a batch
+    - ``simulate(params, inputs, model, *, key)`` → simulated responses
+
+    The Bernoulli log-likelihood step is identical for all binary-response tasks,
+    so it lives here rather than being re-implemented in every subclass.
+    """
 
     def loglik(
         self,
@@ -145,53 +239,55 @@ class TaskLikelihood(ABC):
             Scalar sum of Bernoulli log-likelihoods over all trials.
         """
         stimuli = jnp.asarray(data.stimuli)
-        refs = stimuli[:, 0, :]
-        comparisons = stimuli[:, 1, :]
         responses = jnp.asarray(data.responses)
         # TrialData normalizes responses to (N,1).
         # we need to squeeze it to (N,) such that jnp.where
         # doesn't broadcast against probs (N,) -> (N,N),
         # which would scramble the gradients
-        if responses.ndim == 2:
+        if responses.ndim > 1:
+            if responses.shape[1] != 1:
+                raise ValueError(
+                    f"BernoulliTaskLikelihood expects R=1 binary responses, "
+                    f"got shape {responses.shape}. For multi-channel responses "
+                    f"use a task-specific loglik."
+                )
             responses = responses[:, 0]
         responses = responses.astype(int)
-        n_trials = int(refs.shape[0])
+        n_trials = int(stimuli.shape[0])
 
         base_key = key if key is not None else jr.PRNGKey(0)
         trial_keys = jr.split(base_key, n_trials)
 
-        probs = jax.vmap(
-            lambda ref, comparison, k: self.predict(
-                params, ref, comparison, model, key=k
-            )
-        )(refs, comparisons, trial_keys)
+        prob_params = jax.vmap(
+            lambda stim, k: self.predict(params, stim, model, key=k)
+        )(stimuli, trial_keys)
+
+        probs = prob_params[0]
 
         log_likelihoods = jnp.where(
             responses == 1,
             jnp.log(probs),
             jnp.log(1.0 - probs),
         )
+
         return jnp.sum(log_likelihoods)
 
     def simulate(
         self,
         params: Any,
-        refs: jnp.ndarray,
-        comparisons: jnp.ndarray,
+        stimuli: jnp.ndarray,
         model: Any,
         *,
         key: Any,
-    ) -> tuple[jnp.ndarray, jnp.ndarray]:
+    ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
         """Simulate observed binary responses for a batch of trials.
 
         Parameters
         ----------
         params : Any
             Model parameters.
-        refs : jnp.ndarray, shape (n_trials, input_dim)
-            Reference stimuli.
-        comparisons : jnp.ndarray, shape (n_trials, input_dim)
-            Comparison stimuli.
+        stimuli : jnp.ndarray, shape (n_trials, k_stim, input_dim)
+            Stimuli.
         model : Any
             Model instance.
         key : jax.random.KeyArray
@@ -202,26 +298,135 @@ class TaskLikelihood(ABC):
         responses : jnp.ndarray, shape (n_trials,), dtype int32
             Simulated binary responses (1 = correct, 0 = incorrect).
         p_correct : jnp.ndarray, shape (n_trials,)
-            Estimated P(correct) per trial used to draw the responses.
+            Estimated (P(correct)) per trial used to draw the responses.
         """
-        refs = jnp.asarray(refs)
-        comparisons = jnp.asarray(comparisons)
-        n_trials = int(refs.shape[0])
+        stimuli = jnp.asarray(stimuli)
+        n_trials = int(stimuli.shape[0])
 
         k_pred, k_bernoulli = jr.split(key)
         trial_keys = jr.split(k_pred, n_trials)
 
-        p_correct = jax.vmap(
-            lambda ref, comparison, k: self.predict(
-                params, ref, comparison, model, key=k
-            )
-        )(refs, comparisons, trial_keys)
+        p_correct = jax.vmap(lambda stim, k: self.predict(params, stim, model, key=k))(
+            stimuli, trial_keys
+        )
 
-        responses = jr.bernoulli(k_bernoulli, p_correct).astype(jnp.int32)
-        return responses, p_correct
+        responses = jr.bernoulli(k_bernoulli, p_correct[0]).astype(jnp.int32)
+        return (responses, p_correct)
 
 
-class OddityTask(TaskLikelihood):
+class GaussianTaskLikelihood(TaskLikelihood):
+    """
+    Intermediate abstract subclass for task likelihoods.
+
+    Subclasses must implement:
+    - ``predict(params, stimuli, model, *, key)`` → (mu, sigma) of distribution for one trial
+
+    This abstract subclass provides concrete implementations of:
+    - ``loglik(params, data, model, *, key)`` → Gaussian log-likelihood over a batch
+    - ``simulate(params, inputs, model, *, key)`` → simulated responses
+
+    The Gaussian log-likelihood step is identical for all tasks with the assumption
+    of Gaussian response distributions, so it lives here rather than being
+    re-implemented in every subclass.
+    """
+
+    def loglik(
+        self,
+        params: Any,
+        data: Any,
+        model: Any,
+        *,
+        key: Any = None,
+    ) -> jnp.ndarray:
+        """Compute Gaussian log-likelihood over a batch of trials.
+
+        This is a concrete base-class method: it vmaps ``predict`` over trials
+        then applies the Gaussian log-likelihood formula. Subclasses only need
+        to implement ``predict``.
+
+        Parameters
+        ----------
+        params : Any
+            Model parameters.
+        data : Any
+            Object with ``.stimuli``, ``.responses`` array attributes.
+        model : Any
+            Model instance.
+        key : jax.random.KeyArray, optional
+            PRNG key. Passed as independent per-trial subkeys to ``predict``.
+            When None, falls back to ``key=jr.PRNGKey(0)`` (deterministic).
+
+        Returns
+        -------
+        jnp.ndarray
+            Scalar sum of Gaussian log-likelihoods over all trials.
+        """
+        stimuli = jnp.asarray(data.stimuli)
+        responses = jnp.asarray(data.responses)
+        n_trials = int(stimuli.shape[0])
+
+        base_key = key if key is not None else jr.PRNGKey(0)
+        trial_keys = jr.split(base_key, n_trials)
+
+        mu, sigma = jax.vmap(lambda stim, k: self.predict(params, stim, model, key=k))(
+            stimuli, trial_keys
+        )
+
+        # ensure sigma is correct shape:
+        sigma = jnp.squeeze(sigma)
+        if n_trials == 1:
+            sigma = jnp.expand_dims(sigma, axis=0)
+
+        log_likelihoods = jax.vmap(
+            lambda resp, m, s: jsp.multivariate_normal.logpdf(x=resp, mean=m, cov=s)
+        )(responses, mu, sigma)
+
+        def nan_loglik(logliks):
+            if any(jnp.isnan(logliks)):
+                import warnings
+
+                warnings.warn(
+                    "GaussianTaskLikelihood: NaN log-likelihoods detected. "
+                    "This is likely caused by a non positive-definite covariance matrix",
+                    stacklevel=1,
+                )
+
+        jax.debug.callback(nan_loglik, log_likelihoods)
+
+        return jnp.sum(log_likelihoods)
+
+    def simulate(
+        self,
+        params: Any,
+        stimuli: jnp.ndarray,
+        model: Any,
+        *,
+        key: Any,
+    ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
+        """Simulate observed responses for a batch of trials.
+
+        Parameters
+        ----------
+        params : Any
+            Model parameters.
+        stimuli : jnp.ndarray, shape (n_trials, k_stim, input_dim)
+            Stimuli.
+        model : Any
+            Model instance.
+        key : jax.random.KeyArray
+            PRNG key (required; split internally for prediction and sampling).
+
+        Returns
+        -------
+        responses : jnp.ndarray, shape (n_trials, r_dims),
+            Simulated responses.
+        prob_params : jnp.ndarray, shape (n_trials, )
+            Estimated (mu, sigma) per trial used to draw the responses.
+        """
+        raise NotImplementedError("Gaussian Task simulations not yet implemented")
+
+
+class OddityTask(BernoulliTaskLikelihood):
     """
     Three-alternative forced-choice oddity task (MC-based only).
 
@@ -279,8 +484,7 @@ class OddityTask(TaskLikelihood):
     def predict(
         self,
         params: Any,
-        ref: jnp.ndarray,
-        comparison: jnp.ndarray,
+        stimuli: jnp.ndarray,  # (k_stimuli, dimensions)
         model: Any,
         *,
         key: Any = None,
@@ -295,6 +499,9 @@ class OddityTask(TaskLikelihood):
         bandwidth = float(self.config.bandwidth)
         if key is None:
             key = jr.PRNGKey(int(self.config.default_key_seed))
+
+        ref = stimuli[0, :]
+        comparison = stimuli[1, :]
 
         return self._simulate_trial_mc(
             params=params,
@@ -574,4 +781,4 @@ class OddityTask(TaskLikelihood):
         # - Clipping here (before return) ensures gradients stay finite
         # - Without this, prob=1.0 -> log(1.0)=0.0 -> grad through clip at boundary -> NaN
         eps = 1e-6
-        return jnp.clip(prob, eps, 1.0 - eps)
+        return (jnp.clip(prob, eps, 1.0 - eps),)

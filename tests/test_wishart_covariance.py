@@ -269,7 +269,7 @@ class TestWishartIntegration:
         # Should be able to make predictions
         # pred_post = model.posterior(refs[:5], comparisons=comparisons[:5])
         pred_post = WPPMPredictivePosterior(
-            param_post, refs[:5], comparisons=comparisons[:5]
+            param_post, jnp.stack([refs[:5], comparisons[:5]], axis=1)
         )
         assert pred_post.mean.shape == (5,)
 

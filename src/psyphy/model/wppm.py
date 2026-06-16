@@ -26,7 +26,7 @@ import jax.numpy as jnp
 from psyphy.utils.math import chebyshev_basis
 
 from .base import Model
-from .likelihood import TaskLikelihood
+from .likelihood import BernoulliTaskLikelihood, TaskLikelihood
 from .prior import Prior
 
 # Type aliases for readability
@@ -415,8 +415,15 @@ class WPPM(Model):
                 "Configure likelihood behavior via the TaskLikelihood object itself."
             )
 
-        ref, comparison = stimulus
-        return self.likelihood.predict(params, ref, comparison, self)
+        if not isinstance(self.likelihood, BernoulliTaskLikelihood):
+            raise NotImplementedError(
+                "WPPMP currently only supports "
+                "BernoulliTaskLikelihood. Gaussian support requires "
+                "updating to handle (mu, sigma) returns."
+            )
+
+        stimuli = jnp.stack(stimulus, axis=1)
+        return self.likelihood.predict(params, stimuli, self)[0]
 
     # ----------------------------------------------------------------------
     # LIKELIHOOD (delegates to likelihood component)

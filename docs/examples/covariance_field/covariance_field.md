@@ -60,7 +60,7 @@ First, we create a WPPM model in Wishart mode with **5×5 basis functions** (`ba
 ```
 
 **Key parameters:**
-- `basis_degree=4`: Activates Wishart mode with 5×5 Chebyshev basis functions (degrees 0-4)
+- `basis_degree=4`: Activates Wishart mode with 5×5 Chebyshev basis functions (degrees 0-4). WPPM inherits this from Prior.
 - `extra_dims=1`: Adds embedding dimensions for richer covariance structure
 - `variance_scale=0.03`, `decay_rate=0.3`: Control spatial smoothness
 - `field(x)`: Callable interface makes the field feel like a mathematical function
