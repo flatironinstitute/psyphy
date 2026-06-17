@@ -162,6 +162,7 @@ class WeberGroundTruth:
             DIAG_TERM  # same jitter as the fitted WPPM (see DIAG_TERM constant).
         )
         self.noise = GaussianNoise(sigma=0.0)
+        self.basis_degree = BASIS_DEGREE  # required by OddityTask._simulate_trial_mc
 
     def _compute_sqrt(self, _params, x: jnp.ndarray) -> jnp.ndarray:
         # _params unused: WeberGroundTruth has no learned parameters.
@@ -250,10 +251,13 @@ comparisons = comps_x[:, None]  # (N, 1)
 
 # Simulate binary responses via the MC-based oddity decision process.
 # WeberGroundTruth receives normalized x; internally converts to physical s.
-responses, p_correct_sim = task.simulate(
-    params=None, refs=refs, comparisons=comparisons, model=weber_gt, key=k_sim
+stimuli = jnp.stack(
+    [refs, comparisons], axis=1
+)  # (N, 2, 1): new API requires pre-stacked
+responses, prob_params = task.simulate(
+    params=None, stimuli=stimuli, model=weber_gt, key=k_sim
 )
-stimuli = jnp.stack([refs, comparisons], axis=1)  # (N, 2, d)
+p_correct_sim = prob_params[0]  # simulate returns (responses, (p_correct, ...))
 data = TrialData(stimuli=stimuli, responses=responses, stimulus_names=("ref", "comp"))
 
 print(
@@ -344,16 +348,20 @@ for s_ref in PSYCH_LEVELS_PHYS:
     delta_sweep = jnp.linspace(0.01 * jnd_gt, 4.0 * jnd_gt, n_delta)  # physical
 
     # Convert to normalized coordinates for model calls
-    refs_psych = to_norm(jnp.full(n_delta, s_ref))[:, None]
-    comps_psych = to_norm(jnp.full(n_delta, s_ref) + delta_sweep)[:, None]
+    refs_psych = to_norm(jnp.full(n_delta, s_ref))[:, None]  # (n_delta, 1)
+    comps_psych = to_norm(jnp.full(n_delta, s_ref) + delta_sweep)[
+        :, None
+    ]  # (n_delta, 1)
+    stims_psych = jnp.stack([refs_psych, comps_psych], axis=1)  # (n_delta, 2, 1)
 
+    # predict returns (p_correct,); vmap gives (array,); [0] extracts the array
     p_fit = jax.vmap(
-        lambda r, c: task_smooth.predict(map_posterior.params, r, c, model, key=k_psych)
-    )(refs_psych, comps_psych)
+        lambda stim: task_smooth.predict(map_posterior.params, stim, model, key=k_psych)
+    )(stims_psych)[0]
 
     p_gt = jax.vmap(
-        lambda r, c: task_smooth.predict(None, r, c, weber_gt, key=k_psych)
-    )(refs_psych, comps_psych)
+        lambda stim: task_smooth.predict(None, stim, weber_gt, key=k_psych)
+    )(stims_psych)[0]
 
     # Bin actual trial data near this reference level (physical units)
     tol = 0.12
