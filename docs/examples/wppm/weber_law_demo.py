@@ -50,9 +50,9 @@ sub-interval wastes basis capacity and mis-calibrates the smoothness prior.
 
 The Chebyshev domain must span ALL stimuli that appear (both references and
 comparisons). Comparisons extend above the reference range: at reference s_ref
-with r JNDs of displacement, s_comp = s_ref*(1 + r*K_WEBER). We therefore set
-S_MAX = 2.0 so that the worst-case comparison
-(S_MAX_REF*(1 + r_max*K_WEBER) = 1.0*1.8 = 1.8) stays inside the domain.
+with jnd_multiples JNDs of displacement, s_comp = s_ref*(1 + jnd_multiples*K_WEBER).
+We therefore set S_MAX = 2.0 so that the worst-case comparison
+(S_MAX_REF*(1 + max_jnd_multiples*K_WEBER) = 1.0*1.8 = 1.8) stays inside the domain.
 References are sampled from [S_MIN, S_MAX_REF] = [0.2, 1.0].
 
 We normalise all physical stimuli using the full domain [S_MIN, S_MAX]:
@@ -112,13 +112,13 @@ print("DEVICE:", jax.devices()[0])
 # ---------------------------------------------------------------------------
 # S_MIN/S_MAX define the Chebyshev domain (all stimuli: refs AND comparisons).
 # S_MAX_REF is the upper end of the reference range; comparisons can exceed it.
-# Constraint: S_MAX >= S_MAX_REF * (1 + r_max * K_WEBER) to avoid extrapolation.
+# Constraint: S_MAX >= S_MAX_REF * (1 + max_jnd_multiples * K_WEBER) to avoid extrapolation.
 # The WPPM Chebyshev basis requires inputs in [-1, 1]; we map explicitly.
 
 S_MIN: float = 0.2  # domain minimum (also minimum reference; must be > 0 for Weber)
 S_MAX: float = 2.0  # domain maximum — wide enough to cover all comparisons,
 # which are an offset from reference stimulus.
-# worst-case: S_MAX_REF*(1 + r_max*K_WEBER) = 1.0*1.8 = 1.8 < 2.0.
+# worst-case: S_MAX_REF*(1 + max_jnd_multiples*K_WEBER) = 1.0*1.8 = 1.8 < 2.0.
 S_MAX_REF: float = (
     1.0  # maximum reference stimulus; references sampled from [S_MIN, S_MAX_REF].
 )
@@ -226,24 +226,22 @@ weber_gt = WeberGroundTruth(k=K_WEBER)
 task = OddityTask(config=OddityTaskConfig(num_samples=MC_SAMPLES))
 
 key = jr.PRNGKey(0)
-k_refs, k_radii, k_sim = jr.split(key, 3)
+key_refs, key_radii, key_sim = jr.split(key, 3)
 
 # Sample reference stimuli uniformly in physical units, then normalise
-refs_s = jr.uniform(k_refs, (N_TRIALS,), minval=S_MIN, maxval=S_MAX_REF)  # physical
+refs_s = jr.uniform(key_refs, (N_TRIALS,), minval=S_MIN, maxval=S_MAX_REF)  # physical
 refs_x = to_norm(refs_s)  # normalized, passed to models
 refs = refs_x[:, None]  # (N, 1) for WPPM / OddityTask
 
-# Random Mahalanobis radii so the scatter spans a 2D region in (s, delta) space.
-# delta = r * JND(s) = r * k * s  (in physical units)
-# Displacements of the comparisons are one-sided (comp = ref + delta, delta > 0).
-# In 1D with scalar  Sigma only |delta|/sqrt(Sigma) enters the decision,
-# so direction does not matter.
-# Bidirectional displacements are equivalent but require refs to have a margin above
-# S_MIN; one-sided is simpler here.
-r_vals = jr.uniform(k_radii, (N_TRIALS,), minval=0.5, maxval=4.0)
+# jnd_multiples: how many JNDs each comparison is displaced from its reference.
+# delta = jnd_multiples * JND(s) = jnd_multiples * k * s  (in physical units)
+# Ranging from 0.5–4 JNDs ensures the scatter covers both hard and easy trials.
+# Displacements are one-sided (comp = ref + delta, delta > 0); direction does not
+# matter in 1D because only |delta|/sqrt(Sigma) enters the decision.
+jnd_multiples = jr.uniform(key_radii, (N_TRIALS,), minval=0.5, maxval=4.0)
 delta_s = (
-    r_vals * K_WEBER * refs_s
-)  # r JNDs in physical units: delta = r*JND(s) = r*k*s
+    jnd_multiples * K_WEBER * refs_s
+)  # physical displacement: jnd_multiples * JND(s)
 
 # Comparisons in normalized coordinates (WPPM and OddityTask expect normalized x)
 comps_x = to_norm(refs_s + delta_s)
@@ -255,7 +253,7 @@ stimuli = jnp.stack(
     [refs, comparisons], axis=1
 )  # (N, 2, 1): new API requires pre-stacked
 responses, prob_params = task.simulate(
-    params=None, stimuli=stimuli, model=weber_gt, key=k_sim
+    params=None, stimuli=stimuli, model=weber_gt, key=key_sim
 )
 p_correct_sim = prob_params[0]  # simulate returns (responses, (p_correct, ...))
 data = TrialData(stimuli=stimuli, responses=responses, stimulus_names=("ref", "comp"))
@@ -338,7 +336,7 @@ psi_log = _norm01(psi_log)
 
 # Psychometric functions in physical units
 # Use 500 MC samples for smooth curves (evaluation only, not fitting)
-k_psych = jr.PRNGKey(42)
+key_psych = jr.PRNGKey(42)
 n_delta = 80
 task_smooth = OddityTask(config=OddityTaskConfig(num_samples=500))
 psych_data = {}
@@ -356,11 +354,13 @@ for s_ref in PSYCH_LEVELS_PHYS:
 
     # predict returns (p_correct,); vmap gives (array,); [0] extracts the array
     p_fit = jax.vmap(
-        lambda stim: task_smooth.predict(map_posterior.params, stim, model, key=k_psych)
+        lambda stim: task_smooth.predict(
+            map_posterior.params, stim, model, key=key_psych
+        )
     )(stims_psych)[0]
 
     p_gt = jax.vmap(
-        lambda stim: task_smooth.predict(None, stim, weber_gt, key=k_psych)
+        lambda stim: task_smooth.predict(None, stim, weber_gt, key=key_psych)
     )(stims_psych)[0]
 
     # Bin actual trial data near this reference level (physical units)
