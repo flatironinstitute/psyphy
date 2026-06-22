@@ -14,7 +14,10 @@ Bernoulli Tasks:
     `OddityTask`: the log-likelihood is computed via Monte Carlo observer
     simulation of the full 3-stimulus oddity decision rule (two identical references,
     one comparison).
-Gaussian Tasks: No current concrete implementations
+Gaussian Tasks:
+    `ContinuousTouchTask`: the log-likelihood is computed directly using the
+    relationship between a single two-feature stimulus and the two-dimensional
+    coordinates of the corresponding touch/tap location.
 
 The public API is:
 
@@ -41,6 +44,8 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax.scipy.stats as jsp
+
+from .rule import ContinuousTouchRule
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +76,33 @@ class OddityTaskConfig:
             raise ValueError(f"bandwidth must be > 0, got {self.bandwidth}")
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousTouchTaskConfig:
+    """Configuration for :class:`ContinuousTouchTask`.
+
+    This is the single source of truth for MC likelihood controls.
+
+    Attributes
+    ----------
+    num_samples : int
+     Number of Monte Carlo samples per trial.
+    default_key_seed : int
+        Seed used when no key is provided (keeps behavior deterministic by
+        default while allowing reproducibility control upstream).
+    rule : ContinuousTouchRule
+        The rule which relates stimulus inputs to correct tap locations
+
+    """
+
+    num_samples: int = 1000
+    default_key_seed: int = 0
+    rule: ContinuousTouchRule = ContinuousTouchRule()
+
+    def __post_init__(self) -> None:
+        if self.rule.requires_simulation and int(self.num_samples) <= 0:
+            raise ValueError(f"num_samples must be > 0, got {self.num_samples}")
+
+
 class TaskLikelihood(ABC):
     """
     Abstract base class for task likelihoods.
@@ -79,12 +111,15 @@ class TaskLikelihood(ABC):
     - ``predict(params, stimuli, model, *, key)`` → probability parameters for one trial
 
     The base class provides concrete implementations of:
-    - ``loglik(params, data, model, *, key)`` → Bernoulli log-likelihood over a batch
+    - ``loglik(params, data, model, *, key)`` → log-likelihood over a batch
     - ``simulate(params, stimuli, model, *, key)`` → simulated responses & probability parameters
-
-    The Bernoulli log-likelihood step is identical for all binary-response tasks,
-    so it lives here rather than being re-implemented in every subclass.
     """
+
+    @property
+    @abstractmethod
+    def resp_dim(self):
+        """Each concrete Task must store the dimensionality of its response"""
+        ...
 
     @abstractmethod
     def predict(
@@ -186,8 +221,6 @@ class TaskLikelihood(ABC):
         probability parameters : tuple[jnp.ndarray, ...], each array has shape[0] = n_trials
             Bernoulli: Estimated (P(correct)) per trial used to draw the responses. shape = (n_trials)
             Gaussian: Estimated (mu, sigma) per trial used to draw the responses. shape for mu = (n_trials, r_dims); shape for sigma = (n_trials, r_dims, r_dims).
-
-        Note: not yet implemented for Gaussians
         """
         ...
 
@@ -206,6 +239,12 @@ class BernoulliTaskLikelihood(TaskLikelihood):
     The Bernoulli log-likelihood step is identical for all binary-response tasks,
     so it lives here rather than being re-implemented in every subclass.
     """
+
+    @property
+    def resp_dim(self):
+        """All Bernoulli tasks have a response dimension of 1 as they are
+        binary response tasks."""
+        return 1
 
     def loglik(
         self,
@@ -372,10 +411,13 @@ class GaussianTaskLikelihood(TaskLikelihood):
             stimuli, trial_keys
         )
 
-        # ensure sigma is correct shape:
-        sigma = jnp.squeeze(sigma)
-        if n_trials == 1:
-            sigma = jnp.expand_dims(sigma, axis=0)
+        # Ensure predict returns sigma of correct shape
+        if jnp.ndim(sigma) != 3 or sigma.shape[1] != sigma.shape[2]:
+            raise ValueError(
+                "Gaussian Tasks must output 2D sigma with shape"
+                f"(resp_dim, resp_dim). Received {jnp.ndim(sigma) - 1}D sigma"
+                f"with shape ({sigma.shape[1]}, {sigma.shape[2]})"
+            )
 
         log_likelihoods = jax.vmap(
             lambda resp, m, s: jsp.multivariate_normal.logpdf(x=resp, mean=m, cov=s)
@@ -423,7 +465,18 @@ class GaussianTaskLikelihood(TaskLikelihood):
         prob_params : jnp.ndarray, shape (n_trials, )
             Estimated (mu, sigma) per trial used to draw the responses.
         """
-        raise NotImplementedError("Gaussian Task simulations not yet implemented")
+        stimuli = jnp.asarray(stimuli)
+        n_trials = int(stimuli.shape[0])
+
+        k_pred, k_gaussian = jr.split(key)
+        trial_keys = jr.split(k_pred, n_trials)
+
+        mu, sigma = jax.vmap(lambda stim, k: self.predict(params, stim, model, key=k))(
+            stimuli, trial_keys
+        )
+
+        responses = jr.multivariate_normal(k_gaussian, mu, sigma)
+        return (responses, (mu, sigma))
 
 
 class OddityTask(BernoulliTaskLikelihood):
@@ -488,8 +541,8 @@ class OddityTask(BernoulliTaskLikelihood):
         model: Any,
         *,
         key: Any = None,
-    ) -> jnp.ndarray:
-        """Return p(correct) for a single (ref, comparison) trial via MC simulation.
+    ) -> tuple[jnp.ndarray]:
+        """Return (p(correct)) for a single (ref, comparison) trial via MC simulation.
 
         MC controls (``num_samples``, ``bandwidth``) are read from
         :class:`OddityTaskConfig`. Pass ``key`` to control randomness; when
@@ -522,7 +575,7 @@ class OddityTask(BernoulliTaskLikelihood):
         num_samples: int,
         bandwidth: float,
         key: Any,
-    ) -> jnp.ndarray:
+    ) -> tuple[jnp.ndarray]:
         """
         Simulate a single 3-stimulus oddity trial via Monte Carlo.
 
@@ -782,3 +835,236 @@ class OddityTask(BernoulliTaskLikelihood):
         # - Without this, prob=1.0 -> log(1.0)=0.0 -> grad through clip at boundary -> NaN
         eps = 1e-6
         return (jnp.clip(prob, eps, 1.0 - eps),)
+
+
+class ContinuousTouchTask(GaussianTaskLikelihood):
+    """
+    Continuous touch task using a single two-feature stimulus to guide a
+    two-dimensional touch response (closed form solution).
+
+    Implements the full single-stimulus based continous touch response task:
+        - Applies the known rule to relate the stimulus Gaussian distribution
+        features to the resulting tap location.
+
+    """
+
+    def __init__(self, config: ContinuousTouchTaskConfig | None = None) -> None:
+        self.config = config or ContinuousTouchTaskConfig()
+
+    @property
+    def resp_dim(self):
+        """
+        Gaussian tasks can vary in their response dimensions, so each concrete
+        Task must explicitly store or calculate its response dimension.
+        """
+        return 2
+
+    def predict(
+        self,
+        params: Any,
+        stimuli: jnp.ndarray,  # (k_stimuli, dimensions)
+        model: Any,
+        *,
+        key: Any = None,
+    ) -> jnp.ndarray:
+        """Return (mu, sigma) for a single trial
+
+        Will used closed-form calculation if possible (determined by the rule
+        in config). Will use MC simulation if there is no closed form solution.
+
+        Gets (mu, sigma) for the stimulus itself, then calculates (or simulates)
+        the adjustment in (mu, sigma) according to the known rule relating
+        stimulus to tap location.
+        """
+        if key is None:
+            key = jr.PRNGKey(int(self.config.default_key_seed))
+
+        stimuli = jnp.squeeze(stimuli)
+
+        if jnp.ndim(stimuli) != 1:
+            raise ValueError(
+                "ContinuousTouchTask expects a 1D array of "
+                "(k_stimuli=1, dimensions) representing a single stimulus."
+                f"Received {jnp.ndim(stimuli)}D array."
+            )
+
+        simulation = self.config.rule.requires_simulation
+        if model.noise.__class__.__name__ != "GaussianNoise":
+            simulation = True
+        # TODO: separate into MC simulation vs closed-form task classes?
+
+        if simulation:
+            return self._simulate_trial_mc(
+                params=params,
+                stimuli=stimuli,
+                model=model,
+                num_samples=self.config.num_samples,
+                key=key,
+                rule=self.config.rule,
+            )
+        else:
+            return self._calculate_trial(
+                params=params, stimuli=stimuli, model=model, rule=self.config.rule
+            )
+
+    def _calculate_trial(
+        self, params: Any, stimuli: jnp.array, model: Any, rule: ContinuousTouchRule
+    ):
+        """
+        Calculates the closed-form solution to predict the response distribution
+        for any given trial.
+
+        Returns
+        -------
+        Response (mu, sigma)
+        """
+        # We assume that stim noise distribution is centered at true stim:
+        stim_mu = stimuli
+
+        input_dim = stimuli.shape[0]
+
+        # Diagonal noise term (small regularization)
+        diag_term = model.diag_term
+
+        # U_stim defines the distribution.
+        U_stim = model._compute_sqrt(params, stimuli)  # (input_dim, embedding_dim)
+
+        # Σ_stim = U_stim @ U_stim.T + diag_term * I
+        stim_sigma = U_stim @ U_stim.T + diag_term * jnp.eye(input_dim)
+
+        resp_mu = rule.apply_rule(stim_mu)
+        resp_sigma = rule.get_rule_adjusted_sigma(stim_sigma)
+
+        # Sigma should always be (d, d) -- we enforce consistency even if d is 1
+        dim = resp_sigma.shape[0]
+        resp_sigma = jnp.reshape(resp_sigma, (dim, dim))
+
+        return (resp_mu, resp_sigma)
+
+    def _simulate_trial_mc(
+        self,
+        params: Any,
+        stimuli: jnp.ndarray,
+        model: Any,
+        num_samples: int,
+        key: Any,
+        rule: ContinuousTouchRule,
+    ) -> jnp.ndarray:
+        """
+        Simulate a single continuous touch task trial via Monte Carlo.
+
+        This implements the continuous touch task where the observer sees one stimulus
+        whose features map, under a known rule, to a 2D planar coordinate. The
+        task is to tap the appropriate coordinate.
+
+        Parameters
+        ----------
+        params : Any
+            Model parameters as expected by ``model._compute_sqrt``.
+        stimuli : jnp.ndarray, shape (input_dim,)
+            Stimulus
+        model : WPPM
+            Model instance providing covariance structure and ``model.noise``.
+        num_samples : int
+            Number of Monte Carlo samples for estimating (mu, sigma)
+        key : PRNGKey
+            JAX random key for sampling
+
+        Returns
+        -------
+        tuple of jnp.arrays
+            Estimated (mu, sigma) for this trial.
+
+        Notes
+        -----
+
+        1. Sample the internal stimulus representation:
+           - z_stim ~ N(stim, Σ_stim)
+
+        2. Apply rule (correct response):
+           - Uses the ContinuousTouchRule to apply the appropriate rule to the sample.
+
+        3. Get statistics on Monte Carlo simulated data:
+           - (mu, sigma) \approx mean and covariance over num_samples
+
+        """
+
+        # Get input dimension and require Wishart mode.
+        # OddityTask is intentionally MC-only and currently only supports the
+        # WPPM/Wishart covariance parameterization.
+        input_dim = stimuli.shape[0]
+        if model.basis_degree is None:
+            raise ValueError(
+                "(Expected a basis degree, got None. model.basis_degree must not be None)."
+            )
+
+        # ========================================================================
+        # STEP 1A: Compute covariance structure at stimulus
+        # ========================================================================
+
+        # Wishart mode: Spatially-varying covariance
+        # Compute U matrices that define covariances at each location
+        # These U matrices define the two distributions:
+
+        # U_stim defines covariance: Σ_stim = U_stim @ U_stim.T + diag_term * I
+        U_stim = model._compute_sqrt(params, stimuli)  # (input_dim, embedding_dim)
+
+        # Diagonal noise term (small regularization)
+        diag_term = model.diag_term
+        sqrt_diag = jnp.sqrt(diag_term)
+
+        # ========================================================================
+        # STEP 1B: Sample internal representations
+        # ========================================================================
+        # Split random key: 1 for embedding sample + 1 for diagonal noise
+        keys = jr.split(key, 2)
+
+        # manual sampling using reparameterization trick
+        # Covariance structure: Σ = U @ U.T + diag_term * I
+        # Reparameterization: z = n_embed @ U.T + mean + sqrt(diag_term) * n_diag
+
+        embed_dim = U_stim.shape[1]  # type: ignore
+
+        # Samples from standard normal
+        n_stim_embed = model.noise.sample_standard(keys[0], (num_samples, embed_dim))
+
+        # Sample diagonal noise (independent across dimensions)
+        n_stim_diag = model.noise.sample_standard(keys[1], (num_samples, input_dim))
+
+        # =================================================================
+        # SAMPLING: Transform standard normal to samples from our distribution
+        # =================================================================
+
+        # SAMPLE: z_stim ~ N(stim, Σ_stim)
+        # where Σ_stim = U_stim @ U_stim.T + diag_term * I
+        z_stim = n_stim_embed @ U_stim.T + stimuli[None, :] + sqrt_diag * n_stim_diag  # type: ignore
+        #       ^^^^^^        ^^^^^       ^^^^^^^
+        #       |                |          |
+        #       |                |          +--- MEAN: stim
+        #       |                +--- COVARIANCE: Uses U_stim (defines Σ_stim)
+        #       +--- Independent noise
+
+        # ========================================================================
+        # STEP 2: apply rule
+        # ========================================================================
+        # We use the rule defined in the configuration.
+        # Rule specifics are delegated to that rule (which must be a ContinuuousTouchRule)
+        # allow for flexibility in the rule details.
+
+        rule_based_resps = jax.vmap(rule.apply_rule)(z_stim)
+
+        # ========================================================================
+        # STEP 3: Monte Carlo average
+        # ========================================================================
+        # by law of large numbers: mean(samples) -> true mean of responses
+
+        # covariance(samples) -> true covariance of responses
+        resp_mu = jnp.mean(rule_based_resps, axis=0)
+        resp_sigma = jnp.cov(rule_based_resps, rowvar=False)
+
+        ##Sigma should always be (d, d) -- we enforce consistency even if d is 1
+        dim = resp_sigma.shape[0]
+        resp_sigma = jnp.reshape(resp_sigma, (dim, dim))
+
+        # return statistics for the response distribution for this trial:
+        return (resp_mu, resp_sigma)

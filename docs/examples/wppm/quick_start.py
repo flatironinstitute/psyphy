@@ -135,8 +135,8 @@ truth_params = truth_model.init_params(jax.random.PRNGKey(123))
 # ---------------------------------------------------------------------------
 
 
-# Single reference point at the centre of the stimulus space.
-ref_point = jnp.array([[0.0, 0.0]])  # shape (1, 2) — kept as a batch for generality
+# Single reference point.
+ref_point = jnp.array([[0.5, 0.5]])  # shape (1, 2) — kept as a batch for generality
 
 seed = 3
 key = jr.PRNGKey(seed)
@@ -279,8 +279,8 @@ for field, color, label in zip(fields, colors, labels):
 ax.scatter(
     ref_point[:, 0], ref_point[:, 1], c="g", s=40, zorder=5, label="Reference Point"
 )
-ax.set_xlim(-0.6, 0.6)
-ax.set_ylim(-0.6, 0.6)
+ax.set_xlim(0, 1.0)
+ax.set_ylim(0, 1.0)
 ax.set_aspect("equal", adjustable="box")
 ax.set_xlabel("Stimulus dimension 1")
 ax.set_ylabel("Stimulus dimension 2")

@@ -279,7 +279,6 @@ Don’t try to resolve line-by-line blindly. Instead:
 
 * Understand what upstream changed
 * Understand your intended behavior
-* Update your code accordingly 
+* Update your code accordingly
 
 ---
-

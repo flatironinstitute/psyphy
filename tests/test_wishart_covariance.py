@@ -10,22 +10,24 @@ where U(x) is computed from Chebyshev basis expansion.
 
 import jax.numpy as jnp
 import jax.random as jr
+import pytest
 
 from psyphy.data import TrialData
 from psyphy.inference import MAPOptimizer
-from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
+from psyphy.model import WPPM, ContinuousTouchTask, GaussianNoise, OddityTask, Prior
 from psyphy.posterior import WPPMPredictivePosterior
 
 
 class TestWishartParameters:
     """Tests for Wishart parameter structure and prior."""
 
-    def test_wishart_params_structure(self):
+    @pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+    def test_wishart_params_structure(self, task):
         """With basis_degree set, params should include W coefficients."""
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
         )
 
@@ -42,7 +44,8 @@ class TestWishartParameters:
         expected_shape = (degree + 1, degree + 1, model.input_dim, embedding_dim)
         assert params["W"].shape == expected_shape
 
-    def test_wishart_params_with_extra_dims(self):
+    @pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+    def test_wishart_params_with_extra_dims(self, task):
         """W parameters should be rectangular with extra_dims (Hong et al. design).
 
         Rectangular design: W shape is (degree+1, degree+1, input_dim, embedding_dim)
@@ -52,7 +55,7 @@ class TestWishartParameters:
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=extra_dims),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
             extra_dims=extra_dims,
         )
@@ -97,15 +100,16 @@ class TestWishartParameters:
         assert var_00 > var_11 > var_22
 
 
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
 class TestSpatiallyVaryingCovariance:
     """Tests for Σ(x) that varies with stimulus location."""
 
-    def test_covariance_varies_with_location(self):
+    def test_covariance_varies_with_location(self, task):
         """Σ(x) should be different at different locations."""
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
         )
 
@@ -120,12 +124,12 @@ class TestSpatiallyVaryingCovariance:
         # Should be different (not constant like MVP)
         assert not jnp.allclose(Sigma1, Sigma2, atol=1e-6)
 
-    def test_covariance_smooth_variation(self):
+    def test_covariance_smooth_variation(self, task):
         """Σ(x) should vary smoothly - nearby points have similar covariances."""
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3, decay_rate=0.8),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
         )
 
@@ -145,12 +149,12 @@ class TestSpatiallyVaryingCovariance:
 
         assert diff_near < diff_far
 
-    def test_covariance_positive_definite_everywhere(self):
+    def test_covariance_positive_definite_everywhere(self, task):
         """Σ(x) must be positive definite at all locations."""
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
         )
 
@@ -167,12 +171,12 @@ class TestSpatiallyVaryingCovariance:
             eigenvalues = jnp.linalg.eigvalsh(Sigma)
             assert jnp.all(eigenvalues > 0), f"Non-PD at {x}: eigenvalues={eigenvalues}"
 
-    def test_covariance_shape_in_stimulus_space(self):
+    def test_covariance_shape_in_stimulus_space(self, task):
         """Σ(x) should be input_dim x input_dim."""
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
         )
 
@@ -182,12 +186,12 @@ class TestSpatiallyVaryingCovariance:
 
         assert Sigma.shape == (model.input_dim, model.input_dim)
 
-    def test_sqrt_U_shape(self):
+    def test_sqrt_U_shape(self, task):
         """U(x) should be input_dim x embedding_dim."""
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
         )
 
@@ -198,13 +202,13 @@ class TestSpatiallyVaryingCovariance:
         U = model._compute_sqrt(params, x)
         assert U.shape == (model.input_dim, embedding_dim)
 
-    def test_diag_term_prevents_degeneracy(self):
+    def test_diag_term_prevents_degeneracy(self, task):
         """diag_term should ensure minimum eigenvalue."""
         diag_term = 0.1
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
             diag_term=diag_term,
         )
@@ -236,17 +240,20 @@ class TestWishartIntegration:
         probe = jnp.array([0.6, 0.4])
         stimulus = (ref, probe)
 
-        p_correct = model.predict_prob(params, stimulus)
+        p_correct = model.predict_prob(params, stimulus)[0]
 
         # Should be valid probability
         assert 0.0 <= p_correct <= 1.0
 
-    def test_fit_with_wishart(self):
+    @pytest.mark.parametrize(
+        "task, shape", [(OddityTask(), (5,)), (ContinuousTouchTask(), (5, 2))]
+    )
+    def test_fit_with_wishart(self, task, shape):
         """Full fitting pipeline should work with Wishart process."""
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),  # Lower degree for speed
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
         )
 
@@ -259,25 +266,38 @@ class TestWishartIntegration:
         # X = jnp.stack([refs, comparisons], axis=1)
         responses = jnp.ones((n,), dtype=jnp.int32)
 
-        stimuli = jnp.stack([refs, comparisons], axis=1)
-        data = TrialData(stimuli=stimuli, responses=responses)
+        oddity = isinstance(task, OddityTask)
+
+        if oddity:
+            stimuli = jnp.stack([refs, comparisons], axis=1)
+            data = TrialData(stimuli=stimuli, responses=responses)
+        else:
+            stimuli = jnp.expand_dims(refs, axis=1)
+            data = TrialData(stimuli=stimuli, responses=refs)
 
         # fit
         optimizer = MAPOptimizer(steps=10)
         param_post = optimizer.fit(model, data)
 
         # Should be able to make predictions
-        # pred_post = model.posterior(refs[:5], comparisons=comparisons[:5])
-        pred_post = WPPMPredictivePosterior(
-            param_post, jnp.stack([refs[:5], comparisons[:5]], axis=1)
-        )
-        assert pred_post.mean.shape == (5,)
+        # Oddity pred_post = model.posterior(refs[:5], comparisons[:5])
+
+        if oddity:
+            pred_post = WPPMPredictivePosterior(
+                param_post, jnp.stack([refs[:5], comparisons[:5]], axis=1)
+            )
+        else:
+            pred_post = WPPMPredictivePosterior(
+                param_post, jnp.expand_dims(refs[:5], axis=1)
+            )
+        assert pred_post.mean.shape == shape
 
 
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
 class TestComputeU:
     """Tests for internal _compute_sqrt method."""
 
-    def test_compute_sqrt_shape(self):
+    def test_compute_sqrt_shape(self, task):
         """
         U(x) should have correct shape (rectangular).
 
@@ -288,7 +308,7 @@ class TestComputeU:
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=extra_dims),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
             extra_dims=extra_dims,
         )
@@ -303,12 +323,12 @@ class TestComputeU:
         expected_shape = (model.input_dim, embedding_dim)  # (2, 4)
         assert U.shape == expected_shape
 
-    def test_compute_sqrt_varies_with_location(self):
+    def test_compute_sqrt_varies_with_location(self, task):
         """U(x) should vary with stimulus location."""
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
         )
 
@@ -323,13 +343,13 @@ class TestComputeU:
         # Should be different
         assert not jnp.allclose(U1, U2, atol=1e-6)
 
-    def test_sigma_equals_UUT_plus_jitter(self):
+    def test_sigma_equals_UUT_plus_jitter(self, task):
         """Verify Σ(x) = U(x) @ U(x)^T + diag_term * I."""
         diag_term = 0.01
         model = WPPM(
             input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
-            likelihood=OddityTask(),
+            likelihood=task,
             noise=GaussianNoise(),
             diag_term=diag_term,
         )
