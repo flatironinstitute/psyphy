@@ -16,7 +16,7 @@ the Wishart process is flexible enough to represent Weber's law in 1D.
 
 sqrt(Sigma(s)) as a JND proxy
 ------------------------------------------
-sqrt(Sigma(s)) is the noise standard deviation at stimulus level s — the scale
+sqrt(Sigma(s)) is the noise standard deviation at stimulus level s; the scale
 of trial-to-trial perceptual fluctuations. Weber's law predicts this grows
 linearly with s. We test linearity directly; any unknown constant of
 proportionality between noise SD and behavioral threshold cancels in that test.
@@ -24,7 +24,7 @@ proportionality between noise SD and behavioral threshold cancels in that test.
 Weber's law in the WPPM representation
 ---------------------------------------
 Weber's law: JND(s) = k*s, i.e., Sigma(s) = (k*s)^2, where Sigma(s) is the variance.
-Since Sigma = U*U^T, Weber requires U(s) = k*s — linear in s, and therefore
+Since Sigma = U*U^T, Weber requires U(s) = k*s; linear in s, and therefore
 also linear in the normalized coordinate x (degree 1 in the Chebyshev basis).
 
 Basis degree of Chebychev
@@ -66,12 +66,12 @@ where the model is well-determined by training data.
 
 Plots (5 panels + learning curve)
 ------------------------------------
-  1. Trial data scatter  — raw binary responses; x=reference level s,
+  1. Trial data scatter ; raw binary responses; x=reference level s,
                            y=displacement delta (both in physical units).
-  2. JND recovery        — sqrt(Sigma_hat(s)) vs s: should be proportional to k*s.
-  3. Weber fraction      — JND(s)/s vs s: should be flat at k.
-  4. Fechner's law       — integral of 1/JND: should follow log(s).
-  5. Psychometric curves — p(correct) vs delta for three reference levels;
+  2. JND recovery       ; sqrt(Sigma_hat(s)) vs s: should be proportional to k*s.
+  3. Weber fraction     ; JND(s)/s vs s: should be flat at k.
+  4. Fechner's law      ; integral of 1/JND: should follow log(s).
+  5. Psychometric curves; p(correct) vs delta for three reference levels;
                            sigmoid curves shift right as s grows (Weber).
 
 Toggle SAVE_INDIVIDUAL_PANELS = True to save each panel as its own PNG.
@@ -93,10 +93,13 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src"))
 )
 
+# --8<-- [start:imports]
 from psyphy.data import TrialData
 from psyphy.inference import MAPOptimizer
 from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior, WPPMCovarianceField
 from psyphy.model.likelihood import OddityTaskConfig
+
+# --8<-- [end:imports]
 
 PLOTS_DIR = os.path.join(os.path.dirname(__file__), "plots")
 
@@ -104,6 +107,10 @@ PLOTS_DIR = os.path.join(os.path.dirname(__file__), "plots")
 # Toggle: save each panel as its own PNG in addition to the combined figure
 # ---------------------------------------------------------------------------
 SAVE_INDIVIDUAL_PANELS = True
+
+# Toggle: run the basis-degree sweep with held-out likelihood (Step 6).
+# This refits the model several times, so it is the slow part of the demo.
+RUN_BASIS_SWEEP = True
 
 print("DEVICE:", jax.devices()[0])
 
@@ -115,8 +122,9 @@ print("DEVICE:", jax.devices()[0])
 # Constraint: S_MAX >= S_MAX_REF * (1 + max_jnd_multiples * K_WEBER) to avoid extrapolation.
 # The WPPM Chebyshev basis requires inputs in [-1, 1]; we map explicitly.
 
+# --8<-- [start:domain]
 S_MIN: float = 0.2  # domain minimum (also minimum reference; must be > 0 for Weber)
-S_MAX: float = 2.0  # domain maximum — wide enough to cover all comparisons,
+S_MAX: float = 2.0  # domain maximum; wide enough to cover all comparisons,
 # which are an offset from reference stimulus.
 # worst-case: S_MAX_REF*(1 + max_jnd_multiples*K_WEBER) = 1.0*1.8 = 1.8 < 2.0.
 S_MAX_REF: float = (
@@ -135,6 +143,9 @@ def to_phys(x: jnp.ndarray) -> jnp.ndarray:
     return 0.5 * (x + 1.0) * (S_MAX - S_MIN) + S_MIN
 
 
+# --8<-- [end:domain]
+
+
 # ---------------------------------------------------------------------------
 # Ground-truth model: Weber's law  Sigma(s) = (k*s)^2,  in normalized coords
 # ---------------------------------------------------------------------------
@@ -143,6 +154,7 @@ def to_phys(x: jnp.ndarray) -> jnp.ndarray:
 # This ensures simulation and fitting use the same coordinate system.
 
 
+# --8<-- [start:ground_truth]
 class WeberGroundTruth:
     """Ground-truth observer for Weber's law, operating in normalized coordinates.
 
@@ -173,24 +185,29 @@ class WeberGroundTruth:
         return sigma * jnp.eye(self.input_dim, embedding_dim)
 
 
+# --8<-- [end:ground_truth]
+
+
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
 
+# --8<-- [start:settings]
 K_WEBER = 0.2  # Weber fraction (ground truth)
-DIAG_TERM = 1e-6  # numerical stability jitter — shared by WeberGroundTruth AND the
+DIAG_TERM = 1e-6  # numerical stability jitter; shared by WeberGroundTruth AND the
 # fitted WPPM so the generative model and the fitting model have
 # identical parameterisations. Removing from WPPM risks NaN gradients
 # when U(x) \approx 0 during early optimisation
 N_TRIALS = 2000
 MC_SAMPLES = 1000  # MC samples for simulation and fitting
 
-# degree-1 U(x) = W_0 + W_1*x — sufficient for Weber (linear U -> quadratic Sigma).
+# degree-1 U(x) = W_0 + W_1*x; sufficient for Weber (linear U -> quadratic Sigma).
 # W shape (2, 1, 1) = 2 parameters with extra_dims=0. See module docstring.
 BASIS_DEGREE = 1
 
 NUM_STEPS = 500  # 1000 gets close for 3 param model (0 additional embedding dims)
 LEARNING_RATE = 5e-4
+# --8<-- [end:settings]
 
 # Reference levels for the psychometric function panel (in physical units)
 PSYCH_LEVELS_PHYS = [0.3, 0.6, 0.9]
@@ -202,12 +219,12 @@ PSYCH_COLORS = ["#2166ac", "#d6604d", "#4dac26"]
 # All panels that share a quantity on an axis use the same label string so
 # that readers can immediately identify what is being shown.
 #
-#   LABEL_S     — x-axis of panels 1–4: the reference stimulus level
-#   LABEL_DELTA — x-axis of panel 5 / y-axis of panel 1: comparison offset
-#   LABEL_JND   — y-axis of panel 2: WPPM-implied JND proxy
-#   LABEL_WF    — y-axis of panel 3: Weber fraction (JND / s)
-#   LABEL_PSI   — y-axis of panel 4: Fechner perceived magnitude
-#   LABEL_P     — y-axis of panel 5: probability correct
+#   LABEL_S    ; x-axis of panels 1–4: the reference stimulus level
+#   LABEL_DELTA; x-axis of panel 5 / y-axis of panel 1: comparison offset
+#   LABEL_JND  ; y-axis of panel 2: WPPM-implied JND proxy
+#   LABEL_WF   ; y-axis of panel 3: Weber fraction (JND / s)
+#   LABEL_PSI  ; y-axis of panel 4: Fechner perceived magnitude
+#   LABEL_P    ; y-axis of panel 5: probability correct
 
 LABEL_S = rf"Reference level  $s_\mathrm{{ref}} \in$  [{S_MIN}, {S_MAX_REF}]"
 LABEL_DELTA = r"Stimulus difference  $\delta = s_\mathrm{comp} - s_\mathrm{ref}$"
@@ -217,11 +234,12 @@ LABEL_PSI = r"Perceived magnitude  $\hat{\psi}(s_\mathrm{ref})$  [normalized]"
 LABEL_P = r"$P(\mathrm{correct})$"
 
 # ---------------------------------------------------------------------------
-# Step 1 — Simulate Weber's law data
+# Step 1; Simulate Weber's law data
 # ---------------------------------------------------------------------------
 
 print("[1/5] Simulating oddity-task data from WeberGroundTruth ...")
 
+# --8<-- [start:simulate]
 weber_gt = WeberGroundTruth(k=K_WEBER)
 task = OddityTask(config=OddityTaskConfig(num_samples=MC_SAMPLES))
 
@@ -257,6 +275,7 @@ responses, prob_params = task.simulate(
 )
 p_correct_sim = prob_params[0]  # simulate returns (responses, (p_correct, ...))
 data = TrialData(stimuli=stimuli, responses=responses, stimulus_names=("ref", "comp"))
+# --8<-- [end:simulate]
 
 print(
     f"  {N_TRIALS} trials simulated, "
@@ -264,12 +283,13 @@ print(
 )
 
 # ---------------------------------------------------------------------------
-# Step 2 — Build and fit the 1D WPPM
+# Step 2; Build and fit the 1D WPPM
 # ---------------------------------------------------------------------------
-
+BASIS_DEGREE_FIT = 3
 print("[2/5] Fitting 1D WPPM via MAPOptimizer ...")
 
-prior = Prior(input_dim=1, basis_degree=BASIS_DEGREE, extra_embedding_dims=0)
+# --8<-- [start:fit]
+prior = Prior(input_dim=1, basis_degree=BASIS_DEGREE_FIT, extra_embedding_dims=0)
 model = WPPM(
     input_dim=1,
     extra_dims=0,  # embedding_dim = input_dim (minimal)
@@ -289,14 +309,16 @@ optimizer = MAPOptimizer(
 )
 
 map_posterior = optimizer.fit(model, data, init_params=init_params, seed=2)
+# --8<-- [end:fit]
 print("  Fitting done.")
 
 # ---------------------------------------------------------------------------
-# Step 3 — Derived quantities (computed in physical units for interpretability)
+# Step 3; Derived quantities (computed in physical units for interpretability)
 # ---------------------------------------------------------------------------
 
 print("[3/5] Computing derived quantities ...")
 
+# --8<-- [start:jnd]
 # Dense grid over the reference range for analysis and plotting.
 # Comparisons may extend above S_MAX_REF, but we only evaluate the sub-range
 # [S_MIN, S_MAX_REF] where the model is well-determined by training data.
@@ -305,16 +327,57 @@ x_grid = to_norm(s_grid)[:, None]  # normalized, shape (300, 1)
 
 # Bind fitted parameters to the model: creates a callable x -> Sigma(x).
 fitted_cov_fn = WPPMCovarianceField(model, map_posterior.params)
-variances = fitted_cov_fn(x_grid)  # (300, 1, 1) — 1x1 "matrix" per grid point;
+variances = fitted_cov_fn(x_grid)  # (300, 1, 1); 1x1 "matrix" per grid point;
 # [:, 0, 0] extracts the scalar Sigma(s)
-# sqrt(Sigma) from WPPM — proxy for implied JND in physical units
+# sqrt(Sigma) from WPPM; proxy for implied JND in physical units
 # (valid in the 1D equal-variance limit; see module docstring)
 jnd_fitted = jnp.sqrt(variances[:, 0, 0])
 jnd_truth = K_WEBER * s_grid  # ground truth: k*s
 
-# Weber fraction: JND(s)/s — should be flat at K_WEBER
+# Weber fraction: JND(s)/s; should be flat at K_WEBER
 weber_fraction_fitted = jnd_fitted / s_grid
+# --8<-- [end:jnd]
 
+# ---------------------------------------------------------------------------
+# Weight analysis: exact analytical basis change — Chebyshev(x) → monomial(s).
+# ---------------------------------------------------------------------------
+# The normalization x = a*s + b is an invertible affine map.  Because T_n(x(s))
+# is a degree-n polynomial in s, the Chebyshev representation U(x) = Σ Wₙ Tₙ(x)
+# and the physical monomial representation U(s) = Σ cₙ sⁿ span the same space.
+# The conversion is a pure linear basis change — no fitting, no approximation:
+#   Step 1: cheb2poly converts W → monomial coefficients in normalized x.
+#   Step 2: substituting x = a*s + b (polynomial composition) maps those to s.
+W_raw = np.asarray(map_posterior.params["W"]).reshape(-1)  # shape (BASIS_DEGREE+1,)
+
+_a = 2.0 / (S_MAX - S_MIN)  # slope of x(s)
+_b = -2.0 * S_MIN / (S_MAX - S_MIN) - 1.0  # intercept of x(s)
+
+mono_in_x = np.polynomial.chebyshev.cheb2poly(W_raw)  # U(x) in monomial basis
+
+phys_coeffs = np.zeros(len(mono_in_x))
+for k, ck in enumerate(mono_in_x):
+    # (b + a*s)^k as a polynomial in s (ascending coefficient order)
+    term = np.polynomial.polynomial.polypow([_b, _a], k)
+    phys_coeffs[: len(term)] += ck * term
+# phys_coeffs[n] = coefficient of s^n in U(s), for n = 0 … BASIS_DEGREE
+
+print(
+    "  Weight analysis — physical coefficients cn of U(s) = sum_n cn*s^n:\n"
+    + "".join(
+        f"    c_{n} = {phys_coeffs[n]:.4f}"
+        + (
+            "  ← Weber slope (truth 0.2000)"
+            if n == 1
+            else "  ← noise floor (truth 0.0000)"
+            if n == 0
+            else "  ← should be ≈ 0"
+        )
+        + "\n"
+        for n in range(len(phys_coeffs))
+    )
+)
+
+# --8<-- [start:fechner]
 # Fechner's law: psi(s) = integral_{S_MIN}^{s} 1/JND(s') ds'
 # When JND = k*s, psi = (1/k)*log(s/S_MIN) (the logarithmic magnitude scale)
 ds = float(s_grid[1] - s_grid[0])
@@ -333,6 +396,7 @@ def _norm01(x):
 psi_fitted = _norm01(psi_fitted)
 psi_truth = _norm01(psi_truth)
 psi_log = _norm01(psi_log)
+# --8<-- [end:fechner]
 
 # Psychometric functions in physical units
 # Use 500 MC samples for smooth curves (evaluation only, not fitting)
@@ -352,7 +416,9 @@ for s_ref in PSYCH_LEVELS_PHYS:
     ]  # (n_delta, 1)
     stims_psych = jnp.stack([refs_psych, comps_psych], axis=1)  # (n_delta, 2, 1)
 
+    # --8<-- [start:psychometric]
     # predict returns (p_correct,); vmap gives (array,); [0] extracts the array
+    # p_fit: psychometric curve from the *fitted* WPPM; p_gt: from the ground truth.
     p_fit = jax.vmap(
         lambda stim: task_smooth.predict(
             map_posterior.params, stim, model, key=key_psych
@@ -362,6 +428,7 @@ for s_ref in PSYCH_LEVELS_PHYS:
     p_gt = jax.vmap(
         lambda stim: task_smooth.predict(None, stim, weber_gt, key=key_psych)
     )(stims_psych)[0]
+    # --8<-- [end:psychometric]
 
     # Bin actual trial data near this reference level (physical units)
     tol = 0.12
@@ -460,7 +527,7 @@ def draw_trial_scatter(ax):
 
 
 def draw_jnd_recovery(ax):
-    """Panel 2: JND curve — sqrt(Sigma_hat(s)) vs s in physical units.
+    """Panel 2: JND curve; sqrt(Sigma_hat(s)) vs s in physical units.
 
     sqrt(Sigma) is a proxy for the implied JND under the 1D equal-variance
     approximation (see module docstring). The behavioral verification is
@@ -482,13 +549,13 @@ def draw_jnd_recovery(ax):
     )
     ax.set_xlabel(LABEL_S)
     ax.set_ylabel(LABEL_JND)
-    ax.set_title(r"JND recovery — $\sqrt{\hat{\Sigma}(s)}$ vs $s$")
+    ax.set_title(r"JND recovery: $\sqrt{\hat{\Sigma}(s)}$ vs $s$")
     ax.legend(fontsize=8)
     ax.grid(True, alpha=0.25)
 
 
 def draw_weber_fraction(ax):
-    """Panel 3: Weber fraction JND(s)/s — flat = Weber's law holds."""
+    """Panel 3: Weber fraction JND(s)/s; flat = Weber's law holds."""
     ax.axhline(
         K_WEBER,
         color="k",
@@ -511,8 +578,96 @@ def draw_weber_fraction(ax):
     ax.grid(True, alpha=0.25)
 
 
+def draw_weber_coeffs_raw(ax):
+    """Left panel: raw Chebyshev coefficients W_0 … W_degree in normalized-x space.
+
+    U(x) = sum_n W_n * T_n(x), x in [-1, 1].
+    W_1 (linear term) should dominate; W_2, W_3, ... should be near zero,
+    showing the model didn't use its extra flexibility.
+
+    Note: W_0 is large even for pure Weber's law — not because of a noise floor,
+    but because x=0 maps to the middle of the physical domain (s=1.1), not s=0.
+    The physically interpretable decomposition is in the right panel.
+    """
+    degree = len(W_raw) - 1
+    poly_names = ["constant", "linear", "quadratic", "cubic", "quartic", "quintic"]
+
+    labels = []
+    for n in range(degree + 1):
+        poly = poly_names[n] if n < len(poly_names) else f"degree {n}"
+        labels.append(f"$W_{n}$\n{poly}\n($T_{n}$)")
+
+    colors = ["#c0392b" if n == 1 else "#aaaaaa" for n in range(degree + 1)]
+    ax.bar(labels, W_raw.tolist(), color=colors, width=0.6)
+    ax.axhline(0.0, color="gray", linewidth=0.8)
+    ax.set_ylabel("Coefficient (normalized-$x$ units)")
+    ax.set_title(
+        f"Raw Chebyshev weights  $W_0 \\ldots W_{{{degree}}}$\n"
+        r"Higher-order terms $\approx 0$: extra flexibility unused"
+    )
+    ax.grid(True, axis="y", alpha=0.25)
+
+
+def draw_weber_coeffs_physical(ax):
+    """Right panel: polynomial coefficients of U(s) in physical stimulus units.
+
+    Obtained by fitting a degree-BASIS_DEGREE polynomial to sqrt(Sigma_hat(s))
+    vs physical s. Coefficients are ordered ascending: c_0 (constant), c_1
+    (linear), c_2 (quadratic), ...
+
+    For Weber's law, c_1 should dominate (≈ K_WEBER) and all other terms
+    should be near zero — showing the model recovered a linear law despite
+    having the flexibility to fit higher-order curves.
+    """
+    degree = len(phys_coeffs) - 1
+    poly_names = ["constant", "linear", "quadratic", "cubic", "quartic", "quintic"]
+
+    labels = []
+    for n in range(degree + 1):
+        poly = poly_names[n] if n < len(poly_names) else f"degree {n}"
+        labels.append(f"$c_{n}$\n{poly}\n($s^{n}$)")
+
+    colors = ["#c0392b" if n == 1 else "#aaaaaa" for n in range(degree + 1)]
+    ax.bar(labels, phys_coeffs.tolist(), color=colors, width=0.6)
+    ax.axhline(
+        K_WEBER,
+        color="k",
+        linestyle="--",
+        linewidth=2,
+        label=f"ground truth $k = {K_WEBER}$",
+    )
+    ax.axhline(0.0, color="gray", linewidth=0.8)
+    ax.set_ylabel("Coefficient (physical units)")
+    ax.set_title(
+        f"Physical polynomial coefficients  $c_0 \\ldots c_{{{degree}}}$\n"
+        r"$c_1$ (linear / Weber) should dominate; others $\approx 0$"
+    )
+    ax.legend(fontsize=8)
+    ax.grid(True, axis="y", alpha=0.25)
+
+
+def save_weber_coeffs_comparison():
+    """Save a 2-panel figure comparing raw Chebyshev weights and physical recovery."""
+    fig_c, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(10, 4.5))
+    draw_weber_coeffs_raw(ax_left)
+    draw_weber_coeffs_physical(ax_right)
+    # fig_c.suptitle(
+    #     # f"Can a degree-{BASIS_DEGREE_FIT} model recover Weber's law?  "
+    #     # f"(k={K_WEBER}, N={N_TRIALS} trials)\n"
+    #     # "Left: what the model learned in basis space.  "
+    #     # "Right: what it means in physical units.",
+    #     # fontsize=10,
+    # )
+    fig_c.tight_layout()
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+    path = os.path.join(PLOTS_DIR, "weber_coeffs_comparison.png")
+    fig_c.savefig(path, dpi=200, bbox_inches="tight")
+    plt.close(fig_c)
+    print(f"  Saved coefficient comparison -> {path}")
+
+
 def draw_fechner(ax):
-    """Panel 4: Fechner's law — cumulative integral of 1/JND(s) gives log scale."""
+    """Panel 4: Fechner's law; cumulative integral of 1/JND(s) gives log scale."""
     ax.plot(s_grid, psi_log, "k--", linewidth=2, label=r"$\log(s/s_0)$  (Fechner)")
     ax.plot(
         s_grid,
@@ -537,7 +692,7 @@ def draw_fechner(ax):
 
 
 def draw_psychometric(ax):
-    """Panel 5: psychometric functions — p(correct) vs delta (physical units).
+    """Panel 5: psychometric functions; p(correct) vs delta (physical units).
 
     PRIMARY behavioral test: if WPPM has recovered Weber's law, the sigmoid
     curves for different reference levels s should be shifted right in proportion
@@ -617,7 +772,7 @@ def draw_psychometric(ax):
 
 
 # ---------------------------------------------------------------------------
-# Step 4 — Combined 5-panel figure
+# Step 4; Combined 5-panel figure
 # ---------------------------------------------------------------------------
 
 print("[4/5] Plotting combined figure ...")
@@ -632,7 +787,9 @@ draw_fechner(axes[3])
 draw_psychometric(axes[4])
 
 ax6 = axes[5]
-steps_hist, loss_hist = optimizer.get_history()
+# --8<-- [start:learning_curve]
+steps_hist, loss_hist = optimizer.get_history()  # (step indices, neg-log-posterior)
+# --8<-- [end:learning_curve]
 if steps_hist:
     ax6.plot(steps_hist, loss_hist, color="#4444aa", linewidth=1.5)
     ax6.set_xlabel("Optimisation step")
@@ -641,8 +798,8 @@ if steps_hist:
     ax6.grid(True, alpha=0.25)
 
 fig.suptitle(
-    f"1D WPPM — Weber's Law Recovery  "
-    f"(k={K_WEBER}, N={N_TRIALS} trials, basis_degree={BASIS_DEGREE})\n"
+    f"1D WPPM: Weber's Law Recovery  "
+    f"(k={K_WEBER}, N={N_TRIALS} trials, basis_degree={BASIS_DEGREE_FIT})\n"
     f"Domain [{S_MIN},{S_MAX}] normalized to [-1,1]; "
     f"plots in reference range s∈[{S_MIN},{S_MAX_REF}]",
     fontsize=12,
@@ -656,7 +813,7 @@ fig.savefig(combined_path, dpi=200, bbox_inches="tight")
 print(f"  Saved combined figure -> {combined_path}")
 
 # ---------------------------------------------------------------------------
-# Step 5 — Individual panels
+# Step 5; Individual panels
 # ---------------------------------------------------------------------------
 
 if SAVE_INDIVIDUAL_PANELS:
@@ -666,9 +823,106 @@ if SAVE_INDIVIDUAL_PANELS:
     _save_panel(draw_weber_fraction, "panel3_weber_fraction")
     _save_panel(draw_fechner, "panel4_fechner")
     _save_panel(draw_psychometric, "panel5_psychometric")
+    save_weber_coeffs_comparison()
 else:
     print(
         "[5/5] Individual panels skipped (set SAVE_INDIVIDUAL_PANELS=True to enable)."
     )
+
+# ---------------------------------------------------------------------------
+# Step 6 (optional): basis-degree sweep with held-out likelihood
+# ---------------------------------------------------------------------------
+# Model selection question: how much flexibility does the data actually need?
+# basis_degree sets the highest Chebyshev term in U(x):
+#   degree 0 -> U constant   -> Sigma constant  -> constant JND (cannot do Weber);
+#   degree 1 -> U linear      -> Sigma quadratic -> Weber exactly;
+#   degree 2+ -> extra curvature the Weber data does not need.
+# Training fit alone cannot rank these (more parameters never fit worse), so we
+# split trials into train/test, fit on train, and score the log-likelihood on
+# held-out test trials. The degree that generalizes best wins.
+if RUN_BASIS_SWEEP:
+    print("[6/6] Basis-degree sweep with held-out likelihood ...")
+
+    # --8<-- [start:basis_sweep]
+    # A lighter MC task keeps the repeated refits tractable.
+    task_sweep = OddityTask(config=OddityTaskConfig(num_samples=400))
+
+    n_test = N_TRIALS // 5
+    perm = np.asarray(jr.permutation(jr.PRNGKey(7), N_TRIALS))
+    test_idx, train_idx = perm[:n_test], perm[n_test:]
+
+    def _subset(idx):
+        return TrialData(
+            stimuli=stimuli[idx],
+            responses=responses[idx],
+            stimulus_names=("ref", "comp"),
+        )
+
+    train_data, test_data = _subset(train_idx), _subset(test_idx)
+
+    sweep_degrees = [0, 1, 2, 3]
+    heldout_ll_per_trial = []
+    for degree in sweep_degrees:
+        prior_d = Prior(input_dim=1, basis_degree=degree, extra_embedding_dims=0)
+        model_d = WPPM(
+            input_dim=1,
+            extra_dims=0,
+            prior=prior_d,
+            likelihood=task_sweep,
+            noise=GaussianNoise(sigma=0.0),
+            diag_term=DIAG_TERM,
+        )
+        opt_d = MAPOptimizer(
+            steps=NUM_STEPS, learning_rate=LEARNING_RATE, track_history=False
+        )
+        post_d = opt_d.fit(
+            model_d,
+            train_data,
+            init_params=model_d.init_params(jr.PRNGKey(1)),
+            seed=2,
+        )
+        ll = float(
+            model_d.log_likelihood_from_data(
+                post_d.params, test_data, key=jr.PRNGKey(123)
+            )
+        )
+        heldout_ll_per_trial.append(ll / n_test)
+        print(f"    degree {degree}: held-out loglik/trial = {ll / n_test:.4f}")
+    # --8<-- [end:basis_sweep]
+
+    fig_s, ax_s = plt.subplots(figsize=(5.5, 4.2))
+    ax_s.plot(sweep_degrees, heldout_ll_per_trial, "o-", color="#2166ac", linewidth=2)
+    # Parsimony rule: pick the simplest degree whose held-out score is within a
+    # small tolerance of the best. Differences below MC noise do not justify the
+    # extra parameters, so we prefer the smallest sufficient model.
+    best_ll = max(heldout_ll_per_trial)
+    tol = 0.005
+    chosen = next(i for i, ll in enumerate(heldout_ll_per_trial) if ll >= best_ll - tol)
+    ax_s.scatter(
+        [sweep_degrees[chosen]],
+        [heldout_ll_per_trial[chosen]],
+        s=170,
+        facecolors="none",
+        edgecolors="#c0392b",
+        linewidths=2,
+        zorder=5,
+        label=f"simplest sufficient: degree {sweep_degrees[chosen]}",
+    )
+    ax_s.set_xticks(sweep_degrees)
+    ax_s.set_xlabel("Chebyshev basis degree")
+    ax_s.set_ylabel("Held-out log-likelihood / trial")
+    ax_s.set_title(
+        "How much flexibility does the data need?\n(degree 1 suffices for Weber)"
+    )
+    ax_s.legend(fontsize=8)
+    ax_s.grid(True, alpha=0.25)
+    fig_s.tight_layout()
+    os.makedirs(PLOTS_DIR, exist_ok=True)
+    sweep_path = os.path.join(PLOTS_DIR, "weber_basis_sweep.png")
+    fig_s.savefig(sweep_path, dpi=200, bbox_inches="tight")
+    plt.close(fig_s)
+    print(f"  Saved basis sweep -> {sweep_path}")
+else:
+    print("[6/6] Basis-degree sweep skipped (set RUN_BASIS_SWEEP=True to enable).")
 
 print("Done.")
