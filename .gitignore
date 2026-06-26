@@ -23,7 +23,7 @@ site/
 .vscode/
 
 # Generated plot output directories
-docs/examples/**/plots/*
+# docs/examples/**/plots/*
 
 # common Python tooling artifacts
 .ruff_cache/
