@@ -37,7 +37,7 @@ The **WPPM** (Wishart Process Psychophysical Model) does *not* assume any of thi
 learns a field of discrimination noise $\Sigma(s)$ over stimulus space and lets the law
 fall out of the data. So we can run a clean experiment:
 
-!!! note "The unit test"
+!!! note "Recovering Weber's Law predictions as a  unit test for models of perception"
     Generate binary oddity responses from a synthetic observer that obeys Weber's law
     exactly. Hand the WPPM only those responses (never $k$ and the never the linear form). If it
     recovers a noise function whose implied threshold scales linearly with $s$, the model
@@ -197,9 +197,7 @@ origin with slope $k$.
 logarithmic sensation scale  a deterministic transform of the same curve the model was
 never fit to.
 
-```python title="Fechner integral"
---8<-- "docs/examples/wppm/weber_law_demo.py:fechner"
-```
+
 
 <div align="center">
   <img src="../plots/weber_panel4_fechner.png"
@@ -218,9 +216,6 @@ For 3 stimulus reference levels we sweep the
 comparison and predict $p(\text{correct})$ from the fitted model (and from the ground truth,
 for comparison):
 
-```python title="Predict psychometric curves"
---8<-- "docs/examples/wppm/weber_law_demo.py:psychometric"
-```
 
 If Weber's law has been recovered, the sigmoids shift **right in proportion to $s$**: a
 larger baseline needs a proportionally larger $\delta$ for the same performance. Chance for a
@@ -261,9 +256,6 @@ We fit a degree-3 model, but Weber only needs degree 1. Training fit alone can't
 which is right (more parameters never fit *worse*), so we split the trials, fit on the
 training set across several basis degrees, and score the **held-out** log-likelihood:
 
-```python title="Basis-degree sweep with held-out likelihood"
---8<-- "docs/examples/wppm/weber_law_demo.py:basis_sweep"
-```
 
 Degree 0 (a constant $U$, hence a constant JND) cannot bend and underfits; degree 1 (linear
 $U$ -> quadratic $\Sigma$) peaks; degree 2+ adds no held-out gain. The data needs exactly the

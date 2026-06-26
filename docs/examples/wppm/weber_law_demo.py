@@ -42,9 +42,9 @@ slope k and W_0 a constant noise floor (generalised law JND = k*s + c).
 The prior regularizes W_0 toward zero, so the model defaults to pure Weber but
 can deviate when data demand it.
 
-Coordinate system, normalisation, and domain
+Coordinate system, normalization, and domain
 ---------------------------------------------
-WPPM does NOT normalise inputs. It enforces x in [-1, 1] and raises ValueError
+WPPM does NOT normalize inputs. It enforces x in [-1, 1] and raises ValueError
 otherwise. The Chebyshev polynomials are orthogonal on [-1, 1]; using a
 sub-interval wastes basis capacity and mis-calibrates the smoothness prior.
 
@@ -55,7 +55,7 @@ We therefore set S_MAX = 2.0 so that the worst-case comparison
 (S_MAX_REF*(1 + max_jnd_multiples*K_WEBER) = 1.0*1.8 = 1.8) stays inside the domain.
 References are sampled from [S_MIN, S_MAX_REF] = [0.2, 1.0].
 
-We normalise all physical stimuli using the full domain [S_MIN, S_MAX]:
+We normalize all physical stimuli using the full domain [S_MIN, S_MAX]:
     x = 2*(s - S_MIN)/(S_MAX - S_MIN) - 1
 
 WeberGroundTruth receives the same normalized x and converts back to physical s
@@ -246,7 +246,7 @@ task = OddityTask(config=OddityTaskConfig(num_samples=MC_SAMPLES))
 key = jr.PRNGKey(0)
 key_refs, key_radii, key_sim = jr.split(key, 3)
 
-# Sample reference stimuli uniformly in physical units, then normalise
+# Sample reference stimuli uniformly in physical units, then normalize
 refs_s = jr.uniform(key_refs, (N_TRIALS,), minval=S_MIN, maxval=S_MAX_REF)  # physical
 refs_x = to_norm(refs_s)  # normalized, passed to models
 refs = refs_x[:, None]  # (N, 1) for WPPM / OddityTask
@@ -339,13 +339,13 @@ weber_fraction_fitted = jnd_fitted / s_grid
 # --8<-- [end:jnd]
 
 # ---------------------------------------------------------------------------
-# Weight analysis: exact analytical basis change — Chebyshev(x) → monomial(s).
+# Weight analysis: exact analytical basis change; Chebyshev(x) -> monomial(s).
 # ---------------------------------------------------------------------------
 # The normalization x = a*s + b is an invertible affine map.  Because T_n(x(s))
 # is a degree-n polynomial in s, the Chebyshev representation U(x) = Σ Wₙ Tₙ(x)
 # and the physical monomial representation U(s) = Σ cₙ sⁿ span the same space.
-# The conversion is a pure linear basis change — no fitting, no approximation:
-#   Step 1: cheb2poly converts W → monomial coefficients in normalized x.
+# The conversion is a pure linear basis change; no fitting, no approximation:
+#   Step 1: cheb2poly converts W -> monomial coefficients in normalized x.
 #   Step 2: substituting x = a*s + b (polynomial composition) maps those to s.
 W_raw = np.asarray(map_posterior.params["W"]).reshape(-1)  # shape (BASIS_DEGREE+1,)
 
@@ -362,15 +362,15 @@ for k, ck in enumerate(mono_in_x):
 # phys_coeffs[n] = coefficient of s^n in U(s), for n = 0 … BASIS_DEGREE
 
 print(
-    "  Weight analysis — physical coefficients cn of U(s) = sum_n cn*s^n:\n"
+    "  Weight analysis; physical coefficients cn of U(s) = sum_n cn*s^n:\n"
     + "".join(
         f"    c_{n} = {phys_coeffs[n]:.4f}"
         + (
-            "  ← Weber slope (truth 0.2000)"
+            "  <- Weber slope (truth 0.2000)"
             if n == 1
-            else "  ← noise floor (truth 0.0000)"
+            else "  <- noise floor (truth 0.0000)"
             if n == 0
-            else "  ← should be ≈ 0"
+            else "  <- should be \approx 0"
         )
         + "\n"
         for n in range(len(phys_coeffs))
@@ -585,7 +585,7 @@ def draw_weber_coeffs_raw(ax):
     W_1 (linear term) should dominate; W_2, W_3, ... should be near zero,
     showing the model didn't use its extra flexibility.
 
-    Note: W_0 is large even for pure Weber's law — not because of a noise floor,
+    Note: W_0 is large even for pure Weber's law; not because of a noise floor,
     but because x=0 maps to the middle of the physical domain (s=1.1), not s=0.
     The physically interpretable decomposition is in the right panel.
     """
@@ -615,8 +615,8 @@ def draw_weber_coeffs_physical(ax):
     vs physical s. Coefficients are ordered ascending: c_0 (constant), c_1
     (linear), c_2 (quadratic), ...
 
-    For Weber's law, c_1 should dominate (≈ K_WEBER) and all other terms
-    should be near zero — showing the model recovered a linear law despite
+    For Weber's law, c_1 should dominate (\approx K_WEBER) and all other terms
+    should be near zero; showing the model recovered a linear law despite
     having the flexibility to fit higher-order curves.
     """
     degree = len(phys_coeffs) - 1
