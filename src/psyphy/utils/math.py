@@ -6,8 +6,6 @@ Math utilities for psyphy.
 
 Includes:
 - chebyshev_basis : compute Chebyshev polynomial basis.
-- mahalanobis_distance : discriminability metric used in WPPM MVP.
-- rbf_kernel : kernel function, useful in Full WPPM mode covariance priors.
 
 All functions use JAX (jax.numpy) for compatibility with autodiff.
 
@@ -15,8 +13,6 @@ Notes
 -----
 - math.chebyshev_basis is relevant when implementing Full WPPM mode,
   where covariance fields are expressed in a basis expansion.
-- math.mahalanobis_distance is directly used in WPPM MVP discriminability.
-- math.rbf_kernel is a placeholder for Gaussian-process-style covariance priors.
 
 Examples
 --------

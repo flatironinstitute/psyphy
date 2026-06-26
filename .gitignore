@@ -22,6 +22,9 @@ site/
 # Ignore VSCode settings
 .vscode/
 
+# Generated plot output directories
+docs/examples/**/plots/*
+
 # common Python tooling artifacts
 .ruff_cache/
 .coverage

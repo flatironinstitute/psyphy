@@ -278,9 +278,14 @@ class WPPM(Model):
             cheb_2 = chebyshev_basis(x_norm[2:3], degree=self.basis_degree)[0, :]
             phi = cheb_0[:, None, None] * cheb_1[None, :, None] * cheb_2[None, None, :]
 
+        elif self.input_dim == 1:
+            # 1D case: \phi_i(x) = T_i(x_1)
+            # phi.shape = (degree+1,)
+            phi = chebyshev_basis(x_norm[0:1], degree=self.basis_degree)[0, :]
+
         else:
             raise NotImplementedError(
-                f"Wishart process currently only supports 2D and 3D. Got input_dim={self.input_dim}"
+                f"Wishart process currently only supports 1D, 2D and 3D. Got input_dim={self.input_dim}"
             )
 
         return phi
@@ -337,9 +342,13 @@ class WPPM(Model):
             # W is (degree+1, degree+1, degree+1, input_dim, embedding_dim)
             # U is rectangular if extra_dims > 0: (input_dim, embedding_dim)
             U = jnp.einsum("ijkde,ijk->de", W, phi)
+        elif self.input_dim == 1:
+            # W[i,d,e] * phi[i] -> U[d,e]
+            # W is (degree+1, input_dim, embedding_dim)
+            U = jnp.einsum("ide,i->de", W, phi)
         else:
             raise NotImplementedError(
-                f"Wishart process only supports 2D and 3D. Got input_dim={self.input_dim}"
+                f"Wishart process only supports 1D, 2D and 3D. Got input_dim={self.input_dim}"
             )
 
         return U
