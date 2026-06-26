@@ -239,8 +239,6 @@ class BernoulliTaskLikelihood(TaskLikelihood):
             Scalar sum of Bernoulli log-likelihoods over all trials.
         """
         stimuli = jnp.asarray(data.stimuli)
-        refs = stimuli[:, 0, :]
-        comparisons = stimuli[:, 1, :]
         # TrialData stores responses as (N, R) — R=1 for binary tasks.
         # Extract the single binary channel to get shape (N,).
         # Without this, jnp.where broadcasts (N, 1) against probs (N,),
