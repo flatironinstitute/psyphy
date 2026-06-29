@@ -80,14 +80,6 @@ the optional basis sweep at the end refits the model several times and is the sl
 
 ---
 
-## Step 0  Imports
-
-```python title="Imports"
---8<-- "docs/examples/wppm/weber_law_demo.py:imports"
-```
-
----
-
 ## Step 1  Stimulus domain and coordinates
 
 The Chebyshev basis we use requires stimuli to be in $[-1, 1]$. We pick a physical range
@@ -110,9 +102,6 @@ method `OddityTask` needs  a square-root covariance `U`  and hard-codes Weber's 
 $\sqrt{\Sigma(s)} = k\,s$. It receives the *same* normalized $x$ as the WPPM and converts
 back to physical $s$ internally, so simulation and fitting share one coordinate system.
 
-```python title="WeberGroundTruth"
---8<-- "docs/examples/wppm/weber_law_demo.py:ground_truth"
-```
 
 ---
 
@@ -128,10 +117,6 @@ Each trial is a **3-AFC oddity**: two identical references and one comparison; t
 picks the odd one out. We place each comparison a random number of JNDs (0.5–4) above its
 reference, so the data spans easy and hard trials, then draw a binary correct/incorrect
 response from the Monte-Carlo oddity likelihood.
-
-```python title="Simulate binary responses"
---8<-- "docs/examples/wppm/weber_law_demo.py:simulate"
-```
 
 The stored `TrialData` holds only `(stimuli, responses)`  exactly what an experimenter
 records. Plotting reference level $s$ against displacement $\delta = s_\mathrm{comp} -
@@ -164,13 +149,6 @@ Chebyshev weights $W$.
 
 ## Step 5  Read the recovered function three ways
 
-Bind the fitted parameters into a `WPPMCovarianceField` and evaluate $\Sigma(s)$ on a dense
-grid. From the single fitted function $\sqrt{\hat\Sigma(s)}$ we read three views  the first
-three panels are the *same fit* re-expressed, so they cannot disagree.
-
-```python title="Derived quantities: JND and Weber fraction"
---8<-- "docs/examples/wppm/weber_law_demo.py:jnd"
-```
 
 **(a) JND recovery.** $\sqrt{\hat\Sigma(s)}$ vs $s$ should be a straight line through the
 origin with slope $k$.
