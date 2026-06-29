@@ -50,8 +50,7 @@ fall out of the data. So we can run a clean experiment:
 
 The WPPM parametrizes a square root of the covariance, $\Sigma(s) = U(s)\,U(s)^\top$, which
 guarantees $\Sigma$ stays positive. In 1-D this is just $\sqrt{\Sigma(s)} = U(s)$, and
-$\sqrt{\Sigma(s)}$ is our **JND proxy** (threshold $\propto$ noise SD; the unknown constant
-of proportionality cancels when we test *linearity*).
+$\sqrt{\Sigma(s)}$ is our **JND proxy** (threshold $\propto$ noise SD).
 
 So Weber's law translates to a single line:
 
