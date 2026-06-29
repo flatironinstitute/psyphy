@@ -5,7 +5,8 @@
 > answers.
 >
 > The complete runnable script is [`weber_law_demo.py`](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/weber_law_demo.py).
-> For the 2-D covariance-ellipse workflow, start with the [quick start](quick_start.md).
+> For the 2-D covariance-ellipse workflow, start with the [quick start](quick_start.md) or the
+> end-to-end [full WPPM fit tutorial](full_wppm_fit_example.md).
 
 This tutorial assumes you are comfortable with psychophysics (Just noticable difference (JND), psychometric
 functions, signal-detection ideas) but new to `psyphy`. We restate just enough of the
@@ -76,7 +77,7 @@ flexible model (degree 3 polynomial) and check it doesn't overfit.
 | CPU (laptop / M-series Mac) | 1–3 min |
 
 The fit uses `N_TRIALS = 2000` trials and `MC_SAMPLES = 1000` Monte-Carlo draws per trial;
-the optional basis sweep at the end refits the model several times and is the slow part.
+the optional basis sweep at the end refits the model several times and is the slow part (3 min).
 
 ---
 
@@ -194,10 +195,6 @@ never fit to.
 The three views above are algebra are '3 sides of the same coin'.
 
 ### Psychometric curve:
-For 3 stimulus reference levels we sweep the
-comparison and predict $p(\text{correct})$ from the fitted model (and from the ground truth,
-for comparison):
-
 
 If Weber's law has been recovered, the sigmoids shift **right in proportion to $s$**: a
 larger baseline needs a proportionally larger $\delta$ for the same performance. Chance for a
@@ -207,18 +204,47 @@ larger baseline needs a proportionally larger $\delta$ for the same performance.
   <img src="../plots/weber_panel5_psychometric.png"
        alt="Psychometric curves for three reference levels, shifting right with s; WPPM fit vs ground truth with binned data"
        width="520"/>
-  <p><em>Solid: WPPM fit. Dashed: ground truth. Dots: binned trial data that the model was fitted on overlayed for reference. Larger dots mean more data in that vicinity. The model inputs .</em></p>
+  <p><em>Solid: WPPM fit. Dashed: ground truth.  </em></p>
 </div>
 
 ---
 
-## Step 7  Learning curve and the full picture
+## Step 7  Learning curve (what we optimized)
 
-The optimizer's history is the negative log-posterior per step:
+The optimizer's history is the **negative log-posterior** per step; this is exactly the
+quantity `MAPOptimizer` minimizes:
+
+$$
+\text{loss} = -\log p(W \mid \text{data}) = -\big(\underbrace{\log \mathcal{L}(W \mid \text{data})}_{\text{fit to responses}} + \underbrace{\log p(W)}_{\text{prior on weights}}\big).
+$$
+
+The **only** free parameters are the Chebyshev weights $W$ that define $U(x)$ and hence
+$\Sigma(x)$. The two terms are:
+
+- **Log-likelihood**: summed over all trials, $\sum_i \big[r_i \log p_i + (1-r_i)\log(1-p_i)\big]$,
+  where $p_i = P(\text{correct})$ for trial $i$ from the Monte-Carlo oddity decision process
+  under the current $\Sigma$. It rewards predicted correctness probabilities that match the
+  observed 0/1 responses.
+- **Log-prior**: a Gaussian shrinkage $-\tfrac12\sum_n W_n^2/\sigma_n^2$ that pulls weights
+  (especially higher-order ones) toward zero. This is the regularization that makes the model
+  prefer plain Weber over a wiggly fit.
 
 ```python title="Access the learning curve"
 --8<-- "docs/examples/wppm/weber_law_demo.py:learning_curve"
 ```
+
+!!! note "If you're new to reading a learning curve:"
+    The likelihood is **Monte-Carlo estimated**, with a fresh random key drawn every step, so
+    each point is a *noisy* estimate of the loss. We only care about the **trend** and not individual points which may jitter due to MC noise,
+  which is  not a problem.
+
+    - **Converged** -> the loss drops, then flattens into a noisy plateau. Trust the recovered
+      $\sqrt{\hat\Sigma(s)}$ / JND.
+    - **Not converged** -> still trending downward at the final step. Increase `NUM_STEPS` or
+      `LEARNING_RATE`; the recovered Weber slope is likely *under*-estimated.
+    - **Diverged** -> the loss climbs or blows up to NaN/Inf. The optimizer guards this and stops
+      early with a `Non-finite loss` message. Usual causes: learning rate too high, or $\Sigma$
+      becoming non-positive-definite (the `diag_term` jitter exists to prevent this).
 
 The script assembles every result (the four diagnostic panels, the psychometric curves,
 and this learning curve)  into one figure:

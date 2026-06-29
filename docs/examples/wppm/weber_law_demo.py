@@ -197,7 +197,7 @@ K_WEBER = 0.2  # Weber fraction (ground truth)
 DIAG_TERM = 1e-6  # numerical stability jitter; shared by WeberGroundTruth AND the
 # fitted WPPM so the generative model and the fitting model have
 # identical parameterisations. Removing from WPPM risks NaN gradients
-# when U(x) \approx 0 during early optimisation
+# when U(x) \approx 0 during early optimization
 N_TRIALS = 2000
 MC_SAMPLES = 1000  # MC samples for simulation and fitting
 
@@ -289,12 +289,11 @@ BASIS_DEGREE_FIT = 3
 print("[2/5] Fitting 1D WPPM via MAPOptimizer ...")
 
 # --8<-- [start:fit]
-prior = Prior(input_dim=1, basis_degree=BASIS_DEGREE_FIT, extra_embedding_dims=0)
+prior = Prior(input_dim=1, basis_degree=BASIS_DEGREE_FIT)
 model = WPPM(
-    input_dim=1,
-    extra_dims=0,  # embedding_dim = input_dim (minimal)
+    input_dim=1,  # 1D in put stimuli
     prior=prior,
-    likelihood=task,
+    likelihood=task,  # 3-AFC odd-one out
     noise=GaussianNoise(sigma=0.0),
     diag_term=DIAG_TERM,  # matches WeberGroundTruth for a fair comparison
 )
@@ -342,8 +341,8 @@ weber_fraction_fitted = jnd_fitted / s_grid
 # Weight analysis: exact analytical basis change; Chebyshev(x) -> monomial(s).
 # ---------------------------------------------------------------------------
 # The normalization x = a*s + b is an invertible affine map.  Because T_n(x(s))
-# is a degree-n polynomial in s, the Chebyshev representation U(x) = Σ Wₙ Tₙ(x)
-# and the physical monomial representation U(s) = Σ cₙ sⁿ span the same space.
+# is a degree-n polynomial in s, the Chebyshev representation U(x) = Σ W_n T_n(x)
+# and the physical monomial representation U(s) = Σ c_n s^n span the same space.
 # The conversion is a pure linear basis change; no fitting, no approximation:
 #   Step 1: cheb2poly converts W -> monomial coefficients in normalized x.
 #   Step 2: substituting x = a*s + b (polynomial composition) maps those to s.
@@ -430,28 +429,10 @@ for s_ref in PSYCH_LEVELS_PHYS:
     )(stims_psych)[0]
     # --8<-- [end:psychometric]
 
-    # Bin actual trial data near this reference level (physical units)
-    tol = 0.12
-    mask = jnp.abs(refs_s - s_ref) < tol
-    d_sel = np.asarray(delta_s[mask])
-    r_sel = np.asarray(responses[mask])
-    n_bins = 8
-    bin_edges = np.linspace(float(delta_sweep[0]), float(delta_sweep[-1]), n_bins + 1)
-    bin_centers, bin_pcorrect, bin_counts = [], [], []
-    for lo, hi in zip(bin_edges[:-1], bin_edges[1:]):
-        idx = (d_sel >= lo) & (d_sel < hi)
-        if idx.sum() >= 3:
-            bin_centers.append(0.5 * (lo + hi))
-            bin_pcorrect.append(r_sel[idx].mean())
-            bin_counts.append(idx.sum())
-
     psych_data[s_ref] = {
         "delta_sweep": delta_sweep,  # physical units
         "p_fit": p_fit,
         "p_ground_truth": p_gt,
-        "bin_centers": np.array(bin_centers),
-        "bin_pcorrect": np.array(bin_pcorrect),
-        "bin_counts": np.array(bin_counts),
     }
 
 # ---------------------------------------------------------------------------
@@ -713,17 +694,6 @@ def draw_psychometric(ax):
             linestyle="--",
             alpha=0.6,
         )
-        if len(d["bin_centers"]) > 0:
-            sizes = 20 + 3 * d["bin_counts"]
-            ax.scatter(
-                d["bin_centers"],
-                d["bin_pcorrect"],
-                color=color,
-                s=sizes,
-                zorder=5,
-                edgecolors="white",
-                linewidths=0.5,
-            )
 
     ax.axhline(1 / 3, color="gray", linewidth=0.9, linestyle=":")
     ax.axhline(1.0, color="gray", linewidth=0.7, linestyle=":", alpha=0.5)
@@ -748,15 +718,6 @@ def draw_psychometric(ax):
             linestyle="--",
             alpha=0.6,
             label="Ground truth",
-        ),
-        Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="k",
-            linestyle="none",
-            markersize=6,
-            label="Binned trial data",
         ),
         Line2D(
             [0],
@@ -790,11 +751,29 @@ ax6 = axes[5]
 # --8<-- [start:learning_curve]
 steps_hist, loss_hist = optimizer.get_history()  # (step indices, neg-log-posterior)
 # --8<-- [end:learning_curve]
+# What this curve shows: the quantity MAPOptimizer minimizes each step, namely
+#   loss = -log_posterior = -(log_likelihood(W | data) + log_prior(W)),
+# where the only free parameters are the Chebyshev weights W defining
+# U(x) -> Sigma(x). The log-likelihood is the summed Bernoulli term over all
+# trials (does predicted P(correct) match the observed 0/1 responses?); the
+# log-prior is a Gaussian shrinkage on W. Lower = better.
+#
+# The likelihood is Monte-Carlo estimated with a FRESH random key every step,
+# so each point is a noisy estimate of the loss: expect jitter, and read the
+# *trend*, not individual points.
+#   converged -> drops then flattens into a noisy plateau (trust the fit);
+#   not converged -> still trending down at the last step (raise NUM_STEPS /
+#       LEARNING_RATE; Weber slope likely under-recovered);
+#   diverged -> climbs or hits NaN/Inf (lower LEARNING_RATE; MAPOptimizer stops
+#       early and prints a "Non-finite loss" message).
 if steps_hist:
     ax6.plot(steps_hist, loss_hist, color="#4444aa", linewidth=1.5)
-    ax6.set_xlabel("Optimisation step")
-    ax6.set_ylabel("Neg log posterior")
-    ax6.set_title("Learning curve")
+    ax6.set_xlabel("optimization step")
+    ax6.set_ylabel(r"Negative log posterior $-(\log \mathcal{L} + \log p(W))$")
+    ax6.set_title(
+        "Learning curve (minimized objective)\n"
+        "noisy = MC-estimated loss; flat plateau = converged"
+    )
     ax6.grid(True, alpha=0.25)
 
 fig.suptitle(
