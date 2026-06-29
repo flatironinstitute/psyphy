@@ -65,7 +65,7 @@ $$
 $U(s)$ is represented in a Chebyshev basis over a normalized coordinate $x\in[-1,1]$,
 $U(x)=\sum_i W_i\,T_i(x)$. Because Weber needs $U$ *linear*, a **degree-1** basis
 ($U(x)=W_0+W_1 x$, two parameters) is exactly sufficient  but we deliberately fit a more
-flexible model and check it doesn't overfit.
+flexible model (degree 3 polynomial) and check it doesn't overfit.
 
 ---
 
