@@ -149,6 +149,13 @@ Chebyshev weights $W$.
 
 ## Step 5  Read the recovered function three ways
 
+Bind the fitted parameters into a `WPPMCovarianceField` and evaluate $\Sigma(s)$ on a dense
+grid. From the single fitted function $\sqrt{\hat\Sigma(s)}$ we read three views  the first
+three panels are the *same fit* re-expressed.
+
+```python title="Derived quantities: JND and Weber fraction"
+--8<-- "docs/examples/wppm/weber_law_demo.py:jnd"
+```
 
 **(a) JND recovery.** $\sqrt{\hat\Sigma(s)}$ vs $s$ should be a straight line through the
 origin with slope $k$.
@@ -159,7 +166,7 @@ origin with slope $k$.
        width="460"/>
 </div>
 
-**(b) Weber fraction (the money plot).** Divide by $s$: $\sqrt{\hat\Sigma(s)}/s$ should be
+**(b) Weber fraction** Divide by $s$: $\sqrt{\hat\Sigma(s)}/s$ should be
 *flat* at $k = 0.2$. A flat line is the defining signature of Weber's law in this figure.
 
 <div align="center">
