@@ -90,10 +90,8 @@ the optional basis sweep at the end refits the model several times and is the sl
 
 ## Step 1  Stimulus domain and coordinates
 
-The Chebyshev basis is orthogonal on $[-1, 1]$, so `psyphy` requires every stimulus (
-**references and comparisons**) to live in that interval. We pick a physical range
-`[S_MIN, S_MAX]` wide enough to hold the largest comparison (a hard trial sits several JNDs
-*above* its reference, so comparisons exceed the reference range) and map physical $s$ to
+The Chebyshev basis we use requires stimuli to be in $[-1, 1]$. We pick a physical range
+`[S_MIN, S_MAX]` wide enough to hold the largest comparison and map physical $s$ to
 normalized $x$ explicitly:
 
 ```python title="Physical range and coordinate transforms"
