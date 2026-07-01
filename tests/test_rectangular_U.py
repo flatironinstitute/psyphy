@@ -17,7 +17,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.model import WPPM, OddityTask, Prior
+from psyphy.model import WPPM, ContinuousTouchTask, OddityTask, Prior
 
 
 class TestRectangularUShape:
@@ -81,12 +81,12 @@ class TestRectangularUShape:
             (3, 1),
         ],
     )
-    def test_U_matrix_shape(self, input_dim, extra_dims):
+    @pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+    def test_U_matrix_shape(self, input_dim, extra_dims, task):
         """U(x) should be (input_dim, input_dim + extra_dims)."""
         prior = Prior(
             input_dim=input_dim, basis_degree=5, extra_embedding_dims=extra_dims
         )
-        task = OddityTask()
         model = WPPM(
             input_dim=input_dim, extra_dims=extra_dims, prior=prior, likelihood=task
         )
@@ -105,6 +105,7 @@ class TestRectangularUShape:
         )
 
 
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
 class TestLocalCovarianceShape:
     """Test that local_covariance returns (input_dim, input_dim) directly."""
 
@@ -119,12 +120,11 @@ class TestLocalCovarianceShape:
             (3, 2),
         ],
     )
-    def test_local_covariance_is_stimulus_size(self, input_dim, extra_dims):
+    def test_local_covariance_is_stimulus_size(self, input_dim, extra_dims, task):
         """Σ(x) should be (input_dim, input_dim), not (embedding_dim, embedding_dim)."""
         prior = Prior(
             input_dim=input_dim, basis_degree=5, extra_embedding_dims=extra_dims
         )
-        task = OddityTask()
         model = WPPM(
             input_dim=input_dim, extra_dims=extra_dims, prior=prior, likelihood=task
         )
@@ -142,10 +142,9 @@ class TestLocalCovarianceShape:
             f"Expected {expected_shape}, got {Sigma.shape}"
         )
 
-    def test_local_covariance_positive_definite(self):
+    def test_local_covariance_positive_definite(self, task):
         """Σ(x) = U @ U^T + diag_term*I should be positive definite."""
         prior = Prior(input_dim=2, basis_degree=5, extra_embedding_dims=1)
-        task = OddityTask()
         model = WPPM(input_dim=2, extra_dims=1, prior=prior, likelihood=task)
 
         params = prior.sample_params(jr.PRNGKey(42))
@@ -188,15 +187,15 @@ class TestParameterCount:
         # We save 864 parameters (25%)!
 
 
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
 class TestCovarianceFieldProtocol:
     """Test that covariance field returns correct shapes."""
 
-    def test_covariance_field_cov_shape(self):
+    def test_covariance_field_cov_shape(self, task):
         """CovarianceField.cov() should return (input_dim, input_dim)."""
         from psyphy.model.covariance_field import WPPMCovarianceField
 
         prior = Prior(input_dim=2, basis_degree=5, extra_embedding_dims=1)
-        task = OddityTask()
         model = WPPM(input_dim=2, extra_dims=1, prior=prior, likelihood=task)
 
         params = prior.sample_params(jr.PRNGKey(42))
@@ -207,12 +206,11 @@ class TestCovarianceFieldProtocol:
 
         assert Sigma.shape == (2, 2), f"Expected (2, 2), got {Sigma.shape}"
 
-    def test_sqrt_cov_shape(self):
+    def test_sqrt_cov_shape(self, task):
         """CovarianceField.sqrt_cov() should return (input_dim, embedding_dim)."""
         from psyphy.model.covariance_field import WPPMCovarianceField
 
         prior = Prior(input_dim=2, basis_degree=5, extra_embedding_dims=1)
-        task = OddityTask()
         model = WPPM(input_dim=2, extra_dims=1, prior=prior, likelihood=task)
 
         params = prior.sample_params(jr.PRNGKey(42))
@@ -224,12 +222,11 @@ class TestCovarianceFieldProtocol:
         # U should be rectangular: (input_dim, embedding_dim) = (2, 3)
         assert U.shape == (2, 3), f"Expected (2, 3), got {U.shape}"
 
-    def test_no_cov_stimulus_method_needed(self):
+    def test_no_cov_stimulus_method_needed(self, task):
         """cov_stimulus() method should not exist - cov() already returns stimulus size."""
         from psyphy.model.covariance_field import WPPMCovarianceField
 
         prior = Prior(input_dim=2, basis_degree=5, extra_embedding_dims=1)
-        task = OddityTask()
         model = WPPM(input_dim=2, extra_dims=1, prior=prior, likelihood=task)
 
         params = prior.sample_params(jr.PRNGKey(42))

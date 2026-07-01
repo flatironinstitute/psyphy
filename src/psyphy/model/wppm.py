@@ -26,7 +26,7 @@ import jax.numpy as jnp
 from psyphy.utils.math import chebyshev_basis
 
 from .base import Model
-from .likelihood import BernoulliTaskLikelihood, TaskLikelihood
+from .likelihood import TaskLikelihood
 from .prior import Prior
 
 # Type aliases for readability
@@ -396,9 +396,9 @@ class WPPM(Model):
     # ----------------------------------------------------------------------
     def predict_prob(
         self, params: Params, stimulus: Stimulus, **likelihood_kwargs: Any
-    ) -> jnp.ndarray:
+    ) -> tuple[jnp.ndarray, ...]:
         """
-        Predict probability of a correct response for a single stimulus.
+        Predict probability parameters of a response for a single stimulus.
 
         Design choice:
             WPPM computes discriminability & covariance; the LIKELIHOOD defines how
@@ -409,11 +409,13 @@ class WPPM(Model):
         ----------
         params : dict
         stimulus : tuple[jnp.ndarray, jnp.ndarray]
-             (reference, comparison) pair in model space.
+             For OddityTask, this is a (reference, comparison) pair in model space.
 
         Returns
         -------
-        p_correct : jnp.ndarray
+        prob_params : tuple[jnp.ndarray, ...]
+            For OddityTask, this is (p_correct,)
+            For ContinuousTouchTask, this is (mu, sigma)
         """
         # Strict task-owned configuration:
         # - MC control knobs (e.g. num_samples/bandwidth) live in the task config.
@@ -424,15 +426,8 @@ class WPPM(Model):
                 "Configure likelihood behavior via the TaskLikelihood object itself."
             )
 
-        if not isinstance(self.likelihood, BernoulliTaskLikelihood):
-            raise NotImplementedError(
-                "WPPMP currently only supports "
-                "BernoulliTaskLikelihood. Gaussian support requires "
-                "updating to handle (mu, sigma) returns."
-            )
-
         stimuli = jnp.stack(stimulus, axis=1)
-        return self.likelihood.predict(params, stimuli, self)[0]
+        return self.likelihood.predict(params, stimuli, self)
 
     # ----------------------------------------------------------------------
     # LIKELIHOOD (delegates to likelihood component)

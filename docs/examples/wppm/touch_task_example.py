@@ -1,0 +1,486 @@
+"""
+Touch Task WPPM Example: Fitting a Spatially-Varying Covariance Field
+---------------------------------------------------------------
+
+This example demonstrates how to use the full Wishart Process
+Psychophysical Model (WPPM)to fit a spatially-varying covariance
+field to synthetic touch task data. It visualizes the ground-truth
+covariance field, the initial prior sample, and the fitted
+field as ellipsoid contours.
+
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+# --8<-- [start:jax_device_setup]
+# Must be set BEFORE importing JAX, as JAX locks in its backend on first import.
+# Unset any forced CPU override so JAX can auto-detect GPU/TPU if available.
+os.environ.pop("JAX_PLATFORM_NAME", None)
+# --8<-- [end:jax_device_setup]
+
+import jax
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+
+# --8<-- [start:imports]
+# (imports above are included via mkdocs-snippets)
+# --8<-- [end:imports]
+
+# Ensure local src is importable when running directly
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src"))
+)
+import jax.random as jr
+
+# --8<-- [start:imports]
+from psyphy.data import TrialData  # (batched trial container)
+from psyphy.inference import MAPOptimizer  # fitter
+from psyphy.model import (
+    WPPM,
+    ContinuousTouchRule,
+    ContinuousTouchTask,
+    ContinuousTouchTaskConfig,
+    GaussianNoise,
+    Prior,
+    WPPMCovarianceField,  # (fast (\Sigma) evaluation)
+)
+
+# --8<-- [end:imports]
+PLOTS_DIR = os.path.join(os.path.dirname(__file__), "plots")
+
+# print device used
+print("DEVICE USED:", jax.devices()[0])
+
+_THETAS = jnp.linspace(0, 2 * jnp.pi, 100)
+_UNIT_CIRCLE = jnp.vstack([jnp.cos(_THETAS), jnp.sin(_THETAS)])
+
+
+def _ellipse_segments_from_covs(
+    centers_xy: jnp.ndarray,
+    covs: jnp.ndarray,
+    *,
+    scale: float,
+    plot_jitter: float,
+    unit_circle: jnp.ndarray,
+) -> tuple[jnp.ndarray, jnp.ndarray]:
+    """Convert batched covariances into polyline segments for LineCollection.
+
+    Speed improvements through:
+      - all heavy math (jittering, eigvals, Cholesky, circle transform) is done
+        in one batched JAX computation rather than inside a Python loop
+      - Matplotlib then receives one big array (n_lines, n_pts, 2) instead of
+        creating hundreds of individual Line2D artists via ax.plot
+
+    Returns
+    -------
+    segments : (n_valid, n_theta, 2)
+        Polyline segments for each ellipse.
+    valid_mask : (n_centers,)
+        Which centers were PD after jitter.
+    """
+    # Add a small diagonal jitter for plotting stability.
+    covs = covs + plot_jitter * jnp.eye(covs.shape[-1])
+
+    # PD check: for a 2x2 SPD matrix, eigvalsh is cheap and reliable.
+    eigvals = jnp.linalg.eigvalsh(covs)
+    valid = jnp.all(eigvals > 0, axis=-1)
+
+    # Cholesky is faster than eigen decomposition for SPD matrices.
+    # we only use it for plotting ellipses (shape/orientation), not inference.
+    def _cov_to_points(cov: jnp.ndarray, center: jnp.ndarray) -> jnp.ndarray:
+        L = jnp.linalg.cholesky(cov)
+        pts = scale * (L @ unit_circle)  # (2, n_theta)
+        return (center[:, None] + pts).T  # (n_theta, 2)
+
+    # Compute for all, then filter to valid in one shot.
+    all_segments = jax.vmap(_cov_to_points)(covs, centers_xy)  # (n, n_theta, 2)
+    return all_segments[valid], valid
+
+
+# 1) Ground truth: Wishart process field
+
+# Original constants describing simulation:
+# NUM_GRID_PTS = jnp.float32(10)      # Number of reference points over stimulus space.
+# NUM_TRIALS = jnp.float32(4000)      # Number of trials in simulated dataset.
+# # MIN_LR = jnp.float32(-7)
+# # MAX_LR = jnp.float32(-3)
+#
+# # python simulate_2d.py --optimizer sgd --learning_rate 5e-5 --momentum 0.9 --mc_samples 500 --bandwidth 1e-2 --total_steps 1000
+
+
+NUM_GRID_PTS = 10  # Number of reference points over stimulus space.
+NUM_TRIALS = 400  # Total number of trials in the simulated dataset.
+
+
+print("[1/5] Setting up ground-truth WPPM and simulating data...")
+input_dim = 2
+basis_degree = 4  # controls smoothness/complexity (basis degrees 0,1,2,3,4)
+extra_dims = 1  # embedding dim for Wishart process
+decay_rate = 0.4  # decay rate for basis functions
+variance_scale = 4e-3
+diag_term = 1e-9
+# for ground-truth model
+learning_rate = 5e-4
+num_steps = 200
+
+# ---- "Truth" model (ground truth) ----
+# This is the synthetic observer we will:
+#   1) sample parameters from (truth_params)
+#   2) use to generate responses (data)
+# Later we fit a *separate* WPPM instance to that data and compare fields.
+#
+
+# --8<-- [start:truth_model]
+
+rule = (
+    ContinuousTouchRule()
+)  # Default rule relationship is to tap exactly according to stimulus
+
+task = ContinuousTouchTask(config=ContinuousTouchTaskConfig())
+noise = GaussianNoise(sigma=0.1)
+
+# Set all Wishart process hyperparameters in Prior
+truth_prior = Prior(
+    input_dim=input_dim,  # (2D)
+    basis_degree=basis_degree,  # (5)
+    extra_embedding_dims=extra_dims,  # (1)
+    decay_rate=decay_rate,  # for basis functions
+    variance_scale=variance_scale,  # how big covariance matrices
+    # are before fitting
+)
+truth_model = WPPM(
+    input_dim=input_dim,
+    extra_dims=extra_dims,
+    prior=truth_prior,
+    likelihood=task,  # touch task
+    noise=noise,  # (Gaussian noise)
+    diag_term=diag_term,  # ensure positive-definite covariances
+)
+
+# Sample ground-truth Wishart process weights
+truth_params = truth_model.init_params(jax.random.PRNGKey(123))
+# --8<-- [end:truth_model]
+
+# 2) Simulate synthetic data from the ground-truth field
+#
+# Here we generate y ~ normal(mu, sigma) where mu & sigma are computed by the
+# same method (here closed-form) used in the touch task:
+# `ContinuousTouchTask.loglik`
+#   - samples internal reps around the stimuli
+#   - applies the given rule
+#
+
+
+##### Simulate data
+num_trials = NUM_TRIALS  # (trials per reference point)
+n_grid = 5  # NUM_GRID_PTS
+grid = jnp.linspace(-1, 1, n_grid)  # [-1,1] space
+points = jnp.stack(jnp.meshgrid(grid, grid), axis=-1).reshape(-1, 2)
+
+seed = 3
+k_sim = jr.PRNGKey(seed)
+
+# Build a batched reference list by repeating each grid point.
+n_points = points.shape[0]
+stims = jnp.repeat(points, repeats=num_trials, axis=0)  # (N, 2)
+num_trials_total = int(stims.shape[0])
+
+# For a single stimulus, must be sure to include a dimension of length 1 for K stimuli
+stimuli = jnp.expand_dims(stims, 1)
+
+# --8<-- [start:simulate_data]
+# Simulate observed responses using the likelihood implied by the task.
+ys, prob_params = task.simulate(truth_params, stimuli, truth_model, key=k_sim)
+mu, sigma = prob_params  # <- for Gaussian tasks, mu and sigma comprise prob_param
+
+# Build the canonical batched dataset for compute.
+#
+# Notes:
+# - This is equivalent to storing X with shape (N, K, d) and y with shape (N, R)
+#   where N is trials, K is number of distinct stimuli per trial, d is stimulus
+#   dimensionality, and R is number of response channels.
+# - For OddityTask, X[:,0,:]=refs and X[:,1,:]=comparisons.
+# - Note that even though oddity is a 3-item task, we only store (ref, comparison)
+#   because the oddity trial is assumed to be (ref, ref, comparison)
+#
+# --8<-- [start:data]
+data = TrialData(stimuli=stimuli, responses=ys)
+# --8<-- [end:data]
+
+# --8<-- [end:simulate_data]
+
+# 3) Model to fit and MAPOptimizer
+
+print("[2/5] Building model and optimizer...")
+# --8<-- [start:build_model]
+prior = Prior(
+    input_dim=input_dim,  # (2D)
+    basis_degree=basis_degree,  # 5
+    extra_embedding_dims=extra_dims,  # 1
+    decay_rate=decay_rate,  # for basis functions (how quickly they vary)
+    variance_scale=variance_scale,  # how big covariance matrices
+    # are before fitting
+)
+model = WPPM(
+    input_dim=input_dim,
+    prior=prior,
+    likelihood=task,
+    noise=noise,  # Gaussian
+    diag_term=1e-4,  # ensure positive-definite covariances
+)
+# --8<-- [end:build_model]
+
+
+# 3.5) Prior
+# --8<-- [start:prior]
+# Initialize at prior sample
+init_params = model.init_params(jax.random.PRNGKey(42))
+init_field = WPPMCovarianceField(model, init_params)
+# Prior over covariance field
+covs_prior = init_field(points)  # (25, 2, 2)
+# --8<-- [end:prior]
+print(f"shape of covs_prior: {covs_prior.shape}")
+
+
+# 4) Fit using optimizer
+
+print("[3/5] Fitting via MAPOptimizer ...")
+
+steps = num_steps
+lr = learning_rate
+momentum = 0.9
+# --8<-- [start:fit_map]
+map_optimizer = MAPOptimizer(
+    steps=steps, learning_rate=lr, momentum=momentum, track_history=True, log_every=1
+)
+
+map_posterior = map_optimizer.fit(
+    model,
+    data,
+    init_params=init_params,
+)
+# --8<-- [end:fit_map]
+
+print(
+    "MAPOptimizer settings:",
+    f"steps={map_optimizer.steps}",
+    f"track_history={map_optimizer.track_history}",
+    f"log_every={map_optimizer.log_every}",
+)
+# NOTE: MAPOptimizer.fit(...) optimizes a *point estimate* (MAP), not a sampled
+# posterior. The returned object is a MAPPosterior (delta distribution at theta_MAP).
+
+# 5) Visualize ellipsoid field: overlay ground truth, prior, and fit at each grid point
+# --8<-- [start:plot_ellipses]
+print("[4/5] Plotting covariance field ellipses ...")
+
+# Visualization-only stabilization: if a covariance is numerically slightly
+# indefinite, we add a small diagonal jitter for plotting.
+_PLOT_JITTER_DEFAULT = 0  # 1e-6
+_PLOT_JITTER_FIT = 0  # 1e-5
+
+# Grid for field visualization in [-1,1] space
+n_grid = 12
+grid_x = jnp.linspace(-1, 1, n_grid)
+grid_y = jnp.linspace(-1, 1, n_grid)
+centers = jnp.stack(jnp.meshgrid(grid_x, grid_y), axis=-1).reshape(-1, 2)
+
+
+# JAX-native covariance extraction
+# ------------------------------
+# Instead of custom helpers like truth_local_cov_batch / fit_local_cov_batch, we
+# reuse the library abstraction `WPPMCovarianceField`.
+#
+# Why it's helpful here:
+#   - It *binds* a (model, params) pair into a single callable object, so we don't
+#     accidentally use truth_params with the fit model, or vice versa.
+#   - It supports both single-point and batched evaluation via `field(x)` where
+#     x can be shape (d,) or (..., d).
+#   - It uses a vmapped + jitted batch path internally, which is typically faster
+#     than a Python loop and stays efficient when you evaluate many points.
+
+truth_field = WPPMCovarianceField(truth_model, truth_params)
+
+# --8<-- [start:cov_fields]
+map_field = WPPMCovarianceField(model, map_posterior.params)
+# evaluate any covariance field object like this at either a single point
+# or a batch of points
+covs_map = map_field(points)  # to get the fitted covariances
+# --8<-- [end:cov_fields]
+
+# ---- Plot scaling (purely for visualization) ----
+# We want ellipses to be visually comparable across the plot, so we choose a
+# single global scale factor based on the *ground-truth* covariances.
+#
+# gt_covs: stacked covariances Σ_truth(x) at each reference point.
+# Shape: (n_ref_points, 2, 2)
+gt_covs = truth_field(points)
+# gt_means: for each covariance matrix, compute the mean eigenvalue.
+# For a 2x2 SPD matrix this correlates with the "overall variance" (typical radius).
+# Shape: (n_ref_points,)
+gt_means = jax.vmap(lambda cov: jnp.mean(jnp.linalg.eigvalsh(cov)))(gt_covs)
+# gt_scales: sqrt(mean eigenvalue) produces a quantity in "standard deviation" units.
+# This is not used directly for each ellipse; we only use its average to set a
+# reasonable fixed plotting scale.
+gt_scales = jnp.sqrt(gt_means)
+
+avg_scale = float(jnp.mean(gt_scales))
+# ellipse_scale: scalar multiplier applied to sqrt(Σ) when drawing ellipses.
+# We keep this constant across all ellipses so only *shape/orientation* varies.
+# If you want ellipses sized proportionally to local variance, you could multiply by
+# something like jnp.sqrt(jnp.mean(eigvals)) per point instead.
+ellipse_scale = 0.4  # 0.3 * avg_scale   # 0.3
+
+fig, ax = plt.subplots(figsize=(7, 7))
+non_pd_counts = [0, 0, 0]
+labels = ["Ground Truth", "Prior Sample (init)", "Fitted (MAP)", "Stimulus Points"]
+colors = ["k", "b", "r", "g"]
+params_list = [truth_params, init_params, map_posterior.params]
+field_list = [truth_field, init_field, map_field]
+legend_handles = []
+for i, (field, _params, color, label) in enumerate(
+    zip(field_list, params_list, colors, labels)
+):
+    plot_jitter = _PLOT_JITTER_DEFAULT
+    if label.startswith("Fitted"):
+        plot_jitter = _PLOT_JITTER_FIT
+
+    # Batch-evaluate covariances at all reference points in one shot.
+    # This is typically much faster than calling field(center) inside a Python loop.
+    covs = field(points)  # (n_points, 2, 2)
+
+    # Convert batched covariances into batched polyline segments.
+    segments, valid = _ellipse_segments_from_covs(
+        points,
+        covs,
+        scale=ellipse_scale,
+        plot_jitter=plot_jitter,
+        unit_circle=_UNIT_CIRCLE,
+    )
+    non_pd_counts[i] = int((~valid).sum())
+
+    # Draw all ellipses for this layer as one artist. This reduces Matplotlib
+    # overhead dramatically vs. one ax.plot() call per ellipse.
+    segments_np = jax.device_get(segments)
+    lc = LineCollection(
+        segments_np,
+        colors=color,
+        linewidths=1.2,
+        alpha=0.5,
+    )
+    ax.add_collection(lc)  # type: ignore[arg-type]
+
+    # Legend handle
+    h = ax.plot([], [], color=color, alpha=0.5, linewidth=0.8, label=label)[0]
+    legend_handles.append(h)
+
+print(
+    f"Ellipse plot skips (Fit/MAP): {non_pd_counts[2]} / {len(points)} "
+    f"(plot jitter={_PLOT_JITTER_FIT:g})"
+)
+# Plot reference points
+ref_scatter = ax.scatter(
+    points[:, 0], points[:, 1], c="g", s=3, zorder=5, label="Reference Points"
+)
+legend_handles.append(ref_scatter)
+ax.set_title(
+    f"Covariance field  \nSkipped non-PD: GT={non_pd_counts[0]}, Prior={non_pd_counts[1]}, Fit={non_pd_counts[2]}"
+    f"\n lr={lr}, steps={steps}, num-trials-total={num_trials_total}"
+)
+ax.set_aspect("equal", adjustable="box")
+ax.set_xlabel("Model space dimension 1")
+ax.set_ylabel("Model space dimension 2")
+ax.grid(True, alpha=0.3)
+ax.legend(handles=legend_handles, loc="upper right")
+plt.tight_layout()
+
+os.makedirs(PLOTS_DIR, exist_ok=True)
+fig.savefig(
+    os.path.join(PLOTS_DIR, "touch_ellipses.png"),
+    dpi=200,
+    bbox_inches="tight",
+)
+
+# --- Prior-only ellipsoid plot (fresh prior draw) ---
+# This is a convenience plot to show what the *Prior hyperparameters* imply for
+# the covariance field before seeing any data.
+print("[4b/5] Plotting prior-only covariance field (fresh prior draw) ...")
+prior_only_params = model.init_params(jax.random.PRNGKey(7))
+prior_only_field = WPPMCovarianceField(model, prior_only_params)
+
+prior_covs = prior_only_field(points)  # (n_ref_points, 2, 2)
+prior_segments, prior_valid = _ellipse_segments_from_covs(
+    points,
+    prior_covs,
+    scale=ellipse_scale,
+    plot_jitter=_PLOT_JITTER_DEFAULT,
+    unit_circle=_UNIT_CIRCLE,
+)
+
+fig_prior, ax_prior = plt.subplots(figsize=(7, 7))
+lc_prior = LineCollection(
+    jax.device_get(prior_segments),
+    colors="b",
+    linewidths=1.2,
+    alpha=0.5,
+)
+ax_prior.add_collection(lc_prior)  # type: ignore[arg-type]
+ax_prior.scatter(
+    points[:, 0],
+    points[:, 1],
+    c="g",
+    s=3,
+    zorder=5,
+    label="Reference Points",
+)
+
+prior_non_pd = int((~prior_valid).sum())
+ax_prior.set_aspect("equal", adjustable="box")
+ax_prior.set_xlabel("Model space dimension 1")
+ax_prior.set_ylabel("Model space dimension 2")
+ax_prior.grid(True, alpha=0.3)
+ax_prior.legend(loc="upper right")
+ax_prior.set_title(
+    "Prior draw (covariance field)"
+    f"\ninput_dim={input_dim}, basis_degree={basis_degree}, extra_dims={extra_dims}"
+    f"\ndecay_rate={decay_rate:g}, variance_scale={variance_scale:g}, diag_term={model.diag_term:g}"
+    f"\nSkipped non-PD: {prior_non_pd}"
+)
+plt.tight_layout()
+fig_prior.savefig(
+    os.path.join(PLOTS_DIR, "touch_prior_sample.png"),
+    dpi=200,
+    bbox_inches="tight",
+)
+# --8<-- [end:plot_ellipses]
+
+# Learning curve
+print("[5/5] Plotting learning curve...")
+# --8<-- [start:plot_learning_curve]
+steps_hist, loss_hist = map_optimizer.get_history()
+# plotting code
+# --8<-- [end:plot_learning_curve]
+print(f"num steps: {len(steps_hist)}, num losses: {len(loss_hist)}")
+
+if steps_hist:
+    print(f"history step range: [{steps_hist[0]}, {steps_hist[-1]}]")
+if steps_hist and loss_hist:
+    fig2, ax2 = plt.subplots(figsize=(6, 4))
+    ax2.set_xlim(steps_hist[0], steps_hist[-1])
+    ax2.plot(steps_hist, loss_hist, color="#4444aa")
+    ax2.set_title(f"Learning curve \n lr={lr}, steps={steps}, num-trials={num_trials}")
+    ax2.set_xlabel("Step")
+    ax2.set_ylabel("Neg log likelihood")
+    ax2.grid(True, alpha=0.3)
+    plt.tight_layout()
+    fig2.savefig(
+        os.path.join(PLOTS_DIR, "touch_learning_curve.png"),
+        dpi=200,
+        bbox_inches="tight",
+    )
+else:
+    print("No history recorded — set track_history=True in MAPOptimizer to enable.")

@@ -44,7 +44,7 @@ Data will be generated from it so we have a ground truth to compare against.
 ## Step 2 — Simulate trials at a single reference point
 
 We generate `NUM_TRIALS` oddity-task responses at a single reference stimulus
-`ref = [0, 0]`.  Probe displacements are scaled by the local covariance
+`ref = [0.5, 0.5]`.  Probe displacements are scaled by the local covariance
 (constant Mahalanobis radius), so trial difficulty stays roughly uniform.
 
 ```python title="Simulate data"

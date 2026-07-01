@@ -44,7 +44,7 @@ Top-level (core models + session):
   from psyphy import ExperimentSession, ResponseData, TrialBatch
 
 Subpackages:
-  from psyphy.model import WPPM, Prior, OddityTask, GaussianNoise, StudentTNoise
+  from psyphy.model import WPPM, Prior, OddityTask, ContinuousTouchTask, GaussianNoise, StudentTNoise
   from psyphy.inference import MAPOptimizer, LangevinSampler, LaplaceApproximation
   from psyphy.acquisition import expected_improvement, upper_confidence_bound, mutual_information
   from psyphy.acquisition import optimize_acqf, optimize_acqf_discrete, optimize_acqf_random
@@ -88,9 +88,15 @@ from .inference.laplace import LaplaceApproximation
 
 # Inference
 from .inference.map_optimizer import MAPOptimizer
-from .model.likelihood import OddityTask, OddityTaskConfig
+from .model.likelihood import (
+    ContinuousTouchTask,
+    ContinuousTouchTaskConfig,
+    OddityTask,
+    OddityTaskConfig,
+)
 from .model.noise import GaussianNoise, StudentTNoise
 from .model.prior import Prior
+from .model.rule import ContinuousTouchRule
 from .model.wppm import WPPM
 
 # Posterior
@@ -107,6 +113,9 @@ __all__ = [
     "Prior",
     "OddityTask",
     "OddityTaskConfig",
+    "ContinuousTouchTask",
+    "ContinuousTouchTaskConfig",
+    "ContinuousTouchRule",
     "GaussianNoise",  # default noise model
     "StudentTNoise",
     # Inference
