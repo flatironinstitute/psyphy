@@ -9,7 +9,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
+from psyphy.model import WPPM, ContinuousTouchTask, GaussianNoise, OddityTask, Prior
 from psyphy.model.covariance_field import WPPMCovarianceField
 
 # ==============================================================================
@@ -17,13 +17,14 @@ from psyphy.model.covariance_field import WPPMCovarianceField
 # ==============================================================================
 
 
-def test_wppm_no_embedding_dim_parameter():
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+def test_wppm_no_embedding_dim_parameter(task):
     """WPPM should not have embedding_dim as constructor parameter."""
     # This should work WITHOUT embedding_dim
     model = WPPM(
         input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3),  # Need Wishart mode for extra_dims
-        likelihood=OddityTask(),
+        likelihood=task,
         noise=GaussianNoise(),
         extra_dims=1,
     )
@@ -58,8 +59,9 @@ def test_wppm_no_embedding_dim_parameter():
         (3, 2, 5),  # 3D input, 2 extra
     ],
 )
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
 def test_embedding_dim_computed_correctly(
-    input_dim, extra_dims, expected_embedding_dim
+    input_dim, extra_dims, expected_embedding_dim, task
 ):
     """Test that embedding_dim = input_dim + extra_dims."""
     model = WPPM(
@@ -67,7 +69,7 @@ def test_embedding_dim_computed_correctly(
         prior=Prior(
             input_dim=input_dim, basis_degree=3
         ),  # Need Wishart mode for extra_dims
-        likelihood=OddityTask(),
+        likelihood=task,
         noise=GaussianNoise(),
         extra_dims=extra_dims,
     )
@@ -80,12 +82,13 @@ def test_embedding_dim_computed_correctly(
 # ==============================================================================
 
 
-def test_wishart_W_shape_uses_full_embedding_dim():
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+def test_wishart_W_shape_uses_full_embedding_dim(task):
     """W should have shape (degree+1, degree+1, input_dim, embedding_dim) (rectangular)."""
     model = WPPM(
         input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
-        likelihood=OddityTask(),
+        likelihood=task,
         noise=GaussianNoise(),
         extra_dims=1,
     )
@@ -107,12 +110,13 @@ def test_wishart_W_shape_uses_full_embedding_dim():
 # ==============================================================================
 
 
-def test_local_covariance_shape_wishart():
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+def test_local_covariance_shape_wishart(task):
     """local_covariance should return (input_dim, input_dim) with rectangular U."""
     model = WPPM(
         input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
-        likelihood=OddityTask(),
+        likelihood=task,
         noise=GaussianNoise(),
         extra_dims=1,
     )
@@ -132,12 +136,13 @@ def test_local_covariance_shape_wishart():
 # ==============================================================================
 
 
-def test_compute_sqrt_shape():
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+def test_compute_sqrt_shape(task):
     """_compute_sqrt should return (input_dim, embedding_dim) with rectangular design."""
     model = WPPM(
         input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
-        likelihood=OddityTask(),
+        likelihood=task,
         noise=GaussianNoise(),
         extra_dims=1,
     )
@@ -157,12 +162,13 @@ def test_compute_sqrt_shape():
 # ==============================================================================
 
 
-def test_full_embedding_covariance_positive_definite():
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+def test_full_embedding_covariance_positive_definite(task):
     """Covariance in stimulus space should be positive definite with rectangular U."""
     model = WPPM(
         input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=2),
-        likelihood=OddityTask(),
+        likelihood=task,
         noise=GaussianNoise(),
         extra_dims=2,
     )
@@ -186,12 +192,13 @@ def test_full_embedding_covariance_positive_definite():
 # ==============================================================================
 
 
-def test_stimulus_subspace_positive_definite():
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+def test_stimulus_subspace_positive_definite(task):
     """Stimulus subspace covariance should be positive definite."""
     model = WPPM(
         input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
-        likelihood=OddityTask(),
+        likelihood=task,
         noise=GaussianNoise(),
         extra_dims=1,
     )

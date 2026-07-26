@@ -21,7 +21,16 @@ import jax.random as jr
 import pytest
 
 from psyphy.data import ResponseData, TrialData
-from psyphy.model import WPPM, GaussianNoise, OddityTask, OddityTaskConfig, Prior
+from psyphy.model import (
+    WPPM,
+    ContinuousTouchRule,
+    ContinuousTouchTask,
+    ContinuousTouchTaskConfig,
+    GaussianNoise,
+    OddityTask,
+    OddityTaskConfig,
+    Prior,
+)
 
 
 class TestMCLikelihood:
@@ -925,19 +934,50 @@ class TestSimulate:
         )
 
     @pytest.fixture
+    def touch_model(self):
+        return WPPM(
+            input_dim=2,
+            prior=Prior(input_dim=2, basis_degree=3),
+            likelihood=ContinuousTouchTask(
+                config=ContinuousTouchTaskConfig(
+                    num_samples=500,
+                    rule=ContinuousTouchRule(
+                        nonlinear_func=lambda x: jnp.array([jnp.exp(x[0]), x[1] * x[1]])
+                    ),
+                )
+            ),
+            noise=GaussianNoise(sigma=0.03),
+        )
+
+    @pytest.fixture
     def simple_params(self, model):
         return model.init_params(jr.PRNGKey(42))
 
-    def test_simulate_returns_correct_shapes(self, model, simple_params):
+    @pytest.fixture
+    def touch_params(self, touch_model):
+        return touch_model.init_params(jr.PRNGKey(42))
+
+    def test_simulate_returns_correct_shapes(
+        self, model, touch_model, simple_params, touch_params
+    ):
         refs = jnp.array([[0.0, 0.0], [0.3, 0.1]])
         comparisons = jnp.array([[0.1, 0.1], [0.4, 0.2]])
         stimuli = jnp.stack([refs, comparisons], axis=1)
         responses, p_correct = model.likelihood.simulate(
             simple_params, stimuli, model, key=jr.PRNGKey(0)
         )
+        touch_responses, touch_prob_params = touch_model.likelihood.simulate(
+            touch_params, refs, touch_model, key=jr.PRNGKey(0)
+        )
+        mu, sigma = touch_prob_params
+
         assert responses.shape == (2,)
         assert p_correct[0].shape == (2,)
         assert responses.dtype == jnp.int32
+
+        assert touch_responses.shape == (2, 2)  # two trials, two dims
+        assert mu[0].shape == (2,)
+        assert sigma[0].shape == (2, 2)
 
     def test_simulate_responses_are_binary(self, model, simple_params):
         refs = jnp.array([[0.0, 0.0]] * 20)
@@ -958,30 +998,54 @@ class TestSimulate:
         p_correct = p_correct[0]
         assert jnp.all(p_correct > 0) and jnp.all(p_correct < 1)
 
-    def test_simulate_reproducible_with_same_key(self, model, simple_params):
+    def test_simulate_reproducible_with_same_key(
+        self, model, simple_params, touch_model, touch_params
+    ):
         refs = jnp.array([[0.0, 0.0]] * 5)
         comparisons = jnp.array([[0.2, 0.2]] * 5)
         stimuli = jnp.stack([refs, comparisons], axis=1)
         r1, p1 = model.likelihood.simulate(
             simple_params, stimuli, model, key=jr.PRNGKey(7)
         )
+        tr1, tprobs1 = touch_model.likelihood.simulate(
+            touch_params, refs, touch_model, key=jr.PRNGKey(7)
+        )
+        mu_1, sigma_1 = tprobs1
         r2, p2 = model.likelihood.simulate(
             simple_params, stimuli, model, key=jr.PRNGKey(7)
         )
+        tr2, tprobs2 = touch_model.likelihood.simulate(
+            touch_params, refs, touch_model, key=jr.PRNGKey(7)
+        )
+        mu_2, sigma_2 = tprobs2
+
         assert jnp.array_equal(r1, r2)
         assert jnp.allclose(p1[0], p2[0])
 
-    def test_simulate_differs_with_different_key(self, model, simple_params):
+        assert jnp.allclose(tr1, tr2)
+        assert jnp.allclose(mu_1[0], mu_2[0])
+        assert jnp.allclose(sigma_1[0], sigma_2[0])
+
+    def test_simulate_differs_with_different_key(
+        self, model, simple_params, touch_model, touch_params
+    ):
         refs = jnp.array([[0.0, 0.0]] * 50)
         comparisons = jnp.array([[0.2, 0.2]] * 50)
         stimuli = jnp.stack([refs, comparisons], axis=1)
         r1, _ = model.likelihood.simulate(
             simple_params, stimuli, model, key=jr.PRNGKey(0)
         )
+        tr1, _ = touch_model.likelihood.simulate(
+            touch_params, refs, touch_model, key=jr.PRNGKey(0)
+        )
         r2, _ = model.likelihood.simulate(
             simple_params, stimuli, model, key=jr.PRNGKey(99)
         )
+        tr2, _ = touch_model.likelihood.simulate(
+            touch_params, refs, touch_model, key=jr.PRNGKey(99)
+        )
         assert not jnp.array_equal(r1, r2)
+        assert not jnp.array_equal(tr1, tr2)
 
 
 if __name__ == "__main__":

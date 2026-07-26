@@ -20,7 +20,7 @@ import pytest
 from psyphy.data import ResponseData
 from psyphy.inference import MAPOptimizer
 from psyphy.model import WPPM, Prior
-from psyphy.model.likelihood import OddityTask
+from psyphy.model.likelihood import ContinuousTouchTask, OddityTask
 from psyphy.model.noise import GaussianNoise
 
 # ==============================================================================
@@ -29,7 +29,7 @@ from psyphy.model.noise import GaussianNoise
 
 
 @pytest.fixture
-def wishart_model():
+def wishart_model(request):
     """Create Wishart model (with basis expansion)."""
     return WPPM(
         input_dim=2,
@@ -40,7 +40,7 @@ def wishart_model():
             decay_rate=0.3,
             extra_embedding_dims=1,  # should match model's extra_dims
         ),
-        likelihood=OddityTask(),
+        likelihood=request.param,
         noise=GaussianNoise(),
         extra_dims=1,
         diag_term=1e-3,
@@ -48,19 +48,30 @@ def wishart_model():
 
 
 @pytest.fixture
-def sample_data():
+def sample_data(request):
     """Create sample dataset for fitting."""
-    data = ResponseData()
-    # Add a few trials
-    key = jr.PRNGKey(42)
-    for i in range(20):
-        key, subkey = jr.split(key)
-        ref = jr.uniform(subkey, shape=(2,))
-        key, subkey = jr.split(key)
-        probe = ref + 0.1 * jr.normal(subkey, shape=(2,))
-        response = 1 if i % 2 == 0 else 0
-        data.add_trial((ref, probe), response)
-    return data
+    return request.param
+
+
+oddity_data = ResponseData()
+# Add a few trials
+key = jr.PRNGKey(42)
+for i in range(20):
+    key, subkey = jr.split(key)
+    ref = jr.uniform(subkey, shape=(2,))
+    key, subkey = jr.split(key)
+    probe = ref + 0.1 * jr.normal(subkey, shape=(2,))
+    response = 1 if i % 2 == 0 else 0
+    oddity_data.add_trial((ref, probe), response)
+
+touch_data = ResponseData()
+# Add a few trials
+key = jr.PRNGKey(42)
+for _ in range(20):
+    key, subkey = jr.split(key)
+    stim = jr.uniform(key, shape=(2,))
+    response = jr.normal(subkey, shape=(2,))
+    touch_data.add_trial((stim), response)
 
 
 # ==============================================================================
@@ -83,6 +94,9 @@ def test_covariance_field_protocol_exists():
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_model", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 def test_from_prior_wishart(wishart_model):
     """Test from_prior construction in Wishart mode."""
     from psyphy.model.covariance_field import WPPMCovarianceField
@@ -110,6 +124,9 @@ def test_from_prior_wishart(wishart_model):
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_model", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 def test_cov_wishart_varies(wishart_model):
     """Test that Wishart covariance varies across space."""
     from psyphy.model.covariance_field import WPPMCovarianceField
@@ -132,6 +149,9 @@ def test_cov_wishart_varies(wishart_model):
     assert jnp.all(jnp.linalg.eigvalsh(Sigma2) > 0)
 
 
+@pytest.mark.parametrize(
+    "wishart_model", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 def test_sqrt_cov_wishart(wishart_model):
     """Test sqrt_cov in Wishart mode (rectangular U)."""
     from psyphy.model.covariance_field import WPPMCovarianceField
@@ -153,6 +173,9 @@ def test_sqrt_cov_wishart(wishart_model):
     assert jnp.allclose(Sigma_from_U, Sigma_direct, rtol=1e-5)
 
 
+@pytest.mark.parametrize(
+    "wishart_model", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 def test_cov_batch_wishart(wishart_model):
     """Test vectorized evaluation in Wishart mode (rectangular U)."""
     from psyphy.model.covariance_field import WPPMCovarianceField
@@ -184,6 +207,9 @@ def test_cov_batch_wishart(wishart_model):
         assert jnp.all(eigvals > 0)
 
 
+@pytest.mark.parametrize(
+    "wishart_model", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 def test_sqrt_cov_batch_wishart(wishart_model):
     """Test vectorized sqrt_cov in Wishart mode (rectangular U)."""
     from psyphy.model.covariance_field import WPPMCovarianceField
@@ -217,6 +243,11 @@ def test_sqrt_cov_batch_wishart(wishart_model):
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_model, sample_data",
+    [(OddityTask(), oddity_data), (ContinuousTouchTask(), touch_data)],
+    indirect=True,
+)
 def test_posterior_get_covariance_field_wishart(wishart_model, sample_data):
     """Test posterior.get_covariance_field() in Wishart mode (rectangular U).
 
@@ -255,6 +286,9 @@ def test_posterior_get_covariance_field_wishart(wishart_model, sample_data):
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_model", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 def test_protocol_conformance_wishart(wishart_model):
     """Test protocol conformance in Wishart mode."""
     from psyphy.model.covariance_field import CovarianceField, WPPMCovarianceField
@@ -271,6 +305,9 @@ def test_protocol_conformance_wishart(wishart_model):
 # ==============================================================================
 
 
+@pytest.mark.parametrize(
+    "wishart_model", [OddityTask(), ContinuousTouchTask()], indirect=True
+)
 def test_consistency_with_model_compute_sqrt(wishart_model):
     """Test that field.sqrt_cov() matches model._compute_sqrt()."""
     from psyphy.model.covariance_field import WPPMCovarianceField

@@ -3,11 +3,12 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
+from psyphy.model import WPPM, ContinuousTouchTask, GaussianNoise, OddityTask, Prior
 
 
 @pytest.mark.parametrize("diag_term", [1e-6, 1e-4, 1e-3, 1e-2])
-def test_local_covariance_positive_definite(diag_term):
+@pytest.mark.parametrize("task", [OddityTask(), ContinuousTouchTask()])
+def test_local_covariance_positive_definite(diag_term, task):
     input_dim = 2
     basis_degree = 2
     extra_dims = 1
@@ -18,7 +19,6 @@ def test_local_covariance_positive_definite(diag_term):
         variance_scale=0.2,
         decay_rate=0.5,
     )
-    task = OddityTask()
     noise = GaussianNoise(sigma=1.0)
     model = WPPM(
         input_dim=input_dim,

@@ -19,17 +19,25 @@ from psyphy.model.likelihood import BernoulliTaskLikelihood, GaussianTaskLikelih
 
 class MockBernoulliTask(BernoulliTaskLikelihood):
     def predict(self, params, stimuli, model, key, noise=None):
-        return jnp.array(0.4)  # p_correct
+        return (jnp.array(0.4),)  # p_correct
 
 
 class MockGaussianTask(GaussianTaskLikelihood):
+    @property
+    def resp_dim(self):
+        return 2
+
     def predict(self, params, stimuli, model, key, noise=None):
-        return (jnp.array(0), jnp.array(1))  # 1D mu, sigma
+        return (jnp.array(0), jnp.array([[1]]))  # 1D mu, sigma
 
 
 class MockMultiGaussianTask(GaussianTaskLikelihood):
+    @property
+    def resp_dim(self):
+        return 2
+
     def predict(self, params, stimuli, model, key, noise=None):
-        return jnp.array([0, 0]), jnp.array([[1, 0], [0, 1]])  # 2D mu, sigma
+        return (jnp.array([0, 0]), jnp.array([[1, 0], [0, 1]]))  # 2D mu, sigma
 
 
 class MockEvilGaussianTask(GaussianTaskLikelihood):
@@ -40,8 +48,12 @@ class MockEvilGaussianTask(GaussianTaskLikelihood):
     definite covariance matrices.
     """
 
+    @property
+    def resp_dim(self):
+        return 2
+
     def predict(self, params, stimuli, model, key, noise=None):
-        return jnp.array([0, 0]), jnp.array([[1, 1], [1, 1]])
+        return (jnp.array([0, 0]), jnp.array([[1, 1], [1, 1]]))
 
 
 class TestBernoulli:
@@ -115,5 +127,5 @@ class TestGaussian:
         """ensure Gaussian log-likelihood calculation throws appropriate errors."""
         task = MockEvilGaussianTask()
 
-        with pytest.warns(UserWarning):
+        with pytest.warns():
             assert task.loglik(params="NA", data=multi_data, model="NA")

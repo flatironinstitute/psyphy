@@ -211,7 +211,7 @@ class ResponseData:
         """
         return (
             np.asarray(self.stimuli),  # shape = (N, K, d)
-            np.asarray(self.responses),
+            np.asarray(self.responses),  # shape = (N, r)
         )
 
     def to_trial_data(self) -> TrialData:
