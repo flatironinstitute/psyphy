@@ -9,9 +9,17 @@
     /* Orange signal */
     --md-accent-fg-color--light: #FF8A50;
     --md-accent-fg-color--dark: #C6500A;
+}
 
+/* Links in teal.
+   This has to live on the scheme selector, not on :root. Material declares
+   `--md-typeset-a-color: var(--md-primary-fg-color)` on [data-md-color-scheme],
+   which matches <body>; :root is <html>. Custom properties inherit, so the
+   nearer ancestor wins for all content and a :root declaration never applies.
+   Not a specificity or load-order issue -- the two rules target different
+   elements. */
+[data-md-color-scheme="default"] {
     --md-typeset-a-color: #2E9CA6;
-    /* Links in teal */
 }
 
 [data-md-color-scheme="slate"] {

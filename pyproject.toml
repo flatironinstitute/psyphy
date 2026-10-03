@@ -96,7 +96,7 @@ line-length = 88
 target-version = "py39"
 src = ["src", "tests"]
 # Ruff >=0.16 formats Python code blocks inside Markdown. The docs pages embed
-# snippets from docs/examples/*.py via mkdocs-material's `--8<--` includes, so
+# snippets from docs/examples/*.py via pymdownx.snippets' `--8<--` includes, so
 # the code is already formatted at its source; letting the formatter rewrite the
 # rendered copies would only churn the prose files and desync them from CI,
 # which lints src/ and tests/ only.

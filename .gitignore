@@ -43,3 +43,9 @@ venv/
 
 docs/examples/wppm/plots/hong2025_quick_ellipses.png
 docs/examples/wppm/plots/hong2025_quick_learning_curve.png
+docs/examples/wppm/plots/hong2025_quick_thresholds_end_to_end.png
+
+# Saved weights from stage 3. Quick-mode fits are smoke-test noise; the
+# full-mode .npz is ~2 KB and worth committing, since it lets anyone
+# regenerate the end-to-end figure without a GPU.
+docs/examples/wppm/fits/hong2025_quick_fit.npz

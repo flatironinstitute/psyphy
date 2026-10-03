@@ -29,15 +29,66 @@ git push origin feature/my-feature   # push to your fork (origin)
 
 ## Development Tools
 
-We use:
+We use **Ruff** for linting and formatting, **mypy** for type checking, and
+**pre-commit** to automate both. See
+[LINTING_SETUP.md](https://github.com/flatironinstitute/psyphy/blob/main/LINTING_SETUP.md)
+for the full configuration.
 
-* Ruff -> formatting + linting (See [LINTING_SETUP.md](LINTING_SETUP.md) for details.)
-* mypy -> type checking
-* pre-commit -> runs checks automatically
+### Pre-commit hooks (automatic)
 
-You can also run manually:
+Install once during setup:
+```bash
+pre-commit install
 ```
+The hooks then run on every commit:
+```bash
+git add .
+git commit -m "Add new feature"
+
+# Automatically runs:
+# ✓ ruff check --fix     (lints and auto-fixes)
+# ✓ ruff format          (formats code, wraps long lines)
+# ✓ mypy                 (type checks)
+# ✓ trailing-whitespace  (removes trailing spaces)
+# ✓ end-of-file-fixer    (ensures files end with newline)
+# ... and more
+```
+If a hook modifies files, the commit aborts — review, re-stage and commit again:
+```bash
+git add .
+git commit -m "Add new feature"
+```
+To run every hook without committing:
+```bash
 pre-commit run --all-files
+```
+
+### Running checks manually
+
+```bash
+# via the Makefile
+make format        # format code
+make lint-fix      # lint and auto-fix
+make type-check    # type check
+make test          # run tests
+make all           # everything
+
+# or the tools directly
+ruff format src/ tests/              # format
+ruff check src/ tests/ --fix         # lint with auto-fix
+ruff check src/ tests/               # lint only
+ruff format --check src/ tests/      # check formatting, change nothing
+mypy src/psyphy tests/               # type check
+pytest -v                            # tests
+```
+
+### Before pushing (what CI runs)
+
+```bash
+ruff check src/ tests/
+ruff format --check src/ tests/
+mypy src/psyphy tests/
+pytest
 ```
 ---
 
@@ -105,11 +156,43 @@ Deploy:
 ```
 mkdocs gh-deploy --clean
 ```
+
+### Code snippets in docs: the `--8<--` markers
+
+Tutorial pages do not retype code. They quote it out of the runnable script
+next to them, so the page and the script cannot drift apart. Mark a region in
+the `.py`:
+
+```python
+# ;--8<-- [start:fit]
+posterior = optimizer.fit(model, data, init_params=init)
+# ;--8<-- [end:fit]
+```
+
+and pull it into the `.md` by path and tag:
+
+````markdown
+```python title="MAP fit"
+;--8<-- "docs/examples/wppm/hong2025_reproduction.py:fit"
+```
+````
+
+This is [`pymdownx.snippets`](https://facelessuser.github.io/pymdown-extensions/extensions/snippets/)
+from PyMdown Extensions, configured in `mkdocs.yml`. The `8<` is a pair of
+scissors — the old "cut here" convention — not something we invented.
+
+Two things to know:
+
+- We set `check_paths: true`, so a renamed or deleted tag **fails the build**
+  rather than silently rendering nothing. `mkdocs build --strict` catches it.
+- Prefer a snippet over pasting code into the Markdown. Pasted code has no
+  such protection and will go stale.
+
 ---
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the project’s [`LICENSE.md`](LICENSE.md) .
+By contributing, you agree that your contributions will be licensed under the project’s [`LICENSE.md`](https://github.com/flatironinstitute/psyphy/blob/main/LICENSE.md) .
 
 ---
 
@@ -172,7 +255,7 @@ pre-commit install
 This project uses automated checks (formatting, linting, type checking) via pre-commit  ￼.
 These run automatically when you commit.
 
-Alternatively, [uv](https://docs.astral.sh/uv/) installs from the committed [`uv.lock`](uv.lock), giving you the exact versions everyone else resolved rather than whatever the loose ranges in `pyproject.toml` allow on the day you install:
+Alternatively, [uv](https://docs.astral.sh/uv/) installs from the committed [`uv.lock`](https://github.com/flatironinstitute/psyphy/blob/main/uv.lock), giving you the exact versions everyone else resolved rather than whatever the loose ranges in `pyproject.toml` allow on the day you install:
 ```
 module load uv          # Flatiron cluster only; skip if uv is already installed
 uv sync --extra dev
