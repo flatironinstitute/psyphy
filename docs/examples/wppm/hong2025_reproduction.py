@@ -300,23 +300,21 @@ def _load_calibration():
         return None
 
 
-def plot_comparison(
-    coords, Sigma_fit, Sigma_ref, out_path, title, scale, M=None, subject=1
-):
+def plot_comparison(coords, Sigma_fit, Sigma_ref, out_path, title, scale, subject=1):
     """Two noise fields overlaid, published vs fitted.
 
-    Same convention as the threshold figures: published dashed gray underneath,
-    ours solid on top colored by reference stimulus.
+    Published dashed gray underneath, as everywhere else on the page. Ours is a
+    single red, *not* colored by reference stimulus: this is the noise field
+    (the paper's supplementary Figure S3), and per-stimulus coloring is reserved
+    for the threshold figures so the two cannot be mistaken for each other.
     """
     fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
-    colors, fallback_note = _stimulus_colors(coords, M)
-    title = title + fallback_note
     plot_ellipses(
         coords,
         [Sigma_ref, Sigma_fit],
         ax=ax,
         scale=scale,
-        colors=["black", colors],
+        colors=["black", "crimson"],
         linestyles=["--", "solid"],
         linewidths=[2.2, 1.6],
         alpha=[0.35, None],
@@ -509,6 +507,63 @@ def stage2_thresholds(paths: dict[str, Path], thr: dict, subject: int) -> None:
     )
 
 
+def _plot_noise_comparison(coords, Sigma_fit, Sigma_ref, mode, subject, subtitle):
+    """Draw the Sigma_noise comparison (the paper's supplementary Figure S3)."""
+    plot_comparison(
+        coords,
+        Sigma_fit,
+        Sigma_ref,
+        PLOTS_DIR / f"hong2025_{mode}_ellipses.png",
+        f"Σ_noise(x) — psyphy MAP refit vs Hong et al. 2025 — "
+        f"{_subject_tag(subject)}\n {subtitle}",
+        scale=auto_scale(coords, Sigma_ref),
+        subject=subject,
+    )
+
+
+def stage3_figure_from_fit(
+    paths: dict[str, Path], fit_path: Path, mode: str, subject: int
+) -> None:
+    """Redraw stage 3's Sigma_noise figure from saved weights, without refitting.
+
+    The covariance field is a deterministic function of W, so this needs no
+    optimizer, no Monte Carlo and no GPU -- only the fit did. It exists so a
+    styling or labelling change to the figure does not cost another cluster run.
+    """
+    print("\n=== Stage 3 (figure only): redrawn from the saved fit ===")
+    if not fit_path.exists():
+        print(f"  skipped: no saved fit at {fit_path}")
+        return
+
+    coords, _ = hong2025.load_sigma_table(paths["thres_ellipses"])
+    W_org = hong2025.load_reference_W(paths["weights"])
+    W_fit = jnp.asarray(np.load(fit_path)["W"])
+
+    model = hong2025.build_paper_model(mc_samples=1)  # MC unused: no likelihood
+    Sigma_ref = np.asarray(
+        WPPMCovarianceField(model, {"W": W_org})(jnp.asarray(coords))
+    )
+    Sigma_fit = np.asarray(
+        WPPMCovarianceField(model, {"W": W_fit})(jnp.asarray(coords))
+    )
+
+    for key, value in compare_fields(Sigma_fit, Sigma_ref).items():
+        print(f"    {key:24s} {value: .4f}")
+
+    cfg = MODES.get(mode, {})
+    _plot_noise_comparison(
+        coords,
+        Sigma_fit,
+        Sigma_ref,
+        mode,
+        subject,
+        subtitle=(
+            f"mc={cfg.get('mc_samples', '?')}, steps={cfg.get('steps', '?')}, "
+            f"restarts={cfg.get('restarts', '?')}"
+        ),
+    )
+
+
 def stage3_refit(
     paths: dict[str, Path], cfg: dict, mode: str, seed: int, subject: int
 ) -> Path:
@@ -588,17 +643,13 @@ def stage3_refit(
     for key, value in metrics.items():
         print(f"    {key:24s} {value: .4f}")
 
-    scale = auto_scale(coords, Sigma_ref)
-    plot_comparison(
+    _plot_noise_comparison(
         coords,
         Sigma_fit,
         Sigma_ref,
-        PLOTS_DIR / f"hong2025_{mode}_ellipses.png",
-        f"Σ_noise(x) — psyphy MAP refit vs Hong et al. 2025 — {_subject_tag(subject)}\n"
-        f" N={data.num_trials}, mc={cfg['mc_samples']}, steps={cfg['steps']}",
-        scale=scale,
-        M=_load_calibration(),
-        subject=subject,
+        mode,
+        subject,
+        subtitle=f"N={data.num_trials}, mc={cfg['mc_samples']}, steps={cfg['steps']}",
     )
 
     fig, ax = plt.subplots(figsize=(6, 4), dpi=150)
@@ -818,8 +869,11 @@ def stage5_bootstrap_envelope(
 
     fig, ax = plt.subplots(figsize=(6.5, 6.5), dpi=150)
 
-    # Layer 1: the CI set. Thin and nearly transparent so 114 fits read as a
-    # band rather than 114 distinguishable curves. Labelled once.
+    # --8<-- [start:envelope_plot]
+    # Layer 1: the CI set. 114 fields in one call -- plot_ellipses accepts a
+    # stack of shape (n_fields, n_points, 2, 2). Thin and nearly transparent so
+    # they read as a band rather than 114 distinguishable curves, and labelled
+    # once rather than 114 times.
     plot_ellipses(
         coords,
         boots,
@@ -847,6 +901,7 @@ def stage5_bootstrap_envelope(
         ],
         show_centers=True,
     )
+    # --8<-- [end:envelope_plot]
 
     ticks = np.linspace(-0.7, 0.7, 5)
     ax.set_xticks(ticks)
@@ -956,9 +1011,13 @@ def main() -> int:
         stage2_thresholds(paths, thr, args.subject)
     fit_path = args.from_fit or FITS_DIR / f"hong2025_{args.mode}_fit.npz"
 
-    if args.skip_refit or args.from_fit:
-        reason = "--from-fit" if args.from_fit else "--skip-refit"
-        print(f"\n=== Stage 3: skipped ({reason}) ===")
+    if args.from_fit:
+        # The fit is what needs a GPU; its figure does not. Redraw it from the
+        # saved weights so restyling never costs another cluster run.
+        print("\n=== Stage 3: fit skipped (--from-fit) ===")
+        stage3_figure_from_fit(paths, fit_path, args.mode, args.subject)
+    elif args.skip_refit:
+        print("\n=== Stage 3: skipped (--skip-refit) ===")
     else:
         if args.mode == "full" and jax.devices()[0].platform == "cpu":
             print(

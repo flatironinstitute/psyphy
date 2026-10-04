@@ -27,11 +27,17 @@ This tutorial is accompanied by a
     ```
 
 
-Hong et al. measured how finely people can tell colors apartfor more
-than just a handful of colors. This page reproduces their
-central figure from their own published data, in three stages: an exact
-check of the model's arithmetic, the threshold contours of Figure 2B, and a
-refit from their raw trials to see whether we get the same final results.
+Hong et al. measured how finely people can tell colors apart, for more than
+just a handful of colors. This page reproduces their central figure end to
+end: starting from their raw trial data, psyphy refits the model, inverts it
+to discrimination thresholds, and lands inside the authors' own bootstrap
+confidence interval.
+
+We build that up one rung at a time, so a disagreement at any point is
+attributable: an exact check of the model's arithmetic from their published
+weights, the Figure 2B inversion from those same weights, a refit from the raw
+trials, the two halves joined, and finally a comparison against the paper's own
+measure of its uncertainty.
 
 **Who this is for**
 
@@ -96,12 +102,17 @@ classic Weber's Law result on simulated one-dimensional data.
 
 
 <div align="center">
-    <img src="../plots/hong2025_thresholds.png"
-         alt="Paper Figure 2B reproduced: 66.7%-correct discrimination threshold contours"
+    <img src="../plots/hong2025_full_thresholds_end_to_end.png"
+         alt="Paper Figure 2B reproduced end to end, from raw trials through a psyphy refit"
          width="620"/>
-    <p><em>Colored ellipses are the contours we recover with psyphy; dashed gray
-    are the published ones. Each ellipse takes the color of its own reference
-    stimulus (center dot). The dimensions of the figure here are called model dimensions and are arbitrary in that they can result from any affine transformation of the input (RGB) space. </em></p>
+    <p><em>Paper Figure 2B, reproduced end to end for subject 1 (CH). Colored
+    ellipses are the contours psyphy recovers; dashed gray are the published
+    ones. Each ellipse takes the color of its own reference stimulus (center
+    dot). Nothing published enters this chain except the raw trials: psyphy
+    fits the model's weights from those trials, inverts the oddity task to turn
+    the resulting noise field into 66.7%-correct thresholds, and the result is
+    what you see. The axes are model dimensions, arbitrary up to an affine
+    transformation of the input (RGB) space.</em></p>
 </div>
 
 
@@ -295,6 +306,13 @@ object with the ``threshold_pred`` argument set to ``True``, passing it the rele
     squares over those three unknowns, followed by a single matrix inverse to
     recover $Σ$ itself. No iteration, and nothing that can fail to converge.
 
+We run the inversion at the paper's own settings — 16 directions, 1,000
+distances along each, 2,000 Monte Carlo samples per evaluation:
+
+```python title="Compute settings"
+--8<-- "docs/examples/wppm/hong2025_reproduction.py:threshold_settings"
+```
+
 ```python title="Threshold inversion at every published reference point"
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:thresholds"
 ```
@@ -383,10 +401,11 @@ The following block of code refits the WPPM's weights from the raw data, compute
     <img src="../plots/hong2025_full_ellipses.png"
          alt="Sigma_noise: the published weights' field vs a full-settings psyphy refit"
          width="560"/>
-    <p><em><span class="arithmatex">\(\Sigma_{\text{noise}}(x)\)</span> for subject 1 (CH), in the same convention as the figure at
-    the top of this page: dashed gray is the field from the authors' published
-    weights, colored solid is our own MAP refit, each ellipse taking the color of
-    its reference stimulus. This is the paper's supplementary Figure S3.
+    <p><em><span class="arithmatex">\(\Sigma_{\text{noise}}(x)\)</span> for subject 1 (CH): dashed gray is the field
+    from the authors' published weights, red is our own MAP refit. This is the
+    paper's supplementary Figure S3. The ellipses are a single color here rather
+    than colored by reference stimulus — that convention is reserved for the
+    threshold figures, so the two cannot be confused at a glance.
     <br/><br/>
     Note: These ellipses look much like the ones at the top of the page, but they are a
     different quantity.
@@ -402,37 +421,97 @@ The following block of code refits the WPPM's weights from the raw data, compute
 </div>
 
 
-!!! warning "Scope"
-    These results are for one subject (CH, 1 of 8) and a single run on one GPU.
-    They were not repeated for seed stability and not run for the other seven
-    subjects. Read this as "the fitting pipeline reproduces the paper for this
-    subject", not as a claim about all eight.
-
-
 ---
-```python title="Compute settings"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:threshold_settings"
+
+## End to end: from raw trials to Figure 2B
+
+This is the figure at the top of the page, and this is where it comes from.
+
+The two rungs before it each held something fixed: the Figure 2B inversion used
+the authors' *published* weights, so it tested our inversion with the optimizer
+removed; the refit fit weights from the raw trials but only ever compared noise
+fields. Joining them closes the loop — raw trials -> our weights -> our contours
+-> the published figure, with nothing published entering except the trials:
+
+```python title="Invert our own fitted weights"
+--8<-- "docs/examples/wppm/hong2025_reproduction.py:end_to_end"
 ```
 
-We run the inversion at the paper's own settings (16 directions, 1,000
-distances per direction, 2,000 Monte Carlo samples).
-
-### Plotting it
-Both contour fields go on one axes in a single
-[`plot_ellipses`](../../reference/viz.md) call: published dashed underneath, ours on
-top colored by reference stimulus:
+Both contour fields go onto one axes in a single
+[`plot_ellipses`](../../reference/viz.md) call — published dashed underneath,
+ours on top, each ellipse colored by its own reference stimulus:
 
 ```python title="The plotting call"
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:plot_call"
 ```
 
 `scale` comes from `auto_scale(coords, thres_published)` and `colors` from
-`hong2025.w2d_to_rgb(coords, M)`. We recommend only passing  **one** `scale` for both fields because otherwise the comparison independently scaled fields cannot be
-compared by eye.
+`hong2025.w2d_to_rgb(coords, M)`, the monitor calibration published with the
+data. Pass **one** `scale` for both fields: scaling them independently would
+make them look more alike than they are. For per-ellipse colors, posterior
+draws and the rest of the API, see
+[Plotting ellipse fields](../viz/ellipse_plots.md).
 
-For more detail on this plotting function, including how to use per-ellipse colors
-and posterior draws, see [Plotting ellipse fields](../viz/ellipse_plots.md).
 
+<div align="center">
+    <img src="../plots/hong2025_full_thresholds_end_to_end.png"
+         alt="End-to-end: threshold contours from our own refit vs the published ones"
+         width="520"/>
+    <p><em>66.7%-correct threshold contours for subject 1 (CH), computed from the
+    weights <em>we</em> fit to the raw trials — no published weights anywhere in
+    this chain. Dashed gray is the authors' published inversion; colored solid is
+    ours, each ellipse taking the color of its reference stimulus.</em></p>
+</div>
+
+Because the weights are saved to disk, this step costs about 20 seconds on a
+laptop and needs no GPU — only the fit itself does.
+
+---
+
+## Is that close enough? The paper's own bootstrap CI
+
+The authors resampled the
+AEPsych trials 120 times, refit the WPPM to each, ranked the fits by summed
+Normalized Bures Similarity against their original fit, kept the top 114 (95% of
+120), and defined their confidence interval as the union and intersection of
+those retained threshold contours. The bootstrap contours come with the
+already come with the published data.
+
+```python title="The 120 published bootstrap refits"
+--8<-- "docs/examples/wppm/hong2025_reproduction.py:bootstraps"
+```
+
+```python title="Does our contour lie inside their interval?"
+--8<-- "docs/examples/wppm/hong2025_reproduction.py:coverage"
+```
+
+The envelope needs one extra trick: `plot_ellipses` takes a whole stack of
+fields at once, so all 114 retained refits are a single call before the
+published fit and ours go on top of them.
+
+```python title="Drawing the band, then the two fits on top"
+--8<-- "docs/examples/wppm/hong2025_reproduction.py:envelope_plot"
+```
+
+<div align="center">
+    <img src="../plots/hong2025_bootstrap_envelope.png"
+         alt="Our threshold contours against the paper's 95% bootstrap confidence interval"
+         width="620"/>
+    <p><em>Our end-to-end contours against the paper's own 95% bootstrap interval
+    for subject 1 (CH). The gray band is the 114 retained bootstrap refits,
+    dashed gray the published fit, colored solid ours.</em></p>
+</div>
+
+This figure shows that our fit is indistinguishable from their run-to-run variaton at all 49 reference points and every direction tested, and in that
+sense *psyphy's refit is indistinguishable from their fit*.
+
+
+
+!!! warning "Scope"
+    These results are for one subject (CH, 1 of 8) and a single run on one GPU.
+    They were not repeated for seed stability and not run for the other seven
+    subjects. Read this as "the fitting pipeline reproduces the paper for this
+    subject", not as a claim about all eight.
 
 
 
