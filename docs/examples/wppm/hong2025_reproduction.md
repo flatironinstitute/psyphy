@@ -6,6 +6,19 @@ This tutorial is accompanied by a
 
 ??? note "How to run the script"
 
+    An install of psyphy on its own is not enough: the figures here need a
+    plotting backend, which psyphy does not depend on.
+
+    ```bash
+    pip install 'psyphy[viz]'     # psyphy + matplotlib, all this page needs
+    pip install 'psyphy[cuda]'    # also, for the refit: JAX's CUDA build
+    ```
+
+    `viz` is matplotlib and nothing else. (There is also a broader `examples`
+    extra that adds seaborn and JupyterLab for the other pages; this one does
+    not need it.) The refit at the paper's settings wants an NVIDIA GPU .
+    Everything else on this page runs on a laptop.
+
     Everything on this page comes from one script. Pick a mode by how much
     compute you want to spend:
 
@@ -33,11 +46,10 @@ end: starting from their raw trial data, psyphy refits the model, inverts it
 to discrimination thresholds, and lands inside the authors' own bootstrap
 confidence interval.
 
-**How the page is laid out.** First we introduce the task and show the headline
-result: the paper's Figure 2B, reproduced. Then we cover the practical parts —
-loading the published data, and building a WPPM with the paper's own
-hyperparameters. The reproduction itself is then built up one question at a
-time, so that a disagreement at any point tells you where it came from:
+**How this tutorial is laid out** First, we introduce the task and show the headline
+result: the paper's Figure 2B, reproduced. Then we cover the practical parts, e.g.,
+loading the published data, and building paper's model. The reproduction itself is then built up one question at a
+time, so that a disagreement at any point tells us where it came from:
 
 1. Given the published weights, do we compute the same **covariance field**?
 2. Given the published weights, do we recover the same **threshold contours**
@@ -48,12 +60,11 @@ time, so that a disagreement at any point tells you where it came from:
 5. And is that agreement **good enough**, measured against the paper's own
    bootstrap confidence interval?
 
-That order is deliberately backwards from how you would normally use the
-library. Questions 1 and 2 hand the model the paper's answer and check only
-what psyphy *computes* from it — no optimizer, so if they fail the problem is
-in our model implementation. Only question 3 asks psyphy to *fit* anything, and
-fitting is both the compute-intensive step and the one with the most ways to go
-wrong.
+That order is backwards on purpose. Questions 1 and 2 hand psyphy the paper's
+own weights, so no optimizer ever runs. If they fail, the bug is in our model
+code; there is nowhere else it could be coning from. Question 3 is the first that fits
+anything, and fitting is both the slow part and the part with the most ways to
+go wrong. Checking the cheap, deterministic parts first means that if question 3 disagrees, the optimizer is the only suspect left.
 
 **Who this is for**
 
@@ -93,7 +104,7 @@ check on psyphy and a worked example of the general pipeline. The WPPM approach 
 limiting performance varies smoothly across the stimulus space.
 
 Hong et al. collect each judgement from the human subjects with an **oddity task**: on
-every trial the observer sees three stimuli — two identical, one different —
+every trial the observer sees three stimuli (two identical, one different)
 and picks the odd one out. Chance is therefore 1/3, and the threshold is placed
 at the usual midpoint between chance and perfect performance,
 `P(correct) = 2/3`. That is the 66.7% contour this page reproduces.
@@ -115,7 +126,7 @@ Each ellipse is a *Just-Noticeable Difference (JND)* threshold contour around a 
 color at its center: the smallest color difference this observer can reliably
 detect. Operationally, it is how far a comparison color must move from the
 reference before they pick it out as the odd one 66.7% of the time. It is an
-ellipse rather than a circle because sensitivity depends on *direction* — some
+ellipse rather than a circle because sensitivity depends on *direction*; some
 color changes are easier to see than others of the same magnitude. The
 orientation and elongation of each ellipse are exactly what the WPPM estimates. We
 can also see that the sizes of the ellipses increase as you move away from the origin
@@ -142,39 +153,14 @@ classic Weber's Law result on simulated one-dimensional data.
 
 
 ## The whole recipe
-The following code block shows how to load in the published model fits and use psyphy to compute the thresholds.
-The sections below will dive deeper into details, such as how to load the data or how to plot the thresholds.
+
+The block below is the short version: download one observer's data, load the
+paper's fitted weights, and turn them into threshold contours. It runs as it
+stands, on a laptop. The sections after it go through the same steps slowly,
+and add the refit that produces the figure at the top of this page.
 
 ```python title="Published data to threshold contours"
-import jax
-jax.config.update("jax_enable_x64", True)   # the authors used float64
-import jax.numpy as jnp
-
-from psyphy.data.published import hong2025
-from psyphy.posterior import MAPPosterior, ThresholdConfig, WPPMPredictivePosterior
-
-paths = hong2025.fetch(subject=1)                       # download from OSF
-W_org = hong2025.load_reference_W(paths["weights"])     # the paper's fitted weights
-coords, published = hong2025.load_sigma_table(paths["thres_ellipses"])
-
-# Model: given weights W, how noisy is perception at each color?
-model = hong2025.build_paper_model(mc_samples=2000)
-
-# Parameter posterior: which W do we believe?
-posterior = MAPPosterior({"W": W_org}, model)
-
-# Search settings: how carefully to look for each threshold.
-# These are the paper's own: 16 directions, 1000 distances along each.
-config = ThresholdConfig(n_theta=16, n_length=1000)
-
-# Predictive posterior: given what we believe about W, what do we predict here?
-thresholds = WPPMPredictivePosterior(
-    posterior,
-    jnp.asarray(coords),                                # reference points only
-    n_samples=1,
-    threshold_pred=True,                                # ask for thresholds
-    threshold_config=config,
-).mean                                                  # -> (49, 2, 2)
+--8<-- "docs/examples/wppm/hong2025_recipe.py:recipe"
 ```
 
 
@@ -243,15 +229,12 @@ library AEPsych, we refer the reader to the paper.
 
 ## Model
 
-`build_paper_model()` assembles a WPPM from the settings the paper used, which
-we transcribed from the authors' `fit_4d_human.py` into `PAPER_HYPERPARAMS`:
+`build_paper_model()` assembles a WPPM from the settings the paper used. The exact paper hyperparameter used are listed here:
 
 ```python title="psyphy.data.published.hong2025"
 --8<-- "src/psyphy/data/published/hong2025.py:hyperparams"
 ```
 
-The published weight tensor is `(5, 5, 2, 3)`, exactly psyphy's `params["W"]`
-layout, so it can be used as a parameter dict without reshaping.
 
 !!! warning "One convention differs: `degree` counts basis functions, `basis_degree` is the maximum degree"
     The paper builds `WishartProcessModel(5, 2, 1, 3e-4, 0.4, 0)`, where
