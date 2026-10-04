@@ -81,8 +81,8 @@ notices the difference. That tells you about one color. Repeating it across a
 whole plane of colors is impractical: too many locations and far too many trials, so we run into the curse of dimensionality.
 
 The WPPM takes a different approach. It assumes the observer's internal noise
-changes *smoothly* across color space, or more generally, the input space: nearby colors are confusable in similar
-ways. That lets us fit one smooth field over the entire space instead of many
+changes *smoothly* across color space: nearby colors are confusable in
+similar ways. That lets us fit one smooth field over the entire space instead of many
 separate measurements, so every trial informs the whole picture. Once fit, we
 can evaluate the model at any point in stimulus space, including those we haven't tested!
 
@@ -90,7 +90,7 @@ psyphy implements the Wishart Psychophysical Process Model (WPPM) in general for
 stimulus dimensions, any task you can write a likelihood for. The color setup
 here is only one configuration of it, which is why this page doubles as an external
 check on psyphy and a worked example of the general pipeline. The WPPM approach carries beyond color to any domain where the noise
-limiting performance varies smoothly across input space.
+limiting performance varies smoothly across the stimulus space.
 
 Hong et al. collect each judgement from the human subjects with an **oddity task**: on
 every trial the observer sees three stimuli — two identical, one different —
@@ -340,7 +340,8 @@ measures separation in units of the noise itself, so a step counts as large only
 relative to how noisy the representation is in that direction. That probability
 has no analytic form, which is why the paper estimates it by
 [Monte Carlo](https://en.wikipedia.org/wiki/Monte_Carlo_method) in the
-first place. So we invert numerically:
+first place. So we have to compute the inverse numerically following
+the procedure given in the paper:
 
 1. Probe `n_theta` directions around each reference point.
 2. Along each, evaluate `P(correct)` at `n_length` distances and keep the one
@@ -371,28 +372,11 @@ distances along each, 2,000 Monte Carlo samples per evaluation:
 ```
 
 
-??? note "Why threshold mode takes and returns different shapes"
-
-    `threshold_pred` selects which direction of the map above you are asking
-    for, so both the input and the output change shape with it.
-
-    | | `threshold_pred=False` | `threshold_pred=True` (used here) |
-    |---|---|---|
-    | **Direction** | forward | inverse |
-    | **`X` you pass** | assembled trials, `(n_test, k_stimuli, input_dim)` | bare reference points, `(n_test, input_dim)` |
-    | **output you get** | probability correct per trial, `(n_test,)` | covariance per reference point, `(n_test, input_dim, input_dim)` |
-
-    **Why bare points go in.** Normally you supply the comparison stimulus and
-    the model scores that pair. In threshold mode, *finding* the comparison is
-    what we want: the threshold is the distance at which `P(correct)` reaches
-    2/3. So, supplying one would be handing over the answer. Instead, it generates its own by sweeping `n_theta` directions by `n_length` distances around
-    each reference (that is what `ThresholdConfig` controls).
-
 
 ---
 
 Both questions so far handed psyphy the paper's own weights, so neither has
-asked it to *fit* anything. That is the next rung, and the expensive one.
+asked it to *fit* anything. That is the next step, and the expensive one.
 
 ## Refit
 ### Does psyphy's fit find the paper's covariance field?
@@ -556,8 +540,16 @@ The full refit requires **~16 min** on a single GPU. See the following table for
   refit compare $\Sigma_{\text{noise}}$, the noise field, which is plotted in
   supplementary Figure S3. Both arrive as `(49, 2, 2)` stacks on the same grid,
   which makes them easy to conflate.
-- **Monte Carlo results are not bit-reproducible across platforms.** The exact
-  check is exact anywhere; thresholds and refits reproduce to a neighborhood.
+- **The same seed gives the same answer on the *same* machine, but not
+  necessarily on a different one.** Re-running the inversion here is
+  bit-identical: JAX's PRNG is deterministic given a key, so nothing changes
+  between runs on the same machine. But what changes across machines is the floating-point arithmetic
+  underneath: XLA reassociates or rewrite an expression, and a sum
+  accumulated in a different order lands on a slightly different value
+  ([JAX FAQ](https://docs.jax.dev/en/latest/faq.html#jit-changes-the-exact-numerics-of-outputs)).
+  The exact check is unaffected, since it compares against a table rounded to 8
+  decimals. The thresholds and the refit can differ in
+  their low-order digits between a laptop and a GPU
 - **Loss values are not comparable to the paper's.** psyphy's `Prior.log_prob`
   drops a constant, which the paper keeps (still  identical gradients but different numbers)
 
