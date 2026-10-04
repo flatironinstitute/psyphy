@@ -441,9 +441,7 @@ ours on top, each ellipse colored by its own reference stimulus:
 
 `scale` comes from `auto_scale(coords, thres_published)` and `colors` from
 `hong2025.w2d_to_rgb(coords, M)`, the monitor calibration published with the
-data. Pass **one** `scale` for both fields: scaling them independently would
-make them look more alike than they are. For per-ellipse colors, posterior
-draws and the rest of the API, see
+data. For per-ellipse colors, posterior draws and the rest of the API, see
 [Plotting ellipse fields](../viz/ellipse_plots.md).
 
 
@@ -452,13 +450,13 @@ draws and the rest of the API, see
          alt="End-to-end: threshold contours from our own refit vs the published ones"
          width="520"/>
     <p><em>66.7%-correct threshold contours for subject 1 (CH), computed from the
-    weights <em>we</em> fit to the raw trials — no published weights anywhere in
+    weights <em>we</em> fit to the raw trials. There are no published weights anywhere in
     this chain. Dashed gray is the authors' published inversion; colored solid is
     ours, each ellipse taking the color of its reference stimulus.</em></p>
 </div>
 
 Because the weights are saved to disk, this step costs about 20 seconds on a
-laptop and needs no GPU — only the fit itself does.
+laptop and needs no GPU, only the fit itself does.
 
 ---
 
@@ -522,7 +520,7 @@ The full refit requires **~16 min** on a single GPU. See the following table for
     | Exact covariance check | CPU | seconds | 10,609 points, deterministic |
     | **Thresholds, paper settings** | CPU | **~11 min** | 49 refs, `n_theta=16`, `n_length=1000`, `mc=2000` (13.4 s per ref) |
     | Thresholds, `fast` preset | CPU | 20–23 s | `n_length=300`, `mc=500` — smoke tests only |
-    | **Refit — full** | 1 GPU | **~16 min** | 6,000 trials, 1,500 steps, `mc=2000`, 3 restarts |
+    | **Refit — full** | 1 GPU | **~8 min** | 6,000 trials, 1,500 steps, `mc=2000`, 3 restarts |
     | The paper's own run | H100 | 14 h | **one subject**: main fit + 120 bootstrap refits |
 
     The 14-hour figure is per observer, not for the whole paper. The WPPM is fit

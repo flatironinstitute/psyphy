@@ -181,3 +181,23 @@ class TestPlotEllipses:
         centers, covs = field
         with pytest.raises(ValueError, match="'auto'"):
             plot_ellipses(centers, covs, scale="big")
+
+    @pytest.mark.parametrize("bad", [[1.0, 2.0], (1.0, 2.0), np.array([1.0, 2.0])])
+    def test_per_field_scale_is_refused(self, field, bad):
+        """One scale for every field is a deliberate constraint, not an oversight.
+
+        Fields magnified independently cannot be compared by eye, which is the
+        only reason to draw them on shared axes. Passing one scale per field is
+        the natural mistake, so it has to fail loudly rather than silently take
+        the first value or broadcast.
+        """
+        centers, covs = field
+        with pytest.raises(TypeError, match="single number"):
+            plot_ellipses(centers, [covs, covs], scale=bad)
+
+    def test_scale_error_explains_why(self, field):
+        """The message has to carry the rationale; the constraint is non-obvious."""
+        centers, covs = field
+        with pytest.raises(TypeError) as excinfo:
+            plot_ellipses(centers, [covs, covs], scale=[1.0, 2.0])
+        assert "independently" in str(excinfo.value)
