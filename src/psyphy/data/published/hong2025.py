@@ -115,21 +115,48 @@ FIT_TRIAL_TYPES: tuple[str, ...] = ("AEPsych",)
 #: ``degree=5`` counts basis *functions* (T0..T4), whereas psyphy's
 #: ``basis_degree`` is the *maximum degree*, hence 4 here. Both describe the
 #: same 5x5 coefficient grid.
+# --8<-- [start:hyperparams]
 PAPER_HYPERPARAMS: Mapping[str, Any] = {
+    # -- Covariance field: what shapes the noise field can take ------------
+    # Highest Chebyshev degree, i.e. T0..T4 per input dimension -> a 5x5
+    # coefficient grid. The paper writes this as degree=5, counting basis
+    # *functions* rather than degrees. Same model, different convention.
     "basis_degree": 4,
+    # Stimulus dimensionality: the 2-D isoluminant chromatic plane.
     "input_dim": 2,
+    # Extra embedding dimensions for U(x), where Sigma = U U^T + diag_term * I
+    # and U has shape (input_dim, input_dim + extra_dims). The extra column
+    # lets Sigma stay full rank instead of being a bare rank-2 outer product.
     "extra_dims": 1,
+    # -- Prior over the basis weights W ----------------------------------
+    # Prior variance of a degree-0 coefficient: the overall scale of the noise
+    # field before any data is seen.
     "variance_scale": 3e-4,
+    # A degree-d coefficient has prior variance variance_scale * decay_rate^d,
+    # so higher-frequency terms are shrunk harder. Smaller -> smoother field.
     "decay_rate": 0.4,
+    # The delta added to Sigma's diagonal. psyphy's default is 1e-6,
+    # which is safer for numerical stability.
     "diag_term": 0.0,
+    # -- Oddity likelihood: how P(correct) is estimated --------------------
+    # Monte Carlo draws per trial. P(correct) has no closed form, so it is
+    # estimated by sampling; this dominates the cost of a fit.
     "mc_samples": 2000,
+    # Width of the logistic that smooths the hard "is the odd one furthest?"
+    # comparison, so the MC estimate stays differentiable for gradient descent
     "bandwidth": 5e-3,
-    "learning_rate": 1e-4,
-    "momentum": 0.2,
-    "total_steps": 1500,
-    "n_restarts": 3,
+    # -- MAP optimizer, used by the refit only -----------------------------
+    "learning_rate": 1e-4,  # gradient step size
+    "momentum": 0.2,  # 'heavy-ball' momentum
+    "total_steps": 1500,  # gradient steps per restart
+    "n_restarts": 1,  # independent prior draws; the lowest final loss wins
+    # Hong et al tried 3, but 1 is enough to reproduce the published fit.
+    # -- Reporting ---------------------------------------------------------
+    # The criterion the paper's thresholds are defined at: midway between
+    # chance (1/3) and perfect, for a 3-alternative task
     "target_pC": 0.667,
 }
+# --8<-- [end:hyperparams]
 
 
 def default_data_dir() -> Path:

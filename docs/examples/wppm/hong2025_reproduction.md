@@ -107,7 +107,8 @@ classic Weber's Law result on simulated one-dimensional data.
 
 
 ## The whole recipe
-
+The following code block shows how to load in the published model fits and use psyphy to compute the thresholds.
+The sections below will dive deeper into details, such as how to load the data or how to plot the thresholds.
 
 ```python title="Published data to threshold contours"
 import jax
@@ -142,7 +143,7 @@ thresholds = WPPMPredictivePosterior(
 ```
 
 
-The sections below will dive deeper into details, such as how to load the data or how to compute the thresholds.
+
 
 
 ---
@@ -161,8 +162,8 @@ Psyphy makes it easy to download the published data:
     |---|---|---|
     | `trial_data_pooled_by_type_sub1.csv` | 1 MB | trials, for the refit |
     | `Bestfit_W_sub1.csv` | 212 KB | fitted weights, plus 120 bootstraps |
-    | `Thres_ellipses_sub1.csv` | 320 KB | the 7×7 grid and published thresholds |
-    | `Noise_ellipses_sub1.csv` | 68 MB | published $\Sigma_{\text{noise}}$ on a 103×103 grid |
+    | `Thres_ellipses_sub1.csv` | 320 KB | the 7x7 grid and published thresholds |
+    | `Noise_ellipses_sub1.csv` | 68 MB | published $\Sigma_{\text{noise}}$ on a 103x103 grid |
 
 
 
@@ -176,45 +177,59 @@ work directly with our methods:
 
 The published data holds 12,000 trials in two equal halves: 6,000 `AEPsych_*`
 rows (5,100 adaptive placement plus 900 Sobol) used for fitting, and 6,000
-`MOCS_*` rows held out for validation. By default `load_trials` loads only the
-rows used for fitting. Pass `trial_types=("MOCS",)` for the held-out half, or
+`MOCS_*` rows held out for validation. For this tutorial and the figures, we
+only use the rows used for fitting (by default `load_trials` loads only the
+rows used for fitting). Pass `trial_types=("MOCS",)` for the held-out half, or
 `trial_types=None` for all 12,000.
 
 !!! warning "Fitting all 12,000 trials does not reproduce the paper"
-    It gives a plausible result that is not the published one. This is why
-    `load_trials` defaults to `trial_types=("AEPsych",)`.
+    It gives a plausible result that is not the published one.
 
 For more information on how the authors did adaptive trial placement using the
 library AEPsych, we refer the reader to the paper.
 
-Two conventions psyphy handles for us:
+??? note "Two conventions worth knowing when you inspect the loaded data"
 
-- **Coordinates are already in the Chebyshev domain** `[-1, 1]`, so no
-  normalization is needed.
-- **Oddity trials are stored with `K=2`, not 3.** Each trial in the task presents three
-  stimuli (reference, reference, comparison) but only **two distinct** ones,
-  and `K` counts the distinct stimuli. The duplication lives in the likelihood,
-  not in the stored data.
+    psyphy stores trials as a `stimuli` array of shape `(N, K, d)` — trials x
+    stimuli per trial x stimulus dimensions — alongside `responses`; see
+    [`TrialData`](../../reference/data.md). Two things about this dataset are
+    easy to trip over if you print those shapes yourself.
+
+    **Coordinates already live in `[-1, 1]`.** The WPPM expands the covariance
+    field in [Chebyshev basis functions](../covariance_field/covariance_field.md),
+    which are defined on `[-1, 1]`, so a stimulus has to be expressed in that
+    domain before the model can evaluate it. Here nothing has to be done: the
+    authors ran the experiment in a 2-D chromatic plane already scaled that way
+    and published the coordinates as-is, so `load_trials` passes them straight
+    through. With your own data this is the step you would have to supply.
+
+    **Oddity trials are stored with `K=2`, not 3.** Each trial shows three
+    stimuli — reference, reference, comparison — but only **two distinct** ones,
+    and `K` counts distinct stimuli. So `data.stimuli` comes back `(6000, 2, 2)`
+    for a three-interval task. The repetition is applied inside the oddity
+    likelihood rather than stored on every row.
 
 ---
 
 ## Model
 
-`build_paper_model()` assembles a WPPM from the hyperparameters used in the paper, which are stored in the dictionary `PAPER_HYPERPARAMS`
+`build_paper_model()` assembles a WPPM from the settings the paper used, which
+we transcribed from the authors' `fit_4d_human.py` into `PAPER_HYPERPARAMS`:
 
-??? note "Paper -> psyphy parameter mapping"
+```python title="psyphy.data.published.hong2025"
+--8<-- "src/psyphy/data/published/hong2025.py:hyperparams"
+```
 
-    Most settings map one to one. The ones worth knowing:
+The published weight tensor is `(5, 5, 2, 3)`, exactly psyphy's `params["W"]`
+layout, so it can be used as a parameter dict without reshaping.
 
-    | Paper | psyphy | Note |
-    |---|---|---|
-    | `degree=5` | `basis_degree=4` | **Off-by-one.** Theirs counts basis *functions* (T₀…T₄); ours is the *maximum degree*. Same 5×5 grid. |
-    | `variance_scale=3e-4` | same | psyphy's default is `4e-3` |
-    | `diag_term=0` | same | psyphy's default is `1e-6`; theirs leaves Σ unregularized |
-    | `mc_samples=2000`, `bandwidth=5e-3` | `OddityTaskConfig` | |
-    | `learning_rate=1e-4`, `momentum=0.2`, `total_steps=1500`, 3 restarts | `MAPOptimizer` | refit only |
+!!! warning "One convention differs: `degree` counts basis functions, `basis_degree` is the maximum degree"
+    The paper builds `WishartProcessModel(5, 2, 1, 3e-4, 0.4, 0)`, where
+    `degree=5` is the *number* of Chebyshev basis functions, T₀ through T₄.
+    psyphy's `basis_degree` is instead the *highest degree* used, so the same
+    model is `basis_degree=4`. Both describe the same 5×5 coefficient grid.
 
-    The published weight tensor is `(5, 5, 2, 3)` , which is exactly psyphy's `params["W"]` layout.
+
 
 
 
@@ -268,7 +283,10 @@ first place. So we invert numerically:
 closest to 2/3. We thus have one boundary point per direction.
 3. Fit an ellipse to those `n_theta` points. This step does have a closed-form solution and so can be done quickly.
 
-Step 3 needs no optimizer — the ellipse fit is closed-form.
+Step 3 needs no optimizer, the ellipse fit is closed-form.
+
+To compute this inverse using psyphy, we construct the `WPPMPredictivePosterior`
+object with the ``threshold_pred`` argument set to ``True``, passing it the relevant arguments.
 
 ??? note "Why the ellipse fit is closed-form"
 
@@ -302,30 +320,6 @@ Step 3 needs no optimizer — the ellipse fit is closed-form.
 
 
 
-```python title="Compute settings"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:threshold_settings"
-```
-
-We run the inversion at the paper's own settings (16 directions, 1,000
-distances per direction, 2,000 Monte Carlo samples).
-
-### Plotting it
-S3
-Both contour fields go on one axes in a single
-[`plot_ellipses`](../../reference/viz.md) call: published dashed underneath, ours on
-top colored by reference stimulus:
-
-```python title="The plotting call"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:plot_call"
-```
-
-`scale` comes from `auto_scale(coords, thres_published)` and `colors` from
-`hong2025.w2d_to_rgb(coords, M)`. We recommend only passing  **one** `scale` for both fields because otherwise the comparison independently scaled fields cannot be
-compared by eye.
-
-For more detail on this plotting function, including how to use per-ellipse colors
-and posterior draws, see [Plotting ellipse fields](../viz/ellipse_plots.md).
-
 
 ---
 
@@ -333,12 +327,12 @@ That reproduces the published figure, but we can test for numeric reproducibilit
 not just visual agreement. The process described above has many steps where
 error can be introduced.
 
-The next two sections take those away in order. First a fully deterministic
-check: published weights straight through psyphy's covariance field, with no
-optimizer and no sampling anywhere. Then the refit, with both back in; so that
-if *that* disagrees, we already know the disagreement is the optimizer's and
-not the model's.
 
+The next two sections test numeric reproducibility. First a fully deterministic
+check: we use the published weights to compute the covariance field with psyphy.
+Then we refit weights from the raw data. We thus know that if the first step agrees
+but the second does not then the error comes from the optimization procedure and
+not the model.
 
 ## Exact check
 ### does psyphy build the same covariance field Hong et al published?
@@ -360,9 +354,9 @@ max |diff|   : 6.778e-09
 mean |diff|  : 2.538e-09
 ```
 
- Our values round to theirs exactly in 96% of
-cases and agree to within one unit in the last printed digit in 100%. **This is
-agreement to the precision the file can express.**
+ Our values agree to all published didgits in 96% of the
+cases and, in the final 4%, only differ by +/- 1 in the last printed digit.
+ **This is agreement to the precision the file can express.**
 
 This runs as a test (`test_covariance_field_matches_published_sigma_noise`),
 skipped automatically when the data has not been downloaded, so CI stays
@@ -413,6 +407,33 @@ The following block of code refits the WPPM's weights from the raw data, compute
     They were not repeated for seed stability and not run for the other seven
     subjects. Read this as "the fitting pipeline reproduces the paper for this
     subject", not as a claim about all eight.
+
+
+---
+```python title="Compute settings"
+--8<-- "docs/examples/wppm/hong2025_reproduction.py:threshold_settings"
+```
+
+We run the inversion at the paper's own settings (16 directions, 1,000
+distances per direction, 2,000 Monte Carlo samples).
+
+### Plotting it
+Both contour fields go on one axes in a single
+[`plot_ellipses`](../../reference/viz.md) call: published dashed underneath, ours on
+top colored by reference stimulus:
+
+```python title="The plotting call"
+--8<-- "docs/examples/wppm/hong2025_reproduction.py:plot_call"
+```
+
+`scale` comes from `auto_scale(coords, thres_published)` and `colors` from
+`hong2025.w2d_to_rgb(coords, M)`. We recommend only passing  **one** `scale` for both fields because otherwise the comparison independently scaled fields cannot be
+compared by eye.
+
+For more detail on this plotting function, including how to use per-ellipse colors
+and posterior draws, see [Plotting ellipse fields](../viz/ellipse_plots.md).
+
+
 
 
 ---

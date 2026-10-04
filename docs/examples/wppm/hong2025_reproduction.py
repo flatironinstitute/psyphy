@@ -141,11 +141,18 @@ PLOTS_DIR = Path(__file__).parent / "plots"
 FITS_DIR = Path(__file__).parent / "fits"
 
 # --8<-- [start:modes]
-# Stage-3 compute settings. "full" is the paper's own configuration; "quick"
-# exists only to prove the pipeline runs -- it will NOT reproduce the paper.
+# Stage-3 compute settings. "full" reads the paper's numbers straight out of
+# PAPER_HYPERPARAMS rather than repeating them, so there is one place to change
+# them and no way for the two to disagree. "quick" exists only to prove the
+# pipeline runs -- it will NOT reproduce the paper.
 MODES = {
     "quick": {"max_trials": 500, "mc_samples": 50, "steps": 20, "restarts": 1},
-    "full": {"max_trials": None, "mc_samples": 2000, "steps": 1500, "restarts": 3},
+    "full": {
+        "max_trials": None,  # every AEPsych trial, as the paper used
+        "mc_samples": hong2025.PAPER_HYPERPARAMS["mc_samples"],
+        "steps": hong2025.PAPER_HYPERPARAMS["total_steps"],
+        "restarts": hong2025.PAPER_HYPERPARAMS["n_restarts"],
+    },
 }
 # --8<-- [end:modes]
 
