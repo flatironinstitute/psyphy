@@ -33,11 +33,27 @@ end: starting from their raw trial data, psyphy refits the model, inverts it
 to discrimination thresholds, and lands inside the authors' own bootstrap
 confidence interval.
 
-We build that up one rung at a time, so a disagreement at any point is
-attributable: an exact check of the model's arithmetic from their published
-weights, the Figure 2B inversion from those same weights, a refit from the raw
-trials, the two halves joined, and finally a comparison against the paper's own
-measure of its uncertainty.
+**How the page is laid out.** First we introduce the task and show the headline
+result: the paper's Figure 2B, reproduced. Then we cover the practical parts —
+loading the published data, and building a WPPM with the paper's own
+hyperparameters. The reproduction itself is then built up one question at a
+time, so that a disagreement at any point tells you where it came from:
+
+1. Given the published weights, do we compute the same **covariance field**?
+2. Given the published weights, do we recover the same **threshold contours**
+   (Figure 2B)?
+3. Given only the raw trials, do we refit the same **weights**?
+4. Putting 2 and 3 together: from raw trials alone, do we reproduce the same
+   **published figure 2B**?
+5. And is that agreement **good enough**, measured against the paper's own
+   bootstrap confidence interval?
+
+That order is deliberately backwards from how you would normally use the
+library. Questions 1 and 2 hand the model the paper's answer and check only
+what psyphy *computes* from it — no optimizer, so if they fail the problem is
+in our model implementation. Only question 3 asks psyphy to *fit* anything, and
+fitting is both the compute-intensive step and the one with the most ways to go
+wrong.
 
 **Who this is for**
 
@@ -82,7 +98,16 @@ and picks the odd one out. Chance is therefore 1/3, and the threshold is placed
 at the usual midpoint between chance and perfect performance,
 `P(correct) = 2/3`. That is the 66.7% contour this page reproduces.
 
+
+
 ---
+
+!!! note "Scope"
+    For this tutorial we will describe the WPPM in terms of color, because that is what Hong et al.
+    measured. The WPPM itself is not specific to color: it models noise varying
+    smoothly over any stimulus space, for any task you can write a likelihood
+    for. See [Recovering Weber's Law](weber_law.md) for a one-dimensional
+    example, or [the simulated-data walkthrough](full_wppm_fit_example.md).
 
 ## The result
 
@@ -114,7 +139,6 @@ classic Weber's Law result on simulated one-dimensional data.
     what you see. The axes are model dimensions, arbitrary up to an affine
     transformation of the input (RGB) space.</em></p>
 </div>
-
 
 
 ## The whole recipe
@@ -154,9 +178,6 @@ thresholds = WPPMPredictivePosterior(
 ```
 
 
-
-
-
 ---
 
 ## Data
@@ -175,8 +196,6 @@ Psyphy makes it easy to download the published data:
     | `Bestfit_W_sub1.csv` | 212 KB | fitted weights, plus 120 bootstraps |
     | `Thres_ellipses_sub1.csv` | 320 KB | the 7x7 grid and published thresholds |
     | `Noise_ellipses_sub1.csv` | 68 MB | published $\Sigma_{\text{noise}}$ on a 103x103 grid |
-
-
 
 
 `load_trials` loads in the published file and returns psyphy's `TrialData` object, so it will
@@ -241,10 +260,44 @@ layout, so it can be used as a parameter dict without reshaping.
     model is `basis_degree=4`. Both describe the same 5×5 coefficient grid.
 
 
+---
+
+## Exact check
+### does psyphy build the same covariance field Hong et al published?
+
+With the data loaded and the model built, we start with the question that has
+no moving parts. Hand psyphy the paper's own weights and ask it for the
+covariance field: no optimizer, no Monte Carlo, nothing random. If this
+disagrees, the problem is in the model implementation itself, and everything
+downstream would be built on sand.
+
+```python title="Published weights through psyphy's covariance field"
+--8<-- "docs/examples/wppm/hong2025_reproduction.py:stage1"
+```
 
 
+In the above, we're simply computing the difference between our computed
+covariances and the values shared by the paper's authors, for all 42,436
+ellipses. The maximum value of the differences are shown below:
+
+```
+max |diff|   : 6.778e-09
+mean |diff|  : 2.538e-09
+```
+
+ Our values agree to all published didgits in 96% of the
+cases and, in the final 4%, only differ by +/- 1 in the last printed digit.
+ **This is agreement to the precision the file can express.**
+
+This runs as a test (`test_covariance_field_matches_published_sigma_noise`),
+skipped automatically when the data has not been downloaded, so CI stays
+network-free.
 
 ---
+
+That settles the model implementation: given the same weights, psyphy builds
+the same field. The next question is whether we can turn that field into the
+thresholds the paper actually reports.
 
 ## Thresholds (as in Paper Figure 2B)
 
@@ -336,51 +389,10 @@ distances along each, 2,000 Monte Carlo samples per evaluation:
     each reference (that is what `ThresholdConfig` controls).
 
 
-
-
-
 ---
 
-That reproduces the published figure, but we can test for numeric reproducibility,
-not just visual agreement. The process described above has many steps where
-error can be introduced.
-
-
-The next two sections test numeric reproducibility. First a fully deterministic
-check: we use the published weights to compute the covariance field with psyphy.
-Then we refit weights from the raw data. We thus know that if the first step agrees
-but the second does not then the error comes from the optimization procedure and
-not the model.
-
-## Exact check
-### does psyphy build the same covariance field Hong et al published?
-
-This is fully
-deterministic.
-
-```python title="Published weights through psyphy's covariance field"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:stage1"
-```
-
-
-In the above, we're simply computing the difference between our computed
-covariances and the values shared by the paper's authors, for all 42,436
-ellipses. The maximum value of the differences are shown below:
-
-```
-max |diff|   : 6.778e-09
-mean |diff|  : 2.538e-09
-```
-
- Our values agree to all published didgits in 96% of the
-cases and, in the final 4%, only differ by +/- 1 in the last printed digit.
- **This is agreement to the precision the file can express.**
-
-This runs as a test (`test_covariance_field_matches_published_sigma_noise`),
-skipped automatically when the data has not been downloaded, so CI stays
-network-free.
-
----
+Both questions so far handed psyphy the paper's own weights, so neither has
+asked it to *fit* anything. That is the next rung, and the expensive one.
 
 ## Refit
 ### Does psyphy's fit find the paper's covariance field?
@@ -393,8 +405,6 @@ The following block of code refits the WPPM's weights from the raw data, compute
 ```python title="MAP fit with the paper's optimizer settings"
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:fit"
 ```
-
-
 
 
 <div align="center">
@@ -506,13 +516,11 @@ This figure shows that our fit is indistinguishable from their run-to-run variat
 sense *psyphy's refit is indistinguishable from their fit*.
 
 
-
 !!! warning "Scope"
     These results are for one subject (CH, 1 of 8) and a single run on one GPU.
     They were not repeated for seed stability and not run for the other seven
     subjects. Read this as "the fitting pipeline reproduces the paper for this
     subject", not as a claim about all eight.
-
 
 
 ---
