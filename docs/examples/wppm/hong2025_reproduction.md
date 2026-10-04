@@ -221,11 +221,17 @@ library AEPsych, we refer the reader to the paper.
 
 ## Model
 
-`build_paper_model()` assembles a WPPM from the settings the paper used. The exact paper hyperparameter used are listed here:
+`build_paper_model()` assembles a WPPM from the settings the paper used, which
+we transcribed once into `PAPER_HYPERPARAMS`.
 
-```python title="psyphy.data.published.hong2025"
---8<-- "src/psyphy/data/published/hong2025.py:hyperparams"
-```
+??? note "The paper's hyperparameters, in full"
+
+    Grouped by what each one controls. These are read straight from the
+    library, so the page cannot drift from the values the model is built with.
+
+    ```python title="psyphy.data.published.hong2025"
+    --8<-- "src/psyphy/data/published/hong2025.py:hyperparams"
+    ```
 
 
 !!! warning "One convention differs: `degree` counts basis functions, `basis_degree` is the maximum degree"
@@ -243,7 +249,7 @@ library AEPsych, we refer the reader to the paper.
 
 With the data loaded and the model built, we start with the question that has
 no moving parts. Hand psyphy the paper's own weights and ask it for the
-covariance field: no optimizer, no Monte Carlo, nothing random. If this
+covariance field: no optimizer and nothing random. If this
 disagrees, the problem is in the model implementation itself, and everything
 downstream would be built on sand.
 
@@ -355,7 +361,7 @@ is asking the predictive posterior for thresholds rather than probabilities:
 ---
 
 Both questions so far handed psyphy the paper's own weights, so neither has
-asked it to *fit* anything. That is the next step, and the expensive one.
+asked it to *fit* anything. That is the next step, which is the expensive part.
 
 ## Refit
 ### Does psyphy's fit find the paper's covariance field?
@@ -384,7 +390,7 @@ The following block of code refits the WPPM's weights from the raw data, compute
     different quantity.
     <span class="arithmatex">\(\Sigma_{\text{noise}}(x) = U(x)U(x)^{\top} + \delta I\)</span>
     is the covariance of the observer's internal representation at stimulus
-    <span class="arithmatex">\(x\)</span> — the field the WPPM is
+    <span class="arithmatex">\(x\)</span>; the field the WPPM is
     parameterized in, read off at each grid point. No task enters it. The
     contours at the top are <span class="arithmatex">\(\Sigma_{\text{thres}}\)</span>, one step downstream: <span class="arithmatex">\(\Sigma_{\text{noise}}\)</span> at a reference
     and a comparison feeds the oddity likelihood to give P(correct), and that map
@@ -414,13 +420,16 @@ Everything is identical to the inversion above — same model, same
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:end_to_end"
 ```
 
-Both contour fields go onto one axes in a single
-[`plot_ellipses`](../../reference/viz.md) call — published dashed underneath,
-ours on top, each ellipse colored by its own reference stimulus:
+??? note "Drawing it: both fields on one axes"
 
-```python title="The plotting call"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:plot_call"
-```
+    Both contour fields go onto one axes in a single
+    [`plot_ellipses`](../../reference/viz.md) call — published dashed
+    underneath, ours on top, each ellipse colored by its own reference
+    stimulus.
+
+    ```python
+    --8<-- "docs/examples/wppm/hong2025_reproduction.py:plot_call"
+    ```
 
 `scale` comes from `auto_scale(coords, thres_published)` and `colors` from
 `hong2025.w2d_to_rgb(coords, M)`, the monitor calibration published with the
@@ -438,37 +447,22 @@ data. For per-ellipse colors, posterior draws and the rest of the API, see
     ours, each ellipse taking the color of its reference stimulus.</em></p>
 </div>
 
-Because the weights are saved to disk, this step costs about 20 seconds on a
-laptop and needs no GPU, only the fit itself does.
+
 
 ---
 
 ## Is that close enough? The paper's own bootstrap interval
 
 How close is close enough? The authors answered that themselves. They resampled
-the trials 120 times, refit the model to each, and kept the 114 fits — 95% of
-120 — that came out most like their original. The spread of those 114 contours
+the trials 120 times, refit the model to each, and kept the 114 fits (95% of
+120) that came out most like their original. The spread of those 114 contours
 is their 95% confidence interval and we check
 whether the threshold generated from psyphy's
 fit is comprised by that confidence interval
 in the figure below.
 
 
-```python title="The 120 published bootstrap refits"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:bootstraps"
-```
 
-```python title="Does our contour lie inside their interval?"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:coverage"
-```
-
-The envelope needs one extra trick: `plot_ellipses` takes a whole stack of
-fields at once, so all 114 retained refits are a single call before the
-published fit and ours go on top of them.
-
-```python title="Drawing the band, then the two fits on top"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:envelope_plot"
-```
 
 
 The figure below shows that our fit is indistinguishable from their run-to-run variaton at all 49 reference points and every direction tested, and in that
@@ -483,7 +477,15 @@ sense *psyphy's refit is indistinguishable from their fit*.
     dashed gray the published fit, colored solid ours.</em></p>
 </div>
 
+??? note "Plotting it: the band, then the two fits on top"
 
+    `plot_ellipses` takes a whole stack of fields at once, so all 114 retained
+    refits go on in a single call. The published fit and ours are drawn over
+    them in the usual convention.
+
+    ```python
+    --8<-- "docs/examples/wppm/hong2025_reproduction.py:envelope_plot"
+    ```
 
 !!! warning "Scope"
     These results are for one subject (CH, 1 of 8) and a single run on one GPU.

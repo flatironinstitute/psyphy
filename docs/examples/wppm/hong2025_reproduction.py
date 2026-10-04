@@ -589,6 +589,7 @@ def stage3_refit(
         reduction="mean",  # objective / N: a per-trial loss, so lr is independent of N
         max_grad_norm=None,  # no clipping
     )
+    # --8<-- [end:fit]
 
     # The paper fits from 3 random initializations and keeps the lowest final
     # objective, guarding against a bad local optimum.
@@ -605,7 +606,6 @@ def stage3_refit(
         if best is None or losses[-1] < best[1]:
             best = (posterior.params, losses[-1], list(losses))
     params, _, loss_hist = best
-    # --8<-- [end:fit]
 
     # --8<-- [start:save_fit]
     # Persist the fitted weights. The fit is the expensive, GPU-bound step; the
@@ -865,10 +865,9 @@ def stage5_bootstrap_envelope(
     M = _load_calibration()
     colors, fallback_note = _stimulus_colors(coords, M)
     scale = auto_scale(coords, thres_published)
-
+    # --8<-- [start:envelope_plot]
     fig, ax = plt.subplots(figsize=(6.5, 6.5), dpi=150)
 
-    # --8<-- [start:envelope_plot]
     # Layer 1: the CI set. 114 fields in one call -- plot_ellipses accepts a
     # stack of shape (n_fields, n_points, 2, 2). Thin and nearly transparent so
     # they read as a band rather than 114 distinguishable curves, and labelled
