@@ -27,8 +27,8 @@ This tutorial is accompanied by a
     ```
 
 
-Hong et al. measured how finely people can tell colors apart, across a whole
-plane of colors rather than at a handful of points. This page reproduces their
+Hong et al. measured how finely people can tell colors apartfor more
+than just a handful of colors. This page reproduces their
 central figure from their own published data, in three stages: an exact
 check of the model's arithmetic, the threshold contours of Figure 2B, and a
 refit from their raw trials to see whether we get the same final results.

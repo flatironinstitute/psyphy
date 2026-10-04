@@ -107,7 +107,7 @@ nav:
     - Quick Start: examples/wppm/quick_start.md
     - Recovering Weber's Law: examples/wppm/weber_law.md
     - Fitting with the Wishart Psychophysical Process Model (WPPM): examples/wppm/full_wppm_fit_example.md
-    - Reproducing a Published Fit (Hong et al. 2025): examples/wppm/hong2025_reproduction.md
+    - Reproducing Hong et al. (2025): examples/wppm/hong2025_reproduction.md
     - Covariance Field Visualization: examples/covariance_field/covariance_field.md
     - Plotting Ellipse Fields: examples/viz/ellipse_plots.md
   - Design Doc: API_DESIGN_DOCUMENT.md
