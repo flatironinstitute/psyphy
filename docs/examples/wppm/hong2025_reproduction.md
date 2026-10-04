@@ -157,7 +157,8 @@ classic Weber's Law result on simulated one-dimensional data.
 The block below is the short version: download one observer's data, load the
 paper's fitted weights, and turn them into threshold contours. It runs as it
 stands, on a laptop. The sections after it go through the same steps slowly,
-and add the refit that produces the figure at the top of this page.
+and add the refit that produces the figure at the top of this page, and
+reproduce the fit from scratch with psyphy's implementation.
 
 ```python title="Published data to threshold contours"
 --8<-- "docs/examples/wppm/hong2025_recipe.py:recipe"
@@ -208,19 +209,10 @@ library AEPsych, we refer the reader to the paper.
 
     psyphy stores trials as a `stimuli` array of shape `(N, K, d)` — trials x
     stimuli per trial x stimulus dimensions — alongside `responses`; see
-    [`TrialData`](../../reference/data.md). Two things about this dataset are
-    easy to trip over if you print those shapes yourself.
-
-    **Coordinates already live in `[-1, 1]`.** The WPPM expands the covariance
-    field in [Chebyshev basis functions](../covariance_field/covariance_field.md),
-    which are defined on `[-1, 1]`, so a stimulus has to be expressed in that
-    domain before the model can evaluate it. Here nothing has to be done: the
-    authors ran the experiment in a 2-D chromatic plane already scaled that way
-    and published the coordinates as-is, so `load_trials` passes them straight
-    through. With your own data this is the step you would have to supply.
+    [`TrialData`](../../reference/data.md).
 
     **Oddity trials are stored with `K=2`, not 3.** Each trial shows three
-    stimuli — reference, reference, comparison — but only **two distinct** ones,
+    stimuli (reference, reference, comparison)but only **two distinct** ones,
     and `K` counts distinct stimuli. So `data.stimuli` comes back `(6000, 2, 2)`
     for a three-interval task. The repetition is applied inside the oddity
     likelihood rather than stored on every row.
@@ -238,9 +230,10 @@ library AEPsych, we refer the reader to the paper.
 
 !!! warning "One convention differs: `degree` counts basis functions, `basis_degree` is the maximum degree"
     The paper builds `WishartProcessModel(5, 2, 1, 3e-4, 0.4, 0)`, where
-    `degree=5` is the *number* of Chebyshev basis functions, T₀ through T₄.
-    psyphy's `basis_degree` is instead the *highest degree* used, so the same
-    model is `basis_degree=4`. Both describe the same 5×5 coefficient grid.
+    `degree=5` is the *number* of Chebyshev basis functions, $T_0$ through
+    $T_4$. psyphy's `basis_degree` is instead the *highest degree* used, so the
+    same model is `basis_degree=4`. Both describe the same $5 \times 5$
+    coefficient grid.
 
 
 ---
@@ -350,6 +343,9 @@ distances along each, 2,000 Monte Carlo samples per evaluation:
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:threshold_settings"
 ```
 
+The loading and the model are the same as in the recipe above; what is new here
+is asking the predictive posterior for thresholds rather than probabilities:
+
 ```python title="Threshold inversion at every published reference point"
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:thresholds"
 ```
@@ -404,11 +400,15 @@ The following block of code refits the WPPM's weights from the raw data, compute
 
 This is the figure at the top of the page, and this is where it comes from.
 
-The two rungs before it each held something fixed: the Figure 2B inversion used
+The two steps before it each held something fixed: the Figure 2B inversion used
 the authors' *published* weights, so it tested our inversion with the optimizer
 removed; the refit fit weights from the raw trials but only ever compared noise
-fields. Joining them closes the loop — raw trials -> our weights -> our contours
--> the published figure, with nothing published entering except the trials:
+fields. Joining them closes the loop:
+*raw trials -> our weights -> our contours
+-> the published figure*, with nothing published entering except the data:
+
+Everything is identical to the inversion above — same model, same
+`ThresholdConfig`, same call — except for where the weights come from:
 
 ```python title="Invert our own fitted weights"
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:end_to_end"
@@ -443,14 +443,16 @@ laptop and needs no GPU, only the fit itself does.
 
 ---
 
-## Is that close enough? The paper's own bootstrap CI
+## Is that close enough? The paper's own bootstrap interval
 
-The authors resampled the
-AEPsych trials 120 times, refit the WPPM to each, ranked the fits by summed
-Normalized Bures Similarity against their original fit, kept the top 114 (95% of
-120), and defined their confidence interval as the union and intersection of
-those retained threshold contours. The bootstrap contours come with the
-already come with the published data.
+How close is close enough? The authors answered that themselves. They resampled
+the trials 120 times, refit the model to each, and kept the 114 fits — 95% of
+120 — that came out most like their original. The spread of those 114 contours
+is their 95% confidence interval and we check
+whether the threshold generated from psyphy's
+fit is comprised by that confidence interval
+in the figure below.
+
 
 ```python title="The 120 published bootstrap refits"
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:bootstraps"
@@ -468,6 +470,10 @@ published fit and ours go on top of them.
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:envelope_plot"
 ```
 
+
+The figure below shows that our fit is indistinguishable from their run-to-run variaton at all 49 reference points and every direction tested, and in that
+sense *psyphy's refit is indistinguishable from their fit*.
+
 <div align="center">
     <img src="../plots/hong2025_bootstrap_envelope.png"
          alt="Our threshold contours against the paper's 95% bootstrap confidence interval"
@@ -477,8 +483,6 @@ published fit and ours go on top of them.
     dashed gray the published fit, colored solid ours.</em></p>
 </div>
 
-This figure shows that our fit is indistinguishable from their run-to-run variaton at all 49 reference points and every direction tested, and in that
-sense *psyphy's refit is indistinguishable from their fit*.
 
 
 !!! warning "Scope"

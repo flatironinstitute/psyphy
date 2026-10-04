@@ -156,7 +156,7 @@ MODES = {
 }
 # --8<-- [end:modes]
 
-# --8<-- [start:threshold_settings]
+
 # Threshold-inversion settings, shared by stage 2 (invert the paper's weights)
 # and stage 4 (invert ours). `n_theta` is the same in both; only the distance
 # grid and the Monte Carlo sample count differ.
@@ -166,6 +166,7 @@ MODES = {
 # wall clock -- it reproduces the published semi-axes to a median 2.18 %
 # (max 10.78 %) in 20-23 s instead of ~11 min, which is what keeps the
 # smoke test a smoke test.
+# --8<-- [start:threshold_settings]
 THRESHOLD_SETTINGS = {
     "paper": {
         "mc_samples": 2000,
@@ -452,15 +453,12 @@ def stage2_thresholds(paths: dict[str, Path], thr: dict, subject: int) -> None:
     print("\n=== Stage 2: threshold contours (Figure 2B) from W_org ===")
     mc_samples, config = thr["mc_samples"], thr["config"]
 
-    # --8<-- [start:thresholds]
     W_org = hong2025.load_reference_W(paths["weights"])
     coords, thres_published = hong2025.load_sigma_table(paths["thres_ellipses"])
-
-    # Model: given weights W, how noisy is perception at each color?
     model = hong2025.build_paper_model(mc_samples=mc_samples)
-    # Parameter posterior: which W do we believe? ,
     posterior = MAPPosterior({"W": W_org}, model)
 
+    # --8<-- [start:thresholds]
     # Posterior Predictive: given what we believe about W, what do we predict
     # at these points? In threshold mode: how far a comparison must move from
     # each reference to be noticed 2/3 of the time.
@@ -690,27 +688,28 @@ def stage4_end_to_end(
         print("  run stage 3 first (--mode full on a GPU), or pass --from-fit")
         return
 
-    # --8<-- [start:end_to_end]
-    W_fit = jnp.asarray(np.load(fit_path)["W"])  # from stage 3, not the paper
     coords, thres_published = hong2025.load_sigma_table(paths["thres_ellipses"])
-
-    # Identical to stage 2, except the weights are ours rather than theirs.
     model = hong2025.build_paper_model(mc_samples=thr["mc_samples"])
+
+    # --8<-- [start:end_to_end]
+    # The only line that differs from stage 2: the weights are ours.
+    W_fit = jnp.asarray(np.load(fit_path)["W"])
+
     predictive = WPPMPredictivePosterior(
-        MAPPosterior({"W": W_fit}, model),
+        MAPPosterior({"W": W_fit}, model),  # <- stage 2 passes W_org here
         jnp.asarray(coords),
         n_samples=1,
         threshold_pred=True,
         threshold_config=thr["config"],
     )
     thres_fit = np.asarray(predictive.mean)  # (49, 2, 2)
+    # --8<-- [end:end_to_end]
 
     # Same metric stage 2 reports, so the two numbers are directly comparable:
     # stage 2 isolates inversion error, this one carries fit error on top.
     got = np.sqrt(np.linalg.eigvalsh(thres_fit))
     want = np.sqrt(np.linalg.eigvalsh(thres_published))
     rel_err = np.abs(got - want) / want
-    # --8<-- [end:end_to_end]
 
     print(f"  reference points : {len(coords)}")
     print(
