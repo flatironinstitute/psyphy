@@ -177,7 +177,6 @@ THRESHOLD_SETTINGS = {
         "config": ThresholdConfig(n_theta=16, n_length=300),
     },
 }
-# --8<-- [end:threshold_settings]
 
 
 # ---------------------------------------------------------------------------
@@ -469,7 +468,7 @@ def stage2_thresholds(paths: dict[str, Path], thr: dict, subject: int) -> None:
         threshold_pred=True,
         threshold_config=config,  # search settings: how carefully to look
     )
-    thres_psyphy = np.asarray(predictive.mean)  # (49, 2, 2); runs on first access
+    thres_psyphy = np.asarray(predictive.mean)  # (49, 2, 2)
     # --8<-- [end:thresholds]
 
     # --8<-- [start:threshold_error]
@@ -696,7 +695,7 @@ def stage4_end_to_end(
     W_fit = jnp.asarray(np.load(fit_path)["W"])
 
     predictive = WPPMPredictivePosterior(
-        MAPPosterior({"W": W_fit}, model),  # <- stage 2 passes W_org here
+        MAPPosterior({"W": W_fit}, model),  # <- before we passed W_org here
         jnp.asarray(coords),
         n_samples=1,
         threshold_pred=True,

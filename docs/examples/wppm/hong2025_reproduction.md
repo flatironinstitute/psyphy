@@ -145,9 +145,8 @@ classic Weber's Law result on simulated one-dimensional data.
     ellipses are the contours psyphy recovers; dashed gray are the published
     ones. Each ellipse takes the color of its own reference stimulus (center
     dot). Nothing published enters this chain except the raw trials: psyphy
-    fits the model's weights from those trials, inverts the oddity task to turn
-    the resulting noise field into 66.7%-correct thresholds, and the result is
-    what you see. The axes are model dimensions, arbitrary up to an affine
+    fits the model's weights from those trials, and inverts the oddity task to turn
+    the resulting noise field into 66.7%-correct thresholds (represented as ellipses). The axes are model dimensions, which arbitrary up to an affine
     transformation of the input (RGB) space.</em></p>
 </div>
 
@@ -234,12 +233,6 @@ we transcribed once into `PAPER_HYPERPARAMS`.
     ```
 
 
-!!! warning "One convention differs: `degree` counts basis functions, `basis_degree` is the maximum degree"
-    The paper builds `WishartProcessModel(5, 2, 1, 3e-4, 0.4, 0)`, where
-    `degree=5` is the *number* of Chebyshev basis functions, $T_0$ through
-    $T_4$. psyphy's `basis_degree` is instead the *highest degree* used, so the
-    same model is `basis_degree=4`. Both describe the same $5 \times 5$
-    coefficient grid.
 
 
 ---
@@ -342,12 +335,24 @@ object with the ``threshold_pred`` argument set to ``True``, passing it the rele
     squares over those three unknowns, followed by a single matrix inverse to
     recover $Σ$ itself. No iteration, and nothing that can fail to converge.
 
-We run the inversion at the paper's own settings — 16 directions, 1,000
-distances along each, 2,000 Monte Carlo samples per evaluation:
+We run the inversion at the paper's own settings (16 directions, 1,000
+distances along each, 2,000 Monte Carlo samples per evaluation). That
+costs about 11 minutes on CPU for the 49 reference points.
 
-```python title="Compute settings"
---8<-- "docs/examples/wppm/hong2025_reproduction.py:threshold_settings"
-```
+??? note "Threshold settings"
+
+    ```python
+    --8<-- "docs/examples/wppm/hong2025_reproduction.py:threshold_settings"
+    ```
+
+    300 distances and 500 Monte Carlo samples instead of 1,000 and 2,000,
+    which runs the same 49 reference points in roughly 20 seconds rather than
+    11 minutes. It is what `--mode quick` selects, and it is meant for checking
+    that the code path works and not for reproducing anything. The script prints
+    which preset is in effect when it starts, so no number on this page is ever
+    ambiguous about which produced it.
+
+
 
 The loading and the model are the same as in the recipe above; what is new here
 is asking the predictive posterior for thresholds rather than probabilities:
@@ -410,11 +415,12 @@ The two steps before it each held something fixed: the Figure 2B inversion used
 the authors' *published* weights, so it tested our inversion with the optimizer
 removed; the refit fit weights from the raw trials but only ever compared noise
 fields. Joining them closes the loop:
-*raw trials -> our weights -> our contours
--> the published figure*, with nothing published entering except the data:
 
-Everything is identical to the inversion above — same model, same
-`ThresholdConfig`, same call — except for where the weights come from:
+*raw trials -> our weights -> our threshold contours
+-> the published figure*, with only the published data entering:
+
+Everything is identical to the inversion above, i.e., same model, same
+`ThresholdConfig`, same call — except for where the weights come from.
 
 ```python title="Invert our own fitted weights"
 --8<-- "docs/examples/wppm/hong2025_reproduction.py:end_to_end"
