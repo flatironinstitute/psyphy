@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "psyphy"
-version = "0.0.4"
+version = "0.0.5"
 
 authors = [
   { name = "Hanna Dettki" },
@@ -83,12 +83,13 @@ cuda = [
 Homepage = "https://flatironinstitute.github.io/psyphy"
 Repository = "https://github.com/flatironinstitute/psyphy"
 Issues = "https://github.com/flatironinstitute/psyphy/issues"
+Changelog = "https://flatironinstitute.github.io/psyphy/changelog/"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/psyphy"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/psyphy", "README.md", "LICENSE.md", "tests"]
+include = ["src/psyphy", "README.md", "LICENSE.md", "CHANGELOG.md", "tests"]
 
 # Ruff configuration
 [tool.ruff]

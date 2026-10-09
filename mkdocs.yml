@@ -112,6 +112,7 @@ nav:
     - Plotting Ellipse Fields: examples/viz/ellipse_plots.md
   - Design Doc: API_DESIGN_DOCUMENT.md
   - Contributing: CONTRIBUTING.md
+  - Changelog: changelog.md
 
 extra_javascript:
   - https://polyfill.io/v3/polyfill.min.js?features=es6
