@@ -6,9 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `ps
 pre-1.0: while the version is `0.0.x`, **any release may change the public API**, so
 breaking changes are called out below but do not force a minor-version bump.
 
-## [0.0.5] — unreleased
+## [0.0.5] — 2026-10-09
 
-First release in six months; 245 commits since `0.0.4`. Two new subpackages
+ Two new subpackages
 (`psyphy.viz`, `psyphy.data.published`), a reproduction of a published figure, and two
 breaking API changes in the model layer.
 
@@ -26,7 +26,7 @@ breaking API changes in the model layer.
   # now (0.0.5)
   def predict(self, params, stimuli, model, *, key=None) -> tuple[jnp.ndarray, ...]: ...
   #   stimuli has shape (K, input_dim);  OddityTask reads stimuli[0], stimuli[1]
-  #   returns (p_correct,) for Bernoulli tasks, (mu, sigma) for Gaussian tasks
+  #   returns (p_correct,) for Bernoulli tasks, (mu, sigma) for Gaussian task likelihoods
   ```
 
   **If you wrote a custom `TaskLikelihood`, it must be updated.** Unpack `stimuli`
@@ -46,36 +46,43 @@ breaking API changes in the model layer.
   TrialData(stimuli=jnp.stack([refs, comparisons], axis=1), responses=responses)
   ```
 
-  A 1-D `responses` array of shape `(N,)` is still accepted and normalised to `(N, 1)`.
+  A 1-D `responses` array of shape `(N,)` is still accepted and normalized to `(N, 1)`.
+  Slots may optionally be named, e.g.,  `stimulus_names=("ref", "comp")` enables
+  `data.stimulus("ref")` alongside positional `data.stimuli[:, 0, :]`.
+
+  **For the oddity task, `K` is 2, not 3.** The observer is shown three stimuli, but only
+  the two distinct means are stored; presenting the reference twice is encoded in
+  `OddityTask`, which draws two samples from the reference distribution and one from the
+  comparison. `K` counts stored stimuli, not presentations.
 
 ### Added
 
-- **`psyphy.data.published`** — loaders for published datasets, starting with
+- **`psyphy.data.published`** loaders for published datasets, starting with
   `hong2025`: `fetch`, `fetch_calibration_matrix`, `load_calibration_matrix`,
   `load_trials`, `load_reference_W`, `load_sigma_table`, `build_paper_model`,
   `w2d_to_rgb`, `default_data_dir`. Datasets are downloaded on demand (resumable, cached
   outside the repo) rather than shipped with the package.
-- **`psyphy.viz`** — `plot_ellipses`, plus `auto_scale` and `ellipse_segments`. The
+- **`psyphy.viz`** : `plot_ellipses`, plus `auto_scale` and `ellipse_segments`. The
   geometry is separated from the drawing layer so it is testable without a plotting
   backend, and `matplotlib` is imported lazily.
-- **Threshold prediction as first-class API** — `WPPMPredictivePosterior(...,
+- **Threshold prediction as first-class API** ,  `WPPMPredictivePosterior(...,
   threshold_pred=True)` with a `ThresholdConfig`, recovering threshold contours by
   numerically inverting `P(correct)`. In this mode `X` is bare reference points of shape
   `(n_test, input_dim)` rather than paired stimuli.
-- **1-D WPPM support** (#143) — `input_dim=1` is now handled by the Chebyshev basis, the
+- **1-D WPPM support** `input_dim=1` is now handled by the Chebyshev basis, the
   prior, and the covariance-field computation, alongside the existing 2-D and 3-D cases.
-- **A distributional layer in the likelihood hierarchy** (#139) —
+- **A distributional layer in the likelihood hierarchy**
   `BernoulliTaskLikelihood` and `GaussianTaskLikelihood` sit between `TaskLikelihood` and
   concrete tasks, each providing `loglik` and `simulate` so a new task only implements
   `predict`. `OddityTask` is now a `BernoulliTaskLikelihood`.
-- **`reduction` on `MAPOptimizer`** — `"mean"` (new default) or `"sum"`, controlling how
+- **`reduction` on `MAPOptimizer`**  `"mean"` (new default) or `"sum"`, controlling how
   the per-trial objective is aggregated. This interacts with gradient clipping: under
   `"sum"` the gradient scales with the number of trials, so a learning rate tuned on one
   dataset size does not transfer. `"mean"` makes learning rates comparable to those
-  reported in the literature.
-- **Tutorials** — reproduction of Hong et al. (2025) Figure 2B from the published data,
+  reported by Hong et al 2025.
+- **Tutorials** reproduction of Hong et al. (2025) Figure 2B (threshold contours) from the published data,
   recovery of Weber's law with a flexible WPPM, and ellipse-field plotting.
-- **Tests** — `test_data_published_hong2025.py`, `test_viz.py`, `test_docs_recipe.py`
+- **Tests**: `test_data_published_hong2025.py`, `test_viz.py`, `test_docs_recipe.py`
   (parses the code quoted in the docs and checks every call against the live API),
   `test_quick_start_recovery.py`, `test_map_optimizer_clipping.py`,
   `test_likelihood_logic.py`, `test_data_format.py`.
@@ -98,11 +105,16 @@ breaking API changes in the model layer.
 
 ## [0.0.4] — 2026-03-31
 
-Packaging and API groundwork; first release installable from PyPI as a published wheel.
+Likelihood refactor. `loglik` and `simulate` became concrete methods on
+`TaskLikelihood`, so a concrete task implements only `predict`; `OddityTask` lost its own
+`loglik` and the duplicated vectorised Monte Carlo path (`likelihood.py` net −200 lines).
+Documentation restructuring.
 
-## [0.0.2] — 2026
+## [0.0.2] — 2026-03-27
 
-Initial public release.
+First release published to PyPI. Full initial module set: `psyphy.model` (WPPM, priors,
+noise models, the oddity task), `psyphy.inference` (MAP optimizer), `psyphy.posterior`,
+ `psyphy.data`,  `psyphy.utils`.
 
 [0.0.5]: https://github.com/flatironinstitute/psyphy/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/flatironinstitute/psyphy/compare/v0.0.2...v0.0.4
