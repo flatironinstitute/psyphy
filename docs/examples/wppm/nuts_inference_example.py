@@ -20,8 +20,13 @@ Steps
 
 Requirements
 ------------
-    pip install 'psyphy[nuts]'
-    # i.e. blackjax>=1.0, arviz>=0.16, matplotlib>=3.5
+    pip install 'psyphy[sampling,diagnostics,viz]'
+    # sampling    -> blackjax>=1.4,<2   (requires Python >= 3.11)
+    # diagnostics -> arviz>=1.0         (requires Python >= 3.12)
+    # viz         -> matplotlib>=3.5
+    #
+    # There is no `nuts` extra. On a GPU add `cuda` (jax[cuda12]), and do NOT
+    # `module load cuda cudnn` alongside it -- see CONTRIBUTING.md.
 """
 
 from __future__ import annotations
