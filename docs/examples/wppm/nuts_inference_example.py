@@ -333,6 +333,12 @@ print(f"  {_total_draws} draws total; Mode A runs the {NUM_CHAINS} chains sequen
 for _g_per_draw in (16, 32, 64):
     _hours = _per_grad * _total_draws * _g_per_draw / 3600.0
     print(f"    at {_g_per_draw:2d} grad evals/draw -> {_hours:7.2f} h")
+# The probe times *execution* of an already-compiled gradient. It therefore
+# EXCLUDES XLA compilation of the warmup scan, which is a one-off cost but can
+# take minutes and, on a short run like --mode quick, dominates everything the
+# projection above reports. If the run seems stuck right after "[4/7]", it is
+# almost certainly still compiling -- not hung.
+print("    (excludes one-off XLA compilation of the warmup scan: can be minutes)")
 # --8<-- [end:cost_probe]
 
 # ---------------------------------------------------------------------------
