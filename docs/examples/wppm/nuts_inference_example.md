@@ -224,6 +224,36 @@ equivalent point estimates and lose the one thing full posterior inference buys 
   posterior sample ensemble in faint blue (right).</em></p>
 </div>
 
+### Step 8 — Everything in one axes
+
+Side-by-side panels make you compare from memory. This figure puts all four layers on one
+set of axes so the disagreements can be read off directly: where the posterior band covers
+the ground truth, the fit is honest about what it does not know; where the truth falls
+*outside* the band, the model is confidently wrong, and no amount of extra draws will fix
+it.
+
+This is also the one figure here drawn with **psyphy's own `viz` module** rather than
+hand-rolled matplotlib. `plot_ellipses` takes a list of fields with per-field styling, so
+four layers are two calls:
+
+```python title="Overlay with psyphy.viz"
+--8<-- "docs/examples/wppm/nuts_inference_example.py:overlay"
+```
+
+<div align="center">
+  <img src="../plots/nuts_overlay.png" width="650"/>
+  <p><em>Faint blue: posterior draws. Black: ground truth. Dashed orange: MAP. Red:
+  posterior mean. All at the same <code>ELLIPSE_SCALE</code> as the figures above, so the
+  three are comparable.</em></p>
+</div>
+
+!!! note "`scale` and honest ellipse sizes"
+    Every figure on this page multiplies the ellipses by `ELLIPSE_SCALE` so they are
+    visible against the grid — they are **not** drawn at true size. `plot_ellipses` also
+    accepts `scale="auto"`, which sizes the median ellipse to a fraction of the grid
+    spacing and can return the factor it used via `return_scale=True`, so a figure can
+    report its own magnification.
+
 ---
 
 ## Architecture recap

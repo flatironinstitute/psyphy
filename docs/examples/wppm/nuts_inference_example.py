@@ -17,6 +17,7 @@ Steps
 4.  ArviZ diagnostics: R-hat, ESS, trace plots
 5.  Posterior predictive: ensemble of covariance field ellipses
 6.  MAP vs NUTS mean comparison
+7.  All four layers overlaid in one axes (via psyphy.viz)
 
 Requirements
 ------------
@@ -75,6 +76,7 @@ from psyphy.model import (
     Prior,
     WPPMCovarianceField,
 )
+from psyphy.viz import plot_ellipses
 
 # --8<-- [end:imports]
 
@@ -207,7 +209,7 @@ print(
 # ---------------------------------------------------------------------------
 # 1. Ground-truth model + synthetic data
 # ---------------------------------------------------------------------------
-print("[1/6] Setting up ground-truth WPPM and simulating data...")
+print("[1/7] Setting up ground-truth WPPM and simulating data...")
 
 task = OddityTask(config=OddityTaskConfig(num_samples=MC_SAMPLES, bandwidth=BANDWIDTH))
 noise = GaussianNoise(sigma=0.1)
@@ -264,7 +266,7 @@ print(
 # ---------------------------------------------------------------------------
 # 2. Fit model (shared between MAP warm-start and NUTS)
 # ---------------------------------------------------------------------------
-print("[2/6] Building model...")
+print("[2/7] Building model...")
 
 # --8<-- [start:build_model]
 prior = Prior(
@@ -287,7 +289,7 @@ model = WPPM(
 # 3. MAP warm-start
 # Initializing NUTS near the posterior mode greatly reduces warmup steps.
 # ---------------------------------------------------------------------------
-print("[3/6] MAP warm-start (fast initialization near posterior mode)...")
+print("[3/7] MAP warm-start (fast initialization near posterior mode)...")
 
 # --8<-- [start:map_warmstart]
 map_optimizer = MAPOptimizer(
@@ -336,7 +338,7 @@ for _g_per_draw in (16, 32, 64):
 # ---------------------------------------------------------------------------
 # 4. NUTS sampling
 # ---------------------------------------------------------------------------
-print("[4/6] Running NUTS posterior sampling (BlackJAX)...")
+print("[4/7] Running NUTS posterior sampling (BlackJAX)...")
 print(f"  {NUM_CHAINS} chains × {NUM_WARMUP} warmup + {NUM_SAMPLES} draws")
 print("  Note: first chain triggers JIT compilation — may take ~30s on CPU.")
 
@@ -366,7 +368,7 @@ print(f"  Mean acceptance rate: {float(jnp.mean(acc)):.3f}")
 # ---------------------------------------------------------------------------
 # 5. ArviZ diagnostics
 # ---------------------------------------------------------------------------
-print("[5/6] Computing ArviZ diagnostics...")
+print("[5/7] Computing ArviZ diagnostics...")
 
 try:
     import arviz as az
@@ -440,7 +442,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # 6. Posterior predictive: ensemble of covariance field ellipses
 # ---------------------------------------------------------------------------
-print("[6/6] Plotting posterior predictive covariance field...")
+print("[6/7] Plotting posterior predictive covariance field...")
 
 _THETAS = jnp.linspace(0, 2 * jnp.pi, 80)
 _UNIT_CIRCLE = jnp.vstack([jnp.cos(_THETAS), jnp.sin(_THETAS)])
@@ -605,5 +607,80 @@ plt.tight_layout()
 fig.savefig(plot_path("nuts_vs_map_comparison.png"), dpi=200, bbox_inches="tight")
 plt.close()
 print("  Saved: nuts_vs_map_comparison.png")
+
+# ---------------------------------------------------------------------------
+# 8. Everything in one axes: truth, MAP, posterior mean, posterior spread
+#
+# The three-panel figure above compares like with like; this one is for reading
+# the *disagreements* off directly, which side-by-side panels make you do from
+# memory. It is also the only figure here drawn with psyphy's own `viz` module
+# rather than hand-rolled matplotlib -- `plot_ellipses` takes a list of fields
+# with per-field styling, so four layers are two calls.
+# ---------------------------------------------------------------------------
+print("[7/7] Overlaying truth, MAP and posterior in one axes...")
+
+# --8<-- [start:overlay]
+# Posterior spread first, so it sits behind the three lines. Shape
+# (n_ensemble, n_ref, 2, 2) is the "several fields" spelling plot_ellipses takes.
+sample_covs = jnp.stack(
+    [
+        WPPMCovarianceField(model, {"W": param_samples["W"][i]})(ref_points)
+        for i in range(n_ensemble)
+    ]
+)
+
+fig, ax = plt.subplots(figsize=(8, 8))
+plot_ellipses(
+    jax.device_get(ref_points),
+    jax.device_get(sample_covs),
+    ax=ax,
+    scale=ELLIPSE_SCALE,
+    colors="#4444cc",
+    linewidths=0.5,
+    alpha=0.15,
+)
+plot_ellipses(
+    jax.device_get(ref_points),
+    [
+        jax.device_get(truth_field(ref_points)),
+        jax.device_get(WPPMCovarianceField(model, map_posterior.params)(ref_points)),
+        jax.device_get(covs_mean),
+    ],
+    ax=ax,
+    scale=ELLIPSE_SCALE,
+    colors=["k", "#cc7700", "#cc2222"],
+    labels=["Ground truth", f"MAP ({MAP_STEPS} steps)", "NUTS posterior mean"],
+    linewidths=[1.2, 1.4, 1.6],
+    linestyles=["-", "--", "-"],
+    alpha=[0.8, 0.9, 0.95],
+    show_centers=True,
+)
+# --8<-- [end:overlay]
+
+# plot_ellipses builds its legend from `labels`, one entry per field. The
+# ensemble is n_ensemble fields sharing one colour, so it gets a proxy handle
+# instead -- labelling it there would produce n_ensemble identical entries.
+ax.plot(
+    [],
+    [],
+    color="#4444cc",
+    alpha=0.5,
+    linewidth=1,
+    label=f"Posterior samples (n={n_ensemble})",
+)
+ax.legend(loc="upper left", fontsize=9)
+ax.set_aspect("equal")
+ax.set_xlim(-1.1, 1.1)
+ax.set_ylim(-1.1, 1.1)
+ax.set_xlabel("Stimulus dimension 1")
+ax.set_ylabel("Stimulus dimension 2")
+ax.set_title(
+    f"Truth vs MAP vs posterior  ({MODE}: mc={MC_SAMPLES}, "
+    f"{NUM_CHAINS}×{NUM_SAMPLES} draws, ellipses ×{ELLIPSE_SCALE})"
+)
+ax.grid(True, alpha=0.3)
+fig.savefig(plot_path("nuts_overlay.png"), dpi=200, bbox_inches="tight")
+plt.close()
+print("  Saved: nuts_overlay.png")
 
 print("\nDone. All plots saved to:", PLOTS_DIR)
