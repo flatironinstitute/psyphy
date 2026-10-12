@@ -133,10 +133,14 @@ L = jnp.linalg.cholesky(Sigmas_ref)
 deltas = 2.8 * jnp.einsum("nij,nj->ni", L, unit_dirs)
 comparisons = jnp.clip(refs + deltas, -1.0, 1.0)
 
-ys, _ = task.simulate(truth_params, refs, comparisons, truth_model, key=k_sim)
+# Stimuli are packed (N, K, d) with K=2 -- slot 0 reference, slot 1 comparison.
+# The oddity task presents three stimuli but stores two: the reference is shown
+# twice, and that duplication lives in OddityTask, not in the data.
+stimuli = jnp.stack([refs, comparisons], axis=1)
+ys, _ = task.simulate(truth_params, stimuli, truth_model, key=k_sim)
 
 # --8<-- [start:data]
-data = TrialData(stimuli=jnp.stack([refs, comparisons], axis=1), responses=ys)
+data = TrialData(stimuli=stimuli, responses=ys)
 # --8<-- [end:data]
 
 print(
@@ -232,16 +236,18 @@ try:
     print(f"  ESS min:   {ess_min:.0f}    (target > 100 per chain)")
     # --8<-- [end:arviz_diagnostics]
 
-    # Trace plot — ArviZ plots each scalar element of W
+    # Trace plot. ArviZ draws one panel per *scalar* element of W, and W here has
+    # 3*3*2*3 = 54 of them -- past rcParams["plot.max_subplots"] (40), and
+    # illegible even if that limit is raised. So plot one readable slice: the
+    # 3x3 basis coefficients at the first stimulus and embedding dimension.
+    #
+    # NOTE (arviz >= 1.0): plot_trace returns an arviz_plots PlotCollection, not
+    # an array of matplotlib axes, so it is saved with pc.savefig(). The 0.x
+    # kwargs `compact=` and `figsize=` no longer exist and raise if passed.
     # --8<-- [start:trace_plot]
-    axes = az.plot_trace(idata, var_names=["W"], compact=True, figsize=(12, 4))
-    plt.suptitle("NUTS trace plot (W coefficients)", y=1.02)
-    plt.tight_layout()
-    plt.savefig(
-        os.path.join(PLOTS_DIR, "nuts_trace_plot.png"), dpi=150, bbox_inches="tight"
-    )
-    plt.close()
-    print("  Saved: nuts_trace_plot.png")
+    pc = az.plot_trace(idata, var_names=["W"], coords={"W_dim_2": 0, "W_dim_3": 0})
+    pc.savefig(os.path.join(PLOTS_DIR, "nuts_trace_plot.png"))
+    print("  Saved: nuts_trace_plot.png  (W[:, :, 0, 0] slice)")
     # --8<-- [end:trace_plot]
 
 except ImportError:
