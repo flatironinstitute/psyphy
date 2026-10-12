@@ -47,6 +47,7 @@ filenames the documentation embeds; other modes suffix them with the mode.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import sys
 import time
@@ -388,8 +389,45 @@ try:
     # NOTE (arviz >= 1.0): plot_trace returns an arviz_plots PlotCollection, not
     # an array of matplotlib axes, so it is saved with pc.savefig(). The 0.x
     # kwargs `compact=` and `figsize=` no longer exist and raise if passed.
+    # How to read the resulting figure:
+    #   * W has shape (3, 3, 2, 3) = (deg_x, deg_y, U_row, U_col). The first two
+    #     axes index the Chebyshev basis -- degree along stimulus dimension 1 and
+    #     along dimension 2 -- and the last two index the entry of U(x), where
+    #     Sigma = U U^T + diag_term * I.
+    #   * coords={"W_dim_2": 0, "W_dim_3": 0} fixes U[0, 0] and leaves the 3x3
+    #     coefficient grid, so `col_wrap=3` lays the panels out AS that grid:
+    #     panel title "i, j" is the coefficient of degree i x degree j.
+    #   * x axis = draw index WITHIN a chain, post-warmup (warmup is discarded).
+    #   * one coloured line per chain.
+    #   * black ticks along the bottom are divergences, which appear only because
+    #     sampler_stats now carries `diverging` under ArviZ's standard name.
+    #   * what you want to see: chains overlapping, flat, and mixing fast -- a
+    #     "fuzzy caterpillar". A chain drifting steadily across the panel means
+    #     warmup was too short and the sampler is still finding the typical set.
+    #
+    # NOTE (arviz >= 1.0): plot_trace returns an arviz_plots PlotCollection, not
+    # an array of matplotlib axes, so it is saved with pc.savefig(). The 0.x
+    # kwargs `compact=` and `figsize=` no longer exist and raise if passed.
+    # `visuals={"xlabel": False}` drops the per-panel "Draw" label, which in a
+    # multi-row layout collides with the next row's title.
     # --8<-- [start:trace_plot]
-    pc = az.plot_trace(idata, var_names=["W"], coords={"W_dim_2": 0, "W_dim_3": 0})
+    pc = az.plot_trace(
+        idata,
+        var_names=["W"],
+        coords={"W_dim_2": 0, "W_dim_3": 0},
+        col_wrap=3,
+        visuals={"xlabel": False},
+    )
+    # Reaching into arviz_plots internals for the caption: cosmetic only, so a
+    # future API change must not fail the run. Same pattern NUTSSampler uses for
+    # its optional progress bar.
+    with contextlib.suppress(Exception):
+        pc.viz["figure"].item().suptitle(
+            "Posterior traces for W[deg_x, deg_y, 0, 0] — one panel per Chebyshev "
+            "coefficient\ncolours = chains · x = draw index (post-warmup) · "
+            "ticks = divergences",
+            fontsize=10,
+        )
     pc.savefig(plot_path("nuts_trace_plot.png"))
     print("  Saved: nuts_trace_plot.png  (W[:, :, 0, 0] slice)")
     # --8<-- [end:trace_plot]
@@ -503,16 +541,51 @@ print("  Saved: nuts_ellipses_uncertainty.png")
 # 7. MAP vs NUTS mean comparison (side-by-side)
 # ---------------------------------------------------------------------------
 fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+# (field, colour, label, draw_the_posterior_ensemble_behind_it)
+#
+# The ensemble goes on the NUTS panel only, and that asymmetry IS the point of
+# the figure: MAP can only ever draw one contour, because its posterior is a
+# delta at theta_MAP. NUTS draws a band from the same downstream code. Showing
+# the mean alone makes the two look like equivalent point estimates, which is
+# exactly the misreading this example exists to prevent.
 configs = [
-    (truth_field, "k", "Ground truth"),
+    (truth_field, "k", "Ground truth", False),
     (
         WPPMCovarianceField(model, map_posterior.params),
         "#cc7700",
-        f"MAP ({MAP_STEPS} steps)",
+        f"MAP ({MAP_STEPS} steps) — a single contour, no width",
+        False,
     ),
-    (mean_field, "#cc2222", f"NUTS mean ({NUM_CHAINS}×{NUM_SAMPLES} draws)"),
+    (
+        mean_field,
+        "#cc2222",
+        f"NUTS mean ({NUM_CHAINS}×{NUM_SAMPLES} draws) + {n_ensemble} posterior samples",
+        True,
+    ),
 ]
-for ax, (field, color, label) in zip(axes, configs):
+for ax, (field, color, label, with_ensemble) in zip(axes, configs):
+    if with_ensemble:
+        for i in range(n_ensemble):
+            sample_field_i = WPPMCovarianceField(model, {"W": param_samples["W"][i]})
+            segs_i, _ = _ellipse_segments(
+                ref_points, sample_field_i(ref_points), scale=ELLIPSE_SCALE
+            )
+            ax.add_collection(
+                LineCollection(
+                    jax.device_get(segs_i),
+                    colors="#4444cc",
+                    linewidths=0.5,
+                    alpha=0.15,
+                )
+            )
+        ax.plot(
+            [],
+            [],
+            color="#4444cc",
+            alpha=0.5,
+            linewidth=1,
+            label=f"Posterior samples (n={n_ensemble})",
+        )
     covs = field(ref_points)
     segs, _ = _ellipse_segments(ref_points, covs, scale=ELLIPSE_SCALE)
     lc = LineCollection(jax.device_get(segs), colors=color, linewidths=1.2, alpha=0.8)
@@ -521,10 +594,14 @@ for ax, (field, color, label) in zip(axes, configs):
     ax.set_aspect("equal")
     ax.set_xlim(-1.1, 1.1)
     ax.set_ylim(-1.1, 1.1)
-    ax.set_title(label)
+    ax.set_title(label, fontsize=10)
     ax.grid(True, alpha=0.3)
+    if with_ensemble:
+        ax.legend(loc="lower left", fontsize=8)
 
-plt.suptitle("Ground truth vs MAP vs NUTS posterior mean", y=1.01)
+plt.suptitle(
+    "Ground truth vs MAP (point estimate) vs NUTS (posterior mean + spread)", y=1.01
+)
 plt.tight_layout()
 fig.savefig(plot_path("nuts_vs_map_comparison.png"), dpi=200, bbox_inches="tight")
 plt.close()
