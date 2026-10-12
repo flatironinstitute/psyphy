@@ -423,7 +423,7 @@ try:
     # its optional progress bar.
     with contextlib.suppress(Exception):
         pc.viz["figure"].item().suptitle(
-            "Posterior traces for W[deg_x, deg_y, 0, 0] — one panel per Chebyshev "
+            "Posterior traces for W[deg_x, deg_y, 0, 0]. 1 panel per Chebyshev "
             "coefficient\ncolours = chains · x = draw index (post-warmup) · "
             "ticks = divergences",
             fontsize=10,
@@ -553,7 +553,7 @@ configs = [
     (
         WPPMCovarianceField(model, map_posterior.params),
         "#cc7700",
-        f"MAP ({MAP_STEPS} steps) — a single contour, no width",
+        f"MAP ({MAP_STEPS} steps)",
         False,
     ),
     (
