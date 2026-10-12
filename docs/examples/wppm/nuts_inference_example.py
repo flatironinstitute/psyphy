@@ -424,8 +424,7 @@ try:
     with contextlib.suppress(Exception):
         pc.viz["figure"].item().suptitle(
             "Posterior traces for W[deg_x, deg_y, 0, 0]. 1 panel per Chebyshev "
-            "coefficient\ncolours = chains · x = draw index (post-warmup) · "
-            "ticks = divergences",
+            "coefficient\ncolours = chains · x = draw index (post-warmup)",
             fontsize=10,
         )
     pc.savefig(plot_path("nuts_trace_plot.png"))
