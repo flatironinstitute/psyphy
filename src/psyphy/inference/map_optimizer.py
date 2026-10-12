@@ -126,8 +126,9 @@ class MAPOptimizer(InferenceEngine):
             sync for the progress UI every step.
         show_progress : bool, optional
             When True, display a tqdm progress bar during fitting.
-            This is a UI feature: if tqdm is not installed,
-            fitting proceeds without a progress bar.
+            This is a UI feature: `tqdm` ships in the ``progress`` extra
+            (``pip install 'psyphy[progress]'``), not as a core dependency, and
+            if it is not installed fitting proceeds without a progress bar.
         max_grad_norm : float | None, optional
             If set, clip gradients by global norm to this value before applying
             optimizer updates: ``g <- g * min(1, max_grad_norm / ||g||)``.

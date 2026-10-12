@@ -63,6 +63,7 @@ examples = [
   "matplotlib>=3.5",
   "seaborn>=0.13",
   "jupyterlab>=4.0",
+  "psyphy[progress]",   # self-reference: keeps the tqdm pin in one place
 ]
 # Gradient-based MCMC (NUTSSampler). Soft dependency: the class is always
 # importable and only .fit() raises if blackjax is missing.
@@ -83,6 +84,14 @@ examples = [
 # resolution is unsatisfiable on psyphy's declared 3.10 floor and `uv lock` fails.
 sampling = [
   'blackjax>=1.4,<2; python_version >= "3.11"',
+]
+# Progress bars for long fits. `MAPOptimizer` and `NUTSSampler` both default to
+# `show_progress=True` and get their bar from `from tqdm.auto import tqdm` inside a
+# suppressed try/except, so without this extra the default is silently a no-op -- a long
+# GPU run prints nothing and looks hung. Kept as an extra rather than a core dependency
+# because it is purely a UI feature and the code degrades gracefully without it.
+progress = [
+  "tqdm>=4.66",
 ]
 # MCMC convergence diagnostics (MCMCPosterior.to_arviz, R-hat, ESS).
 #

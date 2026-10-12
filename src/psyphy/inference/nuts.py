@@ -80,7 +80,10 @@ class NUTSSampler(InferenceEngine):
         Master PRNG seed for chain initialization and sampling keys.
     show_progress : bool, default=True
         Display a tqdm progress bar during warmup and sampling.
-        Silently skipped if tqdm is not installed.
+        Requires `tqdm`, which ships in the ``progress`` extra
+        (``pip install 'psyphy[progress]'``) and is NOT a core dependency.
+        Silently skipped if tqdm is not installed, so on a clean install this
+        default is a no-op and a long fit prints nothing.
 
     Notes
     -----
