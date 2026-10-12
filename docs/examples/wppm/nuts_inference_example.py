@@ -27,12 +27,29 @@ Requirements
     #
     # There is no `nuts` extra. On a GPU add `cuda` (jax[cuda12]), and do NOT
     # `module load cuda cudnn` alongside it -- see CONTRIBUTING.md.
+    #
+    # Add `progress` for the progress bars; without it `show_progress=True` is
+    # silently a no-op and a long fit prints nothing for hours.
+
+Usage
+-----
+    python nuts_inference_example.py                    # quick: laptop smoke test
+    python nuts_inference_example.py --mode balanced    # a real fit, ~GPU-hour
+    python nuts_inference_example.py --mode full        # paper-scale, batch job
+
+`quick` is the default so the docs build and a laptop run stay fast. It is NOT a
+fit to interpret -- 450 trials and 50 MC samples leave the frozen-key posterior
+visibly biased, and 150 draws cannot support R-hat or ESS. Use `balanced` or
+`full` for anything you intend to read. Only `quick` writes the canonical plot
+filenames the documentation embeds; other modes suffix them with the mode.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
+import time
 
 os.environ.pop("JAX_PLATFORM_NAME", None)  # allow GPU/TPU if available
 
@@ -60,14 +77,43 @@ from psyphy.model import (
 
 # --8<-- [end:imports]
 
+_parser = argparse.ArgumentParser(description="NUTS posterior inference for WPPM")
+_parser.add_argument(
+    "--mode",
+    choices=("quick", "balanced", "full"),
+    default="quick",
+    help="compute/fidelity preset; see MODES below (default: quick)",
+)
+_parser.add_argument("--seed", type=int, default=42, help="master PRNG seed")
+_args = _parser.parse_args()
+MODE = _args.mode
+SEED = _args.seed
+
 PLOTS_DIR = os.path.join(os.path.dirname(__file__), "plots")
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
+
+def plot_path(name: str) -> str:
+    """Canonical filename for `quick`, mode-suffixed otherwise.
+
+    The documentation embeds plots/nuts_*.png, and those committed figures come
+    from the default (quick) run. A heavier run must not silently replace them,
+    so every other mode writes plots/nuts_*_<mode>.png -- the same convention
+    hong2025_reproduction.py uses for its own full-mode figures.
+    """
+    if MODE == "quick":
+        return os.path.join(PLOTS_DIR, name)
+    stem, ext = os.path.splitext(name)
+    return os.path.join(PLOTS_DIR, f"{stem}_{MODE}{ext}")
+
+
 print("DEVICE:", jax.devices()[0])
+print("MODE  :", MODE)
 
 # ---------------------------------------------------------------------------
-# Hyperparameters
-# CPU-friendly defaults — reduce MC_SAMPLES / NUM_TRIALS for faster runs.
+# Model. IDENTICAL IN EVERY MODE, deliberately: --mode changes how carefully
+# the posterior is explored, never what is being fit, so two modes are
+# comparable. Change these to change the science, not the budget.
 # ---------------------------------------------------------------------------
 INPUT_DIM = 2
 BASIS_DEGREE = 2
@@ -78,22 +124,84 @@ DIAG_TERM = 1e-4
 BANDWIDTH = 1e-2
 
 # --8<-- [start:compute_settings]
-MC_SAMPLES = 50  # MC samples per likelihood evaluation (≥200 recommended for quality)
-NUM_TRIALS_PER_REF = 50  # trials per reference point (reduce for CPU)
-N_REF_GRID = 3  # 3×3 = 9 reference points
+# Compute/fidelity presets. Same MODES convention as hong2025_reproduction.py.
+#
+# Why each knob is where it is in `full`:
+#   mc_samples 2000  the value hong2025.PAPER_HYPERPARAMS uses for this model
+#                    class. It is the knob that matters most here: the MC
+#                    likelihood is only deterministic because NUTSSampler
+#                    freezes one PRNG key, which makes the sampled posterior
+#                    the one implied by that noise draw. The bias shrinks as
+#                    mc_samples grows -- 50 is a smoke test, 200 the documented
+#                    minimum, 2000 the paper's.
+#   trials 5000      25 reference points x 200 trials. 450 trials (quick) is
+#                    thin for this many coefficients, and under-determined
+#                    posteriors are wide for reasons that have nothing to do
+#                    with the sampler.
+#   4 x 1000 draws   the standard NUTS configuration, and what the shapes in
+#                    the design note assume. R-hat needs >= 2 chains (4 is
+#                    convention) and ESS > 100 per parameter needs the draws.
+#   warmup 1000      dual averaging tunes the step size AND the mass matrix;
+#                    for WPPM the mass matrix matters a lot, because
+#                    coefficients at different Chebyshev degrees have genuinely
+#                    different prior scales. 100 warmup steps cannot do it.
+MODES = {
+    "quick": {
+        "mc_samples": 50,
+        "trials_per_ref": 50,
+        "n_ref_grid": 3,
+        "map_steps": 300,
+        "warmup": 100,
+        "draws": 150,
+        "chains": 2,
+        "ensemble": 30,
+    },
+    "balanced": {
+        "mc_samples": 500,
+        "trials_per_ref": 100,
+        "n_ref_grid": 5,
+        "map_steps": 800,
+        "warmup": 500,
+        "draws": 500,
+        "chains": 4,
+        "ensemble": 100,
+    },
+    "full": {
+        "mc_samples": 2000,
+        "trials_per_ref": 200,
+        "n_ref_grid": 5,
+        "map_steps": 1500,
+        "warmup": 1000,
+        "draws": 1000,
+        "chains": 4,
+        "ensemble": 200,
+    },
+}
 # --8<-- [end:compute_settings]
 
-# MAP warm-start settings
-MAP_STEPS = 300
+_cfg = MODES[MODE]
+MC_SAMPLES = _cfg["mc_samples"]
+NUM_TRIALS_PER_REF = _cfg["trials_per_ref"]
+N_REF_GRID = _cfg["n_ref_grid"]
+
+# MAP warm-start settings. Step count scales with mode; the learning rate and
+# momentum are tuning, not budget, so they are fixed.
+MAP_STEPS = _cfg["map_steps"]
 MAP_LR = 5e-5
 MAP_MOMENTUM = 0.9
 
 # NUTS settings
 # --8<-- [start:nuts_settings]
-NUM_WARMUP = 100
-NUM_SAMPLES = 150
-NUM_CHAINS = 2
+NUM_WARMUP = _cfg["warmup"]
+NUM_SAMPLES = _cfg["draws"]
+NUM_CHAINS = _cfg["chains"]
 # --8<-- [end:nuts_settings]
+N_ENSEMBLE = _cfg["ensemble"]
+
+print(
+    f"        mc={MC_SAMPLES}, {N_REF_GRID**2}x{NUM_TRIALS_PER_REF} trials, "
+    f"MAP {MAP_STEPS} steps, NUTS {NUM_CHAINS}x({NUM_WARMUP}+{NUM_SAMPLES})"
+)
 
 # ---------------------------------------------------------------------------
 # 1. Ground-truth model + synthetic data
@@ -188,10 +296,41 @@ map_optimizer = MAPOptimizer(
     track_history=True,
     show_progress=True,
 )
-map_posterior = map_optimizer.fit(model, data, seed=42)
+map_posterior = map_optimizer.fit(model, data, seed=SEED)
 # --8<-- [end:map_warmstart]
 
 print(f"  MAP done. Final loss: {map_optimizer.loss_history[-1]:.4f}")
+
+# --8<-- [start:cost_probe]
+# Project the sampling cost before committing to it. NUTS costs
+# O(2^tree_depth) gradient evaluations per draw and the depth is data
+# dependent, so the honest output is a bracket, not a number. Cheap insurance
+# against submitting a batch job that cannot finish inside its time limit --
+# and the only way to know whether --mode full is hours or days on this
+# hardware, since the MC likelihood dominates and GPUs do not scale linearly
+# with mc_samples.
+_probe = jax.jit(
+    jax.value_and_grad(
+        lambda q: model.log_posterior_from_data(q, data, key=jr.PRNGKey(0))
+    )
+)
+_, _grad = _probe(map_posterior.params)
+jax.block_until_ready(_grad["W"])  # compile first, outside the timing
+_t0 = time.perf_counter()
+for _ in range(5):
+    _, _grad = _probe(map_posterior.params)
+jax.block_until_ready(_grad["W"])
+_per_grad = (time.perf_counter() - _t0) / 5
+_total_draws = NUM_CHAINS * (NUM_WARMUP + NUM_SAMPLES)
+print(
+    f"  cost probe: one value_and_grad = {_per_grad * 1e3:.1f} ms"
+    f"  (mc={MC_SAMPLES}, {n_total} trials)"
+)
+print(f"  {_total_draws} draws total; Mode A runs the {NUM_CHAINS} chains sequentially")
+for _g_per_draw in (16, 32, 64):
+    _hours = _per_grad * _total_draws * _g_per_draw / 3600.0
+    print(f"    at {_g_per_draw:2d} grad evals/draw -> {_hours:7.2f} h")
+# --8<-- [end:cost_probe]
 
 # ---------------------------------------------------------------------------
 # 4. NUTS sampling
@@ -251,7 +390,7 @@ try:
     # kwargs `compact=` and `figsize=` no longer exist and raise if passed.
     # --8<-- [start:trace_plot]
     pc = az.plot_trace(idata, var_names=["W"], coords={"W_dim_2": 0, "W_dim_3": 0})
-    pc.savefig(os.path.join(PLOTS_DIR, "nuts_trace_plot.png"))
+    pc.savefig(plot_path("nuts_trace_plot.png"))
     print("  Saved: nuts_trace_plot.png  (W[:, :, 0, 0] slice)")
     # --8<-- [end:trace_plot]
 
@@ -286,7 +425,7 @@ def _ellipse_segments(centers, covs, *, scale, jitter=0.0):
 
 # Draw posterior parameter samples
 # --8<-- [start:posterior_samples]
-n_ensemble = 30
+n_ensemble = N_ENSEMBLE
 param_samples = nuts_posterior.sample(n_ensemble, key=jr.PRNGKey(0))
 # param_samples["W"].shape == (n_ensemble, *W_shape)
 # --8<-- [end:posterior_samples]
@@ -353,7 +492,7 @@ ax.legend(loc="upper right")
 ax.grid(True, alpha=0.3)
 plt.tight_layout()
 fig.savefig(
-    os.path.join(PLOTS_DIR, "nuts_ellipses_uncertainty.png"),
+    plot_path("nuts_ellipses_uncertainty.png"),
     dpi=200,
     bbox_inches="tight",
 )
@@ -387,9 +526,7 @@ for ax, (field, color, label) in zip(axes, configs):
 
 plt.suptitle("Ground truth vs MAP vs NUTS posterior mean", y=1.01)
 plt.tight_layout()
-fig.savefig(
-    os.path.join(PLOTS_DIR, "nuts_vs_map_comparison.png"), dpi=200, bbox_inches="tight"
-)
+fig.savefig(plot_path("nuts_vs_map_comparison.png"), dpi=200, bbox_inches="tight")
 plt.close()
 print("  Saved: nuts_vs_map_comparison.png")
 

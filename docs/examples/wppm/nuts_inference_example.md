@@ -94,14 +94,44 @@ Then pass `map_posterior.params` as `init_params` to `NUTSSampler.fit()`.
 
 `NUTSSampler` has the same `fit(model, data)` interface as `MAPOptimizer` — the BlackJAX backend is entirely hidden. It returns an `MCMCPosterior` satisfying the same `ParameterPosterior` protocol as `MAPPosterior`.
 
-**Compute settings used in this example:**
+**Compute settings.** The script takes `--mode`, which selects a preset. The *model* is
+identical in every mode, so only the thoroughness of the fit changes, never what is being
+fit:
+
+```bash
+python nuts_inference_example.py                    # quick (default): laptop smoke test
+python nuts_inference_example.py --mode balanced    # a real fit, roughly a GPU-hour
+python nuts_inference_example.py --mode full        # paper-scale MC, 4 x 1000 draws
+```
 
 ```python
 --8<-- "docs/examples/wppm/nuts_inference_example.py:compute_settings"
 ```
 
+!!! warning "`quick` is not a fit to interpret"
+    The default exists so this page builds and a laptop run finishes. With 450 trials and
+    50 MC samples the frozen-key posterior (see the determinism note below) is visibly
+    biased, and 150 draws cannot support R-hat or ESS. Read the diagnostics from
+    `--mode balanced` or `--mode full`, not from the default.
+
 **Runtime notes:**
-- tbd
+
+- **The MC likelihood dominates everything.** Each gradient evaluation simulates
+  `mc_samples` Monte Carlo draws for every trial, so cost scales with
+  `mc_samples × n_trials`. Going from `quick` to `full` raises that product by ~440×,
+  which is why `full` is a batch job and not something to run interactively.
+- **NUTS cost per draw is not fixed.** It is `O(2^tree_depth)` gradient evaluations, and
+  the depth is data-dependent — commonly 16–64 evaluations per draw. The script therefore
+  **times one gradient and prints a bracketed projection** before sampling starts, so you
+  can see whether a run fits inside a Slurm time limit before committing to it.
+- **Adaptive warmup runs chains sequentially** (see the two warmup modes below), so wall
+  clock scales linearly with `chains`. `full`'s four chains cost four times one chain.
+- **Progress bars need the `progress` extra.** `show_progress=True` is the default, but the
+  bar comes from `tqdm`, which is optional. Without it a multi-hour fit prints nothing and
+  looks hung.
+- **Only `quick` writes the plot filenames this page embeds.** Other modes suffix them
+  (`nuts_trace_plot_full.png`), so a heavy run cannot silently replace the documented
+  figures.
 
 #### Two warmup modes
 
