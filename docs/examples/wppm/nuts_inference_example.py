@@ -426,9 +426,7 @@ try:
         col_wrap=3,
         visuals={"xlabel": False},
     )
-    # Reaching into arviz_plots internals for the caption: cosmetic only, so a
-    # future API change must not fail the run. Same pattern NUTSSampler uses for
-    # its optional progress bar.
+    # Reaching into arviz_plots internals for the caption: cosmetic only
     with contextlib.suppress(Exception):
         pc.viz["figure"].item().suptitle(
             "Posterior traces for W[deg_x, deg_y, 0, 0]. 1 panel per Chebyshev "
