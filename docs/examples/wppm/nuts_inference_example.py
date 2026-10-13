@@ -526,8 +526,8 @@ ax.plot(
 ax.set_aspect("equal")
 ax.set_xlim(-1.1, 1.1)
 ax.set_ylim(-1.1, 1.1)
-ax.set_xlabel("Stimulus dimension 1")
-ax.set_ylabel("Stimulus dimension 2")
+ax.set_xlabel("Model dimension 1")
+ax.set_ylabel("Model dimension 2")
 ax.set_title(
     f"Posterior predictive covariance field\n"
     f"chains={NUM_CHAINS}, draws={NUM_SAMPLES}, MC_samples={MC_SAMPLES}"
