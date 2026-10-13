@@ -434,8 +434,9 @@ try:
             fontsize=10,
         )
     pc.savefig(plot_path("nuts_trace_plot.png"))
-    print("  Saved: nuts_trace_plot.png  (W[:, :, 0, 0] slice)")
     # --8<-- [end:trace_plot]
+    print("  Saved: nuts_trace_plot.png  (W[:, :, 0, 0] slice)")
+
 
 except ImportError:
     print(
