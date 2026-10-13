@@ -17,7 +17,7 @@ Steps
 4.  ArviZ diagnostics: R-hat, ESS, trace plots
 5.  Posterior predictive: ensemble of covariance field ellipses
 6.  MAP vs NUTS mean comparison
-7.  All four layers overlaid in one axes (via psyphy.viz)
+7.  All four layers overlaid in one axes
 
 Requirements
 ------------
@@ -59,7 +59,6 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
 
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../src"))
@@ -449,22 +448,21 @@ except ImportError:
 # ---------------------------------------------------------------------------
 print("[6/7] Plotting posterior predictive covariance field...")
 
-_THETAS = jnp.linspace(0, 2 * jnp.pi, 80)
-_UNIT_CIRCLE = jnp.vstack([jnp.cos(_THETAS), jnp.sin(_THETAS)])
-ELLIPSE_SCALE = 1.2 # 
+ELLIPSE_SCALE = 1.2  # magnification; ellipses are not drawn at true size
 
 
-def _ellipse_segments(centers, covs, *, scale, jitter=0.0):
-    covs = covs + jitter * jnp.eye(covs.shape[-1])
-    valid = jnp.all(jnp.linalg.eigvalsh(covs) > 0, axis=-1)
+def ensemble_covs(param_samples, points):
+    """Covariance field at `points` for every posterior draw.
 
-    def _one(cov, center):
-        L = jnp.linalg.cholesky(cov)
-        pts = scale * (L @ _UNIT_CIRCLE)
-        return (center[:, None] + pts).T
-
-    segs = jax.vmap(_one)(covs, centers)
-    return segs[valid], valid
+    Returns (n_samples, n_points, 2, 2), which is the "several fields" spelling
+    plot_ellipses accepts, so the whole ensemble draws in one call.
+    """
+    return jnp.stack(
+        [
+            WPPMCovarianceField(model, {"W": param_samples["W"][i]})(points)
+            for i in range(param_samples["W"].shape[0])
+        ]
+    )
 
 
 # Draw posterior parameter samples
@@ -474,45 +472,38 @@ param_samples = nuts_posterior.sample(n_ensemble, key=jr.PRNGKey(0))
 # param_samples["W"].shape == (n_ensemble, *W_shape)
 # --8<-- [end:posterior_samples]
 
-fig, ax = plt.subplots(figsize=(7, 7))
-
-# --- Ensemble of faint ellipses (one per posterior sample) ---
-# --8<-- [start:plot_uncertainty]
-for i in range(n_ensemble):
-    sample_params = {"W": param_samples["W"][i]}
-    sample_field = WPPMCovarianceField(model, sample_params)
-    covs_i = sample_field(ref_points)
-    segs, valid = _ellipse_segments(ref_points, covs_i, scale=ELLIPSE_SCALE)
-    lc = LineCollection(
-        jax.device_get(segs), colors="#4444cc", linewidths=0.5, alpha=0.15
-    )
-    ax.add_collection(lc)
-# --8<-- [end:plot_uncertainty]
-
-# --- Posterior mean ellipses ---
 mean_field = WPPMCovarianceField(model, nuts_posterior.params)
 covs_mean = mean_field(ref_points)
-segs_mean, _ = _ellipse_segments(ref_points, covs_mean, scale=ELLIPSE_SCALE)
-lc_mean = LineCollection(
-    jax.device_get(segs_mean),
-    colors="#cc2222",
-    linewidths=1.5,
-    alpha=0.9,
-    label="Posterior mean",
-)
-ax.add_collection(lc_mean)
-
-# --- Ground truth ellipses ---
 covs_truth = truth_field(ref_points)
-segs_truth, _ = _ellipse_segments(ref_points, covs_truth, scale=ELLIPSE_SCALE)
-lc_truth = LineCollection(
-    jax.device_get(segs_truth),
-    colors="k",
-    linewidths=1.2,
-    alpha=0.7,
-    label="Ground truth",
+
+fig, ax = plt.subplots(figsize=(7, 7))
+
+# --8<-- [start:plot_uncertainty]
+# The posterior spread, drawn first so it sits behind the two lines. One call:
+# (n_ensemble, n_ref, 2, 2) is the "several fields" shape plot_ellipses takes.
+plot_ellipses(
+    jax.device_get(ref_points),
+    jax.device_get(ensemble_covs(param_samples, ref_points)),
+    ax=ax,
+    scale=ELLIPSE_SCALE,
+    colors="#4444cc",
+    linewidths=0.5,
+    alpha=0.15,
 )
-ax.add_collection(lc_truth)
+
+# Posterior mean and ground truth, overlaid as a list of fields so each gets its
+# own colour, width and legend entry.
+plot_ellipses(
+    jax.device_get(ref_points),
+    [jax.device_get(covs_mean), jax.device_get(covs_truth)],
+    ax=ax,
+    scale=ELLIPSE_SCALE,
+    colors=["#cc2222", "k"],
+    labels=["Posterior mean", "Ground truth"],
+    linewidths=[1.5, 1.2],
+    alpha=[0.9, 0.7],
+)
+# --8<-- [end:plot_uncertainty]
 
 ax.scatter(ref_points[:, 0], ref_points[:, 1], c="g", s=5, zorder=5)
 ax.plot(
@@ -569,21 +560,23 @@ configs = [
         True,
     ),
 ]
+# Computed once, reused by the NUTS panel below.
+ensemble = jax.device_get(ensemble_covs(param_samples, ref_points))
+
 for ax, (field, color, label, with_ensemble) in zip(axes, configs):
     if with_ensemble:
-        for i in range(n_ensemble):
-            sample_field_i = WPPMCovarianceField(model, {"W": param_samples["W"][i]})
-            segs_i, _ = _ellipse_segments(
-                ref_points, sample_field_i(ref_points), scale=ELLIPSE_SCALE
-            )
-            ax.add_collection(
-                LineCollection(
-                    jax.device_get(segs_i),
-                    colors="#4444cc",
-                    linewidths=0.5,
-                    alpha=0.15,
-                )
-            )
+        plot_ellipses(
+            jax.device_get(ref_points),
+            ensemble,
+            ax=ax,
+            scale=ELLIPSE_SCALE,
+            colors="#4444cc",
+            linewidths=0.5,
+            alpha=0.15,
+        )
+        # A proxy handle: the ensemble is n_ensemble fields sharing one colour,
+        # so labelling it in plot_ellipses would give n_ensemble identical
+        # legend entries.
         ax.plot(
             [],
             [],
@@ -592,10 +585,15 @@ for ax, (field, color, label, with_ensemble) in zip(axes, configs):
             linewidth=1,
             label=f"Posterior samples (n={n_ensemble})",
         )
-    covs = field(ref_points)
-    segs, _ = _ellipse_segments(ref_points, covs, scale=ELLIPSE_SCALE)
-    lc = LineCollection(jax.device_get(segs), colors=color, linewidths=1.2, alpha=0.8)
-    ax.add_collection(lc)
+    plot_ellipses(
+        jax.device_get(ref_points),
+        jax.device_get(field(ref_points)),
+        ax=ax,
+        scale=ELLIPSE_SCALE,
+        colors=color,
+        linewidths=1.2,
+        alpha=0.8,
+    )
     ax.scatter(ref_points[:, 0], ref_points[:, 1], c="g", s=5, zorder=5)
     ax.set_aspect("equal")
     ax.set_xlim(-1.1, 1.1)
@@ -618,26 +616,17 @@ print("  Saved: nuts_vs_map_comparison.png")
 #
 # The three-panel figure above compares like with like; this one is for reading
 # the *disagreements* off directly, which side-by-side panels make you do from
-# memory. It is also the only figure here drawn with psyphy's own `viz` module
-# rather than hand-rolled matplotlib -- `plot_ellipses` takes a list of fields
-# with per-field styling, so four layers are two calls.
+# memory. Four layers in two plot_ellipses calls: the ensemble as a stack, then
+# the three means as a list of fields with per-field styling.
 # ---------------------------------------------------------------------------
 print("[7/7] Overlaying truth, MAP and posterior in one axes...")
 
 # --8<-- [start:overlay]
-# Posterior spread first, so it sits behind the three lines. Shape
-# (n_ensemble, n_ref, 2, 2) is the "several fields" spelling plot_ellipses takes.
-sample_covs = jnp.stack(
-    [
-        WPPMCovarianceField(model, {"W": param_samples["W"][i]})(ref_points)
-        for i in range(n_ensemble)
-    ]
-)
-
+# Posterior spread first, so it sits behind the three lines.
 fig, ax = plt.subplots(figsize=(8, 8))
 plot_ellipses(
     jax.device_get(ref_points),
-    jax.device_get(sample_covs),
+    ensemble,
     ax=ax,
     scale=ELLIPSE_SCALE,
     colors="#4444cc",

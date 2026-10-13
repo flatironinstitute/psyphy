@@ -286,27 +286,27 @@ the ground truth, the fit is honest about what it does not know; where the truth
 *outside* the band, the model is confidently wrong, and no amount of extra draws will fix
 it.
 
-This figure is drawn with **psyphy's own `viz` module**:
-
 ```python title="Overlay with psyphy.viz"
 --8<-- "docs/examples/wppm/nuts_inference_example.py:overlay"
 ```
 
-!!! note "Which figures use `psyphy.viz`, and which cannot"
-    Every ellipse figure on this page can be drawn with `plot_ellipses`, and this one is.
-    The function takes either a single `(n_points, 2, 2)` field, a list of fields to
-    overlay with per-field colours and labels, or the `(n_samples, n_points, 2, 2)` stack
-    that `sample()` and `rsample()` return; that last spelling is exactly the posterior
-    ensemble, so no loop over draws is needed.
+!!! note "Every ellipse here is drawn by `psyphy.viz`"
+    All three covariance figures on this page go through `plot_ellipses`, which accepts the
+    covariances in whichever shape you already have:
 
-    Steps 6 and 7 still build their collections by hand, for historical reasons: they
-    predate the `viz` module and carry a local copy of what is now
-    `psyphy.viz.geometry.ellipse_segments`. Migrating them is cosmetic and changes no
-    output.
+    | shape | meaning |
+    |---|---|
+    | `(n_points, 2, 2)` | one field, for instance the posterior mean |
+    | list of `(n_points, 2, 2)` | several fields overlaid, each with its own colour, width, linestyle and legend entry |
+    | `(n_samples, n_points, 2, 2)` | a stack of fields, which is exactly what `sample()` returns |
 
-    The trace plot in Step 5 is the exception, and not for want of trying. It is a
-    convergence diagnostic over chains rather than a field of covariances, so it belongs to
-    ArviZ; `psyphy.viz` deliberately covers stimulus-space geometry only.
+    That third spelling is why the posterior ensemble needs no loop over draws: the whole
+    band is one call. The script's `ensemble_covs()` helper builds that array once and all
+    three figures reuse it.
+
+    The trace plot in Step 5 is the one figure `psyphy.viz` does not draw, and that is a
+    scope decision rather than a gap. It is a convergence diagnostic over chains, not a
+    field of covariances in stimulus space, so it belongs to ArviZ.
 
 <div align="center">
   <img src="../plots/nuts_overlay.png" width="650"/>
