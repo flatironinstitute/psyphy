@@ -232,9 +232,7 @@ the ground truth, the fit is honest about what it does not know; where the truth
 *outside* the band, the model is confidently wrong, and no amount of extra draws will fix
 it.
 
-This is also the one figure here drawn with **psyphy's own `viz` module** rather than
-hand-rolled matplotlib. `plot_ellipses` takes a list of fields with per-field styling, so
-four layers are two calls:
+This is also the one figure here drawn with **psyphy's own `viz` module**:
 
 ```python title="Overlay with psyphy.viz"
 --8<-- "docs/examples/wppm/nuts_inference_example.py:overlay"
