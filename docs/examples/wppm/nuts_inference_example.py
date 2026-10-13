@@ -392,14 +392,14 @@ try:
     # Trace plot. ArviZ draws one panel per *scalar* element of W, and W here has
     # 3*3*2*3 = 54 of them -- past rcParams["plot.max_subplots"] (40), and
     # illegible even if that limit is raised. So plot one readable slice: the
-    # 3x3 basis coefficients at the first stimulus and embedding dimension.
+    # 3x3 basis coefficients at the first Model and embedding dimension.
     #
     # NOTE (arviz >= 1.0): plot_trace returns an arviz_plots PlotCollection, not
     # an array of matplotlib axes, so it is saved with pc.savefig(). The 0.x
     # kwargs `compact=` and `figsize=` no longer exist and raise if passed.
     # How to read the resulting figure:
     #   * W has shape (3, 3, 2, 3) = (deg_x, deg_y, U_row, U_col). The first two
-    #     axes index the Chebyshev basis -- degree along stimulus dimension 1 and
+    #     axes index the Chebyshev basis -- degree along Model dimension 1 and
     #     along dimension 2 -- and the last two index the entry of U(x), where
     #     Sigma = U U^T + diag_term * I.
     #   * coords={"W_dim_2": 0, "W_dim_3": 0} fixes U[0, 0] and leaves the 3x3
@@ -451,7 +451,7 @@ print("[6/7] Plotting posterior predictive covariance field...")
 
 _THETAS = jnp.linspace(0, 2 * jnp.pi, 80)
 _UNIT_CIRCLE = jnp.vstack([jnp.cos(_THETAS), jnp.sin(_THETAS)])
-ELLIPSE_SCALE = 0.3
+ELLIPSE_SCALE = 1.2 # 
 
 
 def _ellipse_segments(centers, covs, *, scale, jitter=0.0):
@@ -677,8 +677,8 @@ ax.legend(loc="upper left", fontsize=9)
 ax.set_aspect("equal")
 ax.set_xlim(-1.1, 1.1)
 ax.set_ylim(-1.1, 1.1)
-ax.set_xlabel("Stimulus dimension 1")
-ax.set_ylabel("Stimulus dimension 2")
+ax.set_xlabel("Model dimension 1")
+ax.set_ylabel("Model dimension 2")
 ax.set_title(
     f"Truth vs MAP vs posterior  ({MODE}: mc={MC_SAMPLES}, "
     f"{NUM_CHAINS}×{NUM_SAMPLES} draws, ellipses ×{ELLIPSE_SCALE})"
