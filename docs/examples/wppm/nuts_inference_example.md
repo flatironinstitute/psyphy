@@ -5,6 +5,44 @@ This tutorial demonstrates **full posterior inference** using the No-U-Turn Samp
 The companion script can be found at
 [`nuts_inference_example.py`](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/nuts_inference_example.py).
 
+??? note "How to run the script"
+
+    An install of psyphy on its own is not enough. This page needs three optional
+    dependencies, none of which psyphy requires by default.
+
+    ```bash
+    pip install 'psyphy[sampling,diagnostics,viz]'
+    ```
+
+    | extra | brings in | what it is for |
+    |---|---|---|
+    | `sampling` | `blackjax>=1.4,<2` | `NUTSSampler` itself |
+    | `diagnostics` | `arviz>=1.0` | `MCMCPosterior.to_arviz()`, R-hat, ESS, the trace plot |
+    | `viz` | `matplotlib>=3.5` | every figure on this page |
+
+    Two of these set a Python floor above psyphy's own `>=3.10`: `blackjax` 1.4+
+    needs **3.11 or newer**, and every `arviz` 1.x needs **3.12 or newer**. On an
+    older interpreter the extra resolves to nothing and the relevant call raises an
+    `ImportError` that says so. psyphy itself is unaffected, and nothing here is
+    needed for MAP fitting.
+
+    Everything on this page comes from one script. Pick a preset by how much compute
+    you want to spend:
+
+    ```bash
+    # smoke test: 9 refs, 50 MC samples, 2 chains x (100 warmup + 150 draws)
+    python nuts_inference_example.py --mode quick
+
+    # 25 refs, 500 MC samples, 4 chains x (500 + 500). Minutes on a GPU.
+    python nuts_inference_example.py --mode balanced
+
+    # 25 refs, 2000 MC samples, 4 chains x (1000 + 1000). Wants a GPU.
+    python nuts_inference_example.py --mode full
+    ```
+
+    `quick` exists so the page can be regenerated on a laptop. Its diagnostics are
+    deliberately not publication grade; see Step 5.
+
 ---
 
 ## Why MCMC instead of MAP?
@@ -46,23 +84,7 @@ In this tutorial, we use the MC-based likelihood which is estimated via Monte Ca
 
 ## Step-by-step walkthrough
 
-### Step 0 — Install requirements
-
-```bash
-pip install 'psyphy[sampling,diagnostics,viz]'
-# sampling    -> blackjax>=1.4,<2   (needs Python >= 3.11)
-# diagnostics -> arviz>=1.0         (needs Python >= 3.12)
-# viz         -> matplotlib>=3.5
-```
-
-!!! note "Python version"
-    Both optional dependencies carry a Python floor set by upstream, above
-    psyphy's own `>=3.10`: `blackjax` 1.4+ requires **3.11+**, and every
-    `arviz` 1.x requires **3.12+**. On an older interpreter the corresponding
-    extra resolves to nothing, and `NUTSSampler.fit()` / `to_arviz()` raise an
-    `ImportError` that says so. `psyphy` itself is unaffected.
-
-### Step 1 — Simulate data
+### Step 1: Simulate data
 
 Same setup as the full MAP example. Data is a `TrialData` object:
 
@@ -70,13 +92,13 @@ Same setup as the full MAP example. Data is a `TrialData` object:
 --8<-- "docs/examples/wppm/nuts_inference_example.py:data"
 ```
 
-### Step 2 — Build the model
+### Step 2: Build the model
 
 ```python title="Model definition"
 --8<-- "docs/examples/wppm/nuts_inference_example.py:build_model"
 ```
 
-### Step 3 — MAP warm-start (recommended)
+### Step 3: MAP warm-start (recommended)
 
 Starting NUTS near the posterior mode dramatically reduces the warmup needed. Run a short MAP fit first:
 
@@ -86,13 +108,13 @@ Starting NUTS near the posterior mode dramatically reduces the warmup needed. Ru
 
 Then pass `map_posterior.params` as `init_params` to `NUTSSampler.fit()`.
 
-### Step 4 — NUTS sampling
+### Step 4: NUTS sampling
 
 ```python title="NUTS sampling with NUTSSampler"
 --8<-- "docs/examples/wppm/nuts_inference_example.py:nuts_fit"
 ```
 
-`NUTSSampler` has the same `fit(model, data)` interface as `MAPOptimizer` — the BlackJAX backend is entirely hidden. It returns an `MCMCPosterior` satisfying the same `ParameterPosterior` protocol as `MAPPosterior`.
+`NUTSSampler` has the same `fit(model, data)` interface as `MAPOptimizer`; the BlackJAX backend is entirely hidden. It returns an `MCMCPosterior` satisfying the same `ParameterPosterior` protocol as `MAPPosterior`.
 
 **Compute settings.** The script takes `--mode`, which selects a preset. The *model* is
 identical in every mode, so only the thoroughness of the fit changes, never what is being
@@ -121,7 +143,7 @@ python nuts_inference_example.py --mode full        # paper-scale MC, 4 x 1000 d
   `mc_samples × n_trials`. Going from `quick` to `full` raises that product by ~440×,
   which is why `full` is a batch job and not something to run interactively.
 - **NUTS cost per draw is not fixed.** It is `O(2^tree_depth)` gradient evaluations, and
-  the depth is data-dependent — commonly 16–64 evaluations per draw. The script therefore
+  the depth is data-dependent, commonly 16 to 64 evaluations per draw. The script therefore
   **times one gradient and prints a bracketed projection** before sampling starts, so you
   can see whether a run fits inside a Slurm time limit before committing to it.
 - **Adaptive warmup runs chains sequentially** (see the two warmup modes below), so wall
@@ -140,7 +162,24 @@ python nuts_inference_example.py --mode full        # paper-scale MC, 4 x 1000 d
 | Adaptive (default, `step_size=None`) | Best quality; adapts step size and mass matrix per chain via `blackjax.window_adaptation`. Chains run sequentially. | `NUTSSampler(num_warmup=200, num_samples=500)` |
 | Fixed (`step_size=<float>`) | Faster with many chains; no adaptation. All chains vmapped in one compiled call. User must choose a good step size. | `NUTSSampler(..., step_size=0.01)` |
 
-### Step 5 — ArviZ diagnostics
+### Step 5: Diagnostics with ArviZ
+
+Sampling gives you draws; it does not tell you whether to trust them. MCMC fails
+quietly, so a chain can look like a result while having explored only part of the
+posterior. **ArviZ** is the standard Python library for that check. It is
+backend-agnostic, so the same diagnostics apply whether the draws came from BlackJAX,
+NumPyro, Stan or PyMC.
+
+psyphy hands your chains over in one call:
+
+```python
+idata = nuts_posterior.to_arviz()
+```
+
+`to_arviz()` converts the `(n_chains, n_draws, *W_shape)` arrays, plus the sampler
+statistics, into ArviZ's format. No reshaping is needed; ArviZ handles
+arbitrary-rank variables natively and computes diagnostics per scalar element of `W`.
+Everything ArviZ offers is then available on `idata`.
 
 ```python title="ArviZ diagnostics"
 --8<-- "docs/examples/wppm/nuts_inference_example.py:arviz_diagnostics"
@@ -156,8 +195,8 @@ python nuts_inference_example.py --mode full        # paper-scale MC, 4 x 1000 d
 </div>
 
 **How to read it.** `W` has shape `(3, 3, 2, 3)` = `(deg_x, deg_y, U_row, U_col)`: the
-first two axes index the Chebyshev basis — degree along stimulus dimension 1 and along
-dimension 2 — and the last two index the entry of `U(x)`, where `Σ = U Uᵀ + diag_term·I`.
+first two axes index the Chebyshev basis, giving degree along stimulus dimension 1 and
+along dimension 2. The last two index the entry of `U(x)`, where `Σ = U Uᵀ + diag_term·I`.
 That is 54 scalars, past ArviZ's `plot.max_subplots` limit and illegible anyway, so the
 figure fixes `U[0, 0]` and plots the remaining 3×3 coefficient grid, laid out *as* that
 grid by `col_wrap=3`.
@@ -168,15 +207,15 @@ grid by `col_wrap=3`.
 | x axis | draw index **within a chain**, post-warmup (warmup draws are discarded, not plotted) |
 | y axis | the value of that coefficient |
 | one coloured line per panel | one chain |
-| black ticks along the bottom | divergences — they appear because `sampler_stats` carries `diverging` under ArviZ's standard name |
+| black ticks along the bottom | divergences; they appear because `sampler_stats` carries `diverging` under ArviZ's standard name |
 
-**What good looks like:** chains overlapping each other, flat, and wiggling fast — the
+**What good looks like:** chains overlapping each other, flat, and wiggling fast, the
 "fuzzy caterpillar". A chain that drifts steadily across the panel has not converged:
 warmup was too short and the sampler is still finding the typical set. That is the single
 most common thing this plot catches, and it is a reason to raise `--mode`, not a reason to
 distrust the model.
 
-It is generated by **ArviZ**, from `MCMCPosterior.to_arviz()` — no psyphy plotting code is
+It is generated by **ArviZ**, from `MCMCPosterior.to_arviz()`; no psyphy plotting code is
 involved. On ArviZ ≥ 1.0 `plot_trace` returns an `arviz_plots` `PlotCollection` (not an
 array of matplotlib axes), so it is saved with `pc.savefig()`; the 0.x kwargs `compact=`
 and `figsize=` no longer exist and raise if passed. For the classic density-plus-trace
@@ -184,17 +223,32 @@ pairing, ArviZ 1.x has a separate `az.plot_trace_dist`.
 
 #### Interpreting diagnostics
 
+Four numbers do most of the work. The first one is the one people forget.
+
 | Diagnostic | What it measures | Good value |
 |---|---|---|
-| **R-hat** | Ratio of between-chain to within-chain variance. Values near 1 indicate convergence. | < 1.01 |
-| **ESS (bulk)** | Effective sample size — how many independent draws the chains are equivalent to. | > 100 per chain |
-| **Acceptance rate** | Fraction of NUTS proposals accepted. Too low → too large step_size. Too high → too small. | 0.6–0.9 |
+| **Divergences** | Transitions where the integrator blew up, usually in a region of high curvature the step size cannot resolve. | **0.** Any divergence makes the run suspect, whatever R-hat says. |
+| **R-hat** | Between-chain variance over within-chain variance; near 1 means the chains agree on the same distribution. | < 1.01 |
+| **ESS (bulk)** | Effective sample size: how many independent draws the chains are worth once autocorrelation is accounted for. | > 100 per chain |
+| **Acceptance rate** | Fraction of NUTS proposals accepted. Far below target means the step size is too large; far above means it is inefficiently small. | 0.6 to 0.9 |
 
-With `--mode quick` (2 chains × 150 draws) R-hat and ESS will not reach textbook
-thresholds, and they are not meant to — use `--mode balanced` or `--mode full`, which exist
-for exactly this reason, before drawing any conclusion from these numbers.
+Divergences come first because the other three can all look healthy while the sampler is
+systematically missing part of the posterior. psyphy records them for you: `sampler_stats`
+carries `diverging`, `energy` and `n_steps` under ArviZ's standard names, so
+`az.plot_energy(idata)` and the divergence ticks on the trace plot work without extra
+wiring.
 
-### Step 6 — Posterior predictive uncertainty
+The thresholds above are not folklore. `< 1.01` and `> 100` are the values recommended in
+Vehtari et al. (2021), which also introduced the rank-normalized, split R-hat that ArviZ
+now computes by default; the original between-chain statistic is Gelman and Rubin (1992).
+Betancourt (2017) is the readable account of why divergences matter and what they indicate
+geometrically. All three are linked under Further reading.
+
+With `--mode quick` (2 chains and 150 draws) R-hat and ESS will not reach these
+thresholds, and they are not meant to. Use `--mode balanced` or `--mode full`, which exist
+for exactly this reason, before drawing any conclusion from the numbers.
+
+### Step 6: Posterior predictive uncertainty
 
 ```python title="Draw posterior parameter samples"
 --8<-- "docs/examples/wppm/nuts_inference_example.py:posterior_samples"
@@ -209,12 +263,12 @@ for exactly this reason, before drawing any conclusion from these numbers.
   <p><em>Faint blue: 30 covariance fields sampled from the posterior. Red: posterior mean. Black: ground truth. The spread of blue ellipses shows where the model is uncertain.</em></p>
 </div>
 
-### Step 7 — MAP vs NUTS comparison
+### Step 7: MAP vs NUTS comparison
 
 The asymmetry between the panels is the point. **MAP can only ever draw one contour**,
 because its posterior is a delta at `θ_MAP`: `MAPPosterior.sample(n)` returns `θ_MAP`
 repeated `n` times, so the ensemble it produces has zero spread. NUTS puts a band around
-the same contour, from *identical downstream code* — `WPPMPredictivePosterior` never asks
+the same contour, from *identical downstream code*. `WPPMPredictivePosterior` never asks
 which kind of posterior it was given. Plotting only the two means would make them look like
 equivalent point estimates and lose the one thing full posterior inference buys you.
 
@@ -224,7 +278,7 @@ equivalent point estimates and lose the one thing full posterior inference buys 
   posterior sample ensemble in faint blue (right).</em></p>
 </div>
 
-### Step 8 — Everything in one axes
+### Step 8: Everything in one axes
 
 Side-by-side panels make you compare from memory. This figure puts all four layers on one
 set of axes so the disagreements can be read off directly: where the posterior band covers
@@ -232,11 +286,27 @@ the ground truth, the fit is honest about what it does not know; where the truth
 *outside* the band, the model is confidently wrong, and no amount of extra draws will fix
 it.
 
-This is also the one figure here drawn with **psyphy's own `viz` module**:
+This figure is drawn with **psyphy's own `viz` module**:
 
 ```python title="Overlay with psyphy.viz"
 --8<-- "docs/examples/wppm/nuts_inference_example.py:overlay"
 ```
+
+!!! note "Which figures use `psyphy.viz`, and which cannot"
+    Every ellipse figure on this page can be drawn with `plot_ellipses`, and this one is.
+    The function takes either a single `(n_points, 2, 2)` field, a list of fields to
+    overlay with per-field colours and labels, or the `(n_samples, n_points, 2, 2)` stack
+    that `sample()` and `rsample()` return; that last spelling is exactly the posterior
+    ensemble, so no loop over draws is needed.
+
+    Steps 6 and 7 still build their collections by hand, for historical reasons: they
+    predate the `viz` module and carry a local copy of what is now
+    `psyphy.viz.geometry.ellipse_segments`. Migrating them is cosmetic and changes no
+    output.
+
+    The trace plot in Step 5 is the exception, and not for want of trying. It is a
+    convergence diagnostic over chains rather than a field of covariances, so it belongs to
+    ArviZ; `psyphy.viz` deliberately covers stimulus-space geometry only.
 
 <div align="center">
   <img src="../plots/nuts_overlay.png" width="650"/>
@@ -247,7 +317,7 @@ This is also the one figure here drawn with **psyphy's own `viz` module**:
 
 !!! note "`scale` and honest ellipse sizes"
     Every figure on this page multiplies the ellipses by `ELLIPSE_SCALE` so they are
-    visible against the grid — they are **not** drawn at true size. `plot_ellipses` also
+    visible against the grid; they are **not** drawn at true size. `plot_ellipses` also
     accepts `scale="auto"`, which sizes the median ellipse to a fraction of the grid
     spacing and can return the factor it used via `return_scale=True`, so a figure can
     report its own magnification.
@@ -257,9 +327,9 @@ This is also the one figure here drawn with **psyphy's own `viz` module**:
 ## Architecture recap
 
 ```
-NUTSSampler.fit(model, data)        ← same interface as MAPOptimizer
+NUTSSampler.fit(model, data)        <- same interface as MAPOptimizer
         ↓  returns
-MCMCPosterior                        ← satisfies ParameterPosterior protocol
+MCMCPosterior                        <- satisfies ParameterPosterior protocol
   .params        → posterior mean W
   .sample(n,key) → n draws {"W": (n, *W_shape)}
   .to_arviz()    → xarray.DataTree (n_chains, n_draws, *W_shape)
@@ -269,13 +339,20 @@ WPPMPredictivePosterior(nuts_posterior, X_test, ...)
   .variance → Var[p(correct | X*, θ) | D]
 ```
 
-`WPPMPredictivePosterior` is permanently agnostic about whether it wraps a `MAPPosterior` or `MCMCPosterior` — the `ParameterPosterior` protocol is the firewall.
+`WPPMPredictivePosterior` is permanently agnostic about whether it wraps a `MAPPosterior` or `MCMCPosterior`; the `ParameterPosterior` protocol is the firewall.
 
 ---
 
 ## Limitations and future extensions
 
-- **Fixed MC key bias**: We introduced a fixed key for the MC-based Oddity-Task likelihood because BlackJAX samplers require a deterministic log density. Using a fixed key introduces a slight bias. Mitigate with larger `MC_SAMPLES` or switch to the neural surrogate likelihood.
+- **Fixed MC key bias**: the MC oddity likelihood is stochastic, and BlackJAX needs a
+  deterministic log density, so one PRNG key is frozen into the closure. That fixes the
+  noise realization rather than removing it, so the sampler targets the posterior implied
+  by that one draw. The size of the effect is worth stating: at `mc_samples=200` the
+  key-to-key spread in the gradient is about 1.5 times the gradient's own magnitude, so
+  this is not a rounding error at low settings. It shrinks as `mc_samples` grows, which is
+  what `--mode balanced` and `--mode full` are for. The real fix is a deterministic
+  likelihood, which is what the neural surrogate provides.
 - **Sequential warmup**: adaptive mode runs one chain at a time. For >8 chains, fixed `step_size` mode + vmap is faster.
 - **Other samplers**: any sampler that produces an `MCMCPosterior` plugs into the same downstream pipeline. Future additions: `MALASampler`, `SGLDSampler`, NumPyro integration.
 
@@ -288,3 +365,18 @@ WPPMPredictivePosterior(nuts_posterior, X_test, ...)
 - Model details: [`wppm_tutorial`](wppm_tutorial.md)
 - BlackJAX documentation: [blackjax-devs.github.io/blackjax](https://blackjax-devs.github.io/blackjax/)
 - ArviZ documentation: [python.arviz.org](https://python.arviz.org/)
+
+On the diagnostics, in the order worth reading them:
+
+- Betancourt (2017), *A Conceptual Introduction to Hamiltonian Monte Carlo*. What NUTS is
+  doing and why divergences indicate a geometry the sampler cannot handle.
+  [arXiv:1701.02434](https://arxiv.org/abs/1701.02434)
+- Vehtari, Gelman, Simpson, Carpenter and Bürkner (2021), *Rank-normalization, folding, and
+  localization: an improved R-hat for assessing convergence of MCMC*. The source of the
+  `R-hat < 1.01` and `ESS > 100` thresholds used above, and of the R-hat ArviZ computes.
+  [Bayesian Analysis 16(2)](https://doi.org/10.1214/20-BA1221)
+- Gelman and Rubin (1992), *Inference from iterative simulation using multiple sequences*.
+  The original between-chain convergence statistic.
+  [Statistical Science 7(4)](https://doi.org/10.1214/ss/1177011136)
+- Hoffman and Gelman (2014), *The No-U-Turn Sampler*. The algorithm this page uses.
+  [JMLR 15](https://jmlr.org/papers/v15/hoffman14a.html)
