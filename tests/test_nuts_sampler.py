@@ -259,3 +259,58 @@ class TestNUTSDownstreamIntegration:
                 post, jnp.stack([refs, comparisons], axis=1), n_samples=3
             )
             assert pred.mean.shape == (1,)
+
+
+# ---------------------------------------------------------------------------
+# Tests: warmup-cost controls (tree-depth cap, prior preconditioning)
+# ---------------------------------------------------------------------------
+
+
+class TestWarmupCostControls:
+    def test_param_scales_match_param_shapes(self, tiny_model):
+        # NUTSSampler multiplies z by these elementwise, so they must line up
+        # leaf-for-leaf with the parameter PyTree.
+        scales = tiny_model.prior.param_scales()
+        params = tiny_model.init_params(jr.PRNGKey(0))
+        assert scales.keys() == params.keys()
+        assert scales["W"].shape == params["W"].shape
+        assert jnp.all(scales["W"] > 0)
+
+    def test_max_num_doublings_caps_tree_size(self, tiny_model, tiny_data):
+        # With a cap of 2 doublings no draw may use more than 2**2 - 1 = 3
+        # leapfrog steps, in either mode.
+        for step_size in (None, 0.01):
+            post = NUTSSampler(
+                num_warmup=10,
+                num_samples=5,
+                num_chains=2,
+                step_size=step_size,
+                max_num_doublings=2,
+                show_progress=False,
+            ).fit(tiny_model, tiny_data)
+            assert jnp.all(post.sampler_stats["n_steps"] <= 3)
+
+    def test_invalid_max_num_doublings_raises(self):
+        with pytest.raises(ValueError, match="max_num_doublings"):
+            NUTSSampler(max_num_doublings=0)
+
+    def test_preconditioning_off_still_samples(self, tiny_model, tiny_data):
+        post = NUTSSampler(
+            num_warmup=10,
+            num_samples=5,
+            num_chains=2,
+            prior_preconditioning=False,
+            show_progress=False,
+        ).fit(tiny_model, tiny_data)
+        assert post._samples["W"].shape == (2, 5, 2, 2, 2, 3)
+
+    def test_preconditioned_draws_are_in_W_space(self, tiny_model, tiny_data):
+        # Starting exactly at init_params, a preconditioned run must report
+        # draws on the W scale (~prior std), not the O(1) z scale it sampled
+        # in. With variance_scale=4e-3, W draws of magnitude ~1 would mean
+        # the z -> W map-back was skipped.
+        init = tiny_model.init_params(jr.PRNGKey(5))
+        post = NUTSSampler(
+            num_warmup=10, num_samples=5, num_chains=2, show_progress=False
+        ).fit(tiny_model, tiny_data, init_params=init)
+        assert float(jnp.max(jnp.abs(post._samples["W"]))) < 0.5

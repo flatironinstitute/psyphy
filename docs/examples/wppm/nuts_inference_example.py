@@ -197,6 +197,10 @@ MAP_MOMENTUM = 0.9
 NUM_WARMUP = _cfg["warmup"]
 NUM_SAMPLES = _cfg["draws"]
 NUM_CHAINS = _cfg["chains"]
+# Tree-depth cap: a draw costs at most 2**MAX_NUM_DOUBLINGS - 1 gradient
+# evaluations (255 here; BlackJAX's default 10 would allow 1023). Check
+# sampler_stats["n_steps"] after the run -- if most draws hit 255, raise it.
+MAX_NUM_DOUBLINGS = 8
 # --8<-- [end:nuts_settings]
 N_ENSEMBLE = _cfg["ensemble"]
 
@@ -328,8 +332,12 @@ print(
     f"  cost probe: one value_and_grad = {_per_grad * 1e3:.1f} ms"
     f"  (mc={MC_SAMPLES}, {n_total} trials)"
 )
-print(f"  {_total_draws} draws total; Mode A runs the {NUM_CHAINS} chains sequentially")
-for _g_per_draw in (16, 32, 64):
+# Chains are vmapped (one batched call), so on a GPU the wall clock is closer
+# to the per-chain figure below than to the all-chains total; on a CPU it is
+# closer to the total. The upper bracket is the tree-depth cap: no draw can
+# cost more than 2**MAX_NUM_DOUBLINGS - 1 gradient evaluations.
+print(f"  {_total_draws} draws total ({NUM_CHAINS} chains vmapped)")
+for _g_per_draw in (16, 64, 2**MAX_NUM_DOUBLINGS - 1):
     _hours = _per_grad * _total_draws * _g_per_draw / 3600.0
     print(f"    at {_g_per_draw:2d} grad evals/draw -> {_hours:7.2f} h")
 # The probe times *execution* of an already-compiled gradient. It therefore
@@ -345,7 +353,7 @@ print("    (excludes one-off XLA compilation of the warmup scan: can be minutes)
 # ---------------------------------------------------------------------------
 print("[4/7] Running NUTS posterior sampling (BlackJAX)...")
 print(f"  {NUM_CHAINS} chains × {NUM_WARMUP} warmup + {NUM_SAMPLES} draws")
-print("  Note: first chain triggers JIT compilation — may take ~30s on CPU.")
+print("  Note: warmup compiles once for all chains — may take ~30s+ before it runs.")
 
 # --8<-- [start:nuts_fit]
 sampler = NUTSSampler(
@@ -354,6 +362,10 @@ sampler = NUTSSampler(
     num_chains=NUM_CHAINS,
     logdensity_key_seed=0,  # fixed MC key → deterministic Hamiltonian
     target_acceptance_rate=0.8,
+    max_num_doublings=MAX_NUM_DOUBLINGS,  # cap: <= 255 grad evals per draw
+    # Sample z = W / prior_std so warmup starts from a metric matched to the
+    # prior scales instead of the identity (the default; shown for clarity).
+    prior_preconditioning=True,
     show_progress=True,
 )
 nuts_posterior = sampler.fit(
@@ -369,6 +381,14 @@ print(
 )
 acc = nuts_posterior.sampler_stats["acceptance_rate"]
 print(f"  Mean acceptance rate: {float(jnp.mean(acc)):.3f}")
+# Fraction of post-warmup draws whose trajectory was cut off by the depth cap.
+# A large fraction means max_num_doublings is limiting mixing.
+_n_steps = nuts_posterior.sampler_stats["n_steps"]
+_at_cap = float(jnp.mean(_n_steps >= 2**MAX_NUM_DOUBLINGS - 1))
+print(
+    f"  Leapfrog steps/draw: mean {float(jnp.mean(_n_steps)):.0f}, "
+    f"{_at_cap:.0%} at the cap ({2**MAX_NUM_DOUBLINGS - 1})"
+)
 
 # ---------------------------------------------------------------------------
 # 5. ArviZ diagnostics

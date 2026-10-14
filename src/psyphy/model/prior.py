@@ -119,6 +119,31 @@ class Prior:
         basis_degrees = self._compute_basis_degree_grid()
         return self.variance_scale * (self.decay_rate**basis_degrees)
 
+    def param_scales(self) -> Params:
+        """
+        Prior standard deviation of every parameter, as a PyTree shaped like
+        ``sample_params()``.
+
+        The prior std depends only on a coefficient's basis degree, so it is
+        broadcast over the trailing (input_dim, embedding_dim) axes of W.
+
+        Used by NUTSSampler to precondition the sampler: coefficients at
+        different degrees have prior scales that differ by orders of magnitude,
+        and sampling W / scale instead of W puts them all on a common O(1)
+        scale.
+
+        Returns
+        -------
+        scales : dict
+            {"W": array with the same shape as sample_params()["W"]}
+        """
+        std = jnp.sqrt(self._compute_W_prior_variances())
+        embedding_dim = self.input_dim + self.extra_embedding_dims
+        # std.shape is the basis grid, e.g. (degree+1, degree+1) for 2D;
+        # append the two trailing W axes and broadcast over them.
+        W_shape = (*std.shape, self.input_dim, embedding_dim)
+        return {"W": jnp.broadcast_to(std[..., None, None], W_shape)}
+
     def sample_params(self, key: Any) -> Params:
         """
         Sample initial parameters from the prior.

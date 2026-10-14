@@ -20,12 +20,7 @@ The companion script can be found at
     | `diagnostics` | `arviz>=1.0` | `MCMCPosterior.to_arviz()`, R-hat, ESS, the trace plot |
     | `viz` | `matplotlib>=3.5` | every figure on this page |
 
-    Two of these set a Python floor above psyphy's own `>=3.10`: `blackjax` 1.4+
-    needs **3.11 or newer**, and every `arviz` 1.x needs **3.12 or newer**. On an
-    older interpreter the extra resolves to nothing and the relevant call raises an
-    `ImportError` that says so. psyphy itself is unaffected, and nothing here is
-    needed for MAP fitting.
-
+  
     Everything on this page comes from one script. Pick a preset by how much compute
     you want to spend:
 
@@ -40,7 +35,7 @@ The companion script can be found at
     python nuts_inference_example.py --mode full
     ```
 
-    `quick` exists so the page can be regenerated on a laptop. Its diagnostics are
+    `quick` exists so the page can be regenerated on a GPU within 2 minutes. Its diagnostics are
     deliberately not publication grade; see Step 5.
 
 ---
@@ -56,14 +51,14 @@ This tells you *where the posterior peaks*, but not *how wide* it is. If the dat
 MCMC (and specifically NUTS) draws samples from the **full posterior** $p(\theta \mid \mathcal{D})$. This enables:
 
 - **Uncertainty quantification**: how spread out is our belief over model parameters?
-- **Posterior predictive distributions**: how uncertain are our predictions at new stimuli?
+- **Posterior predictive distributions**: how uncertain are our predictions at new test points?
 - **Convergence diagnostics**: R-hat and ESS tell you whether the chains have mixed.
 
 ---
 
 ## The posterior predictive distribution
 
-Given posterior samples $\theta_i \sim p(\theta \mid \mathcal{D})$, predictions at new test stimuli $X^*$ are:
+Given posterior samples $\theta_i \sim p(\theta \mid \mathcal{D})$, predictions at new test points $X^*$ are:
 
 $$p(\text{correct} \mid X^*, \mathcal{D}) = \int p(\text{correct} \mid X^*, \theta)\; p(\theta \mid \mathcal{D})\; d\theta \approx \frac{1}{N} \sum_{i=1}^{N} \underbrace{p(\text{correct} \mid X^*, \theta_i)}_{\texttt{OddityTask.predict}(\theta_i,\, X^*)}$$
 
@@ -121,7 +116,7 @@ identical in every mode, so only the thoroughness of the fit changes, never what
 fit:
 
 ```bash
-python nuts_inference_example.py                    # quick (default): laptop smoke test
+python nuts_inference_example.py                    # quick (default): GPU smoke test (3 min) 
 python nuts_inference_example.py --mode balanced    # a real fit, roughly a GPU-hour
 python nuts_inference_example.py --mode full        # paper-scale MC, 4 x 1000 draws
 ```
@@ -130,36 +125,36 @@ python nuts_inference_example.py --mode full        # paper-scale MC, 4 x 1000 d
 --8<-- "docs/examples/wppm/nuts_inference_example.py:compute_settings"
 ```
 
-!!! warning "`quick` is not a fit to interpret"
-    The default exists so this page builds and a laptop run finishes. With 450 trials and
-    50 MC samples the frozen-key posterior (see the determinism note below) is visibly
-    biased, and 150 draws cannot support R-hat or ESS. Read the diagnostics from
-    `--mode balanced` or `--mode full`, not from the default.
+??? note "Runtime notes"
 
-**Runtime notes:**
+    - **The MC likelihood dominates everything.** Each gradient evaluation simulates
+      `mc_samples` Monte Carlo draws for every trial, so cost scales with
+      `mc_samples × n_trials`. Going from `quick` to `full` raises that product by ~440×,
+      which is why `full` is a batch job and not something to run interactively.
+    - **NUTS cost per draw is not fixed.** It is `O(2^tree_depth)` gradient evaluations, and
+      the depth is data-dependent, commonly 16 to 64 evaluations per draw. The script therefore
+      **times one gradient and prints a bracketed projection** before sampling starts, so you
+      can see whether a run fits inside a Slurm time limit before committing to it.
+    - **Tree depth is capped.** `NUTSSampler(max_num_doublings=8)` (the default) limits a draw
+      to at most 2^8 − 1 = 255 gradient evaluations; BlackJAX's own default of 10 allows 1023.
+      If `sampler_stats["n_steps"]` sits at the cap for most draws, trajectories are being
+      truncated: still valid MCMC, but slower mixing. Raise the cap or reparameterize.
+    - **Warmup starts from a prior-scaled metric.** By default the sampler works in
+      `z = W / prior_std` (`prior_preconditioning=True`), so adaptation does not begin from an
+      identity mass matrix that is badly mismatched to coefficients whose scales span
+      0.06 to 0.01. Without this, early warmup runs every draw to the maximum tree depth.
+    - **Chains are vmapped, in both warmup modes.** All chains advance in one compiled call per
+      phase, so XLA compiles once rather than once per chain. Under vmap each step costs as much
+      as the *deepest* tree across chains, which is one more reason for the depth cap.
+      Note: the progress bar moves only when each phase (warmup, sampling) finishes.
 
-- **The MC likelihood dominates everything.** Each gradient evaluation simulates
-  `mc_samples` Monte Carlo draws for every trial, so cost scales with
-  `mc_samples × n_trials`. Going from `quick` to `full` raises that product by ~440×,
-  which is why `full` is a batch job and not something to run interactively.
-- **NUTS cost per draw is not fixed.** It is `O(2^tree_depth)` gradient evaluations, and
-  the depth is data-dependent, commonly 16 to 64 evaluations per draw. The script therefore
-  **times one gradient and prints a bracketed projection** before sampling starts, so you
-  can see whether a run fits inside a Slurm time limit before committing to it.
-- **Adaptive warmup runs chains sequentially** (see the two warmup modes below), so wall
-  clock scales linearly with `chains`. `full`'s four chains cost four times one chain.
-- **Progress bars need the `progress` extra.** `show_progress=True` is the default, but the
-  bar comes from `tqdm`, which is optional. Without it a multi-hour fit prints nothing and
-  looks hung.
-- **Only `quick` writes the plot filenames this page embeds.** Other modes suffix them
-  (`nuts_trace_plot_full.png`), so a heavy run cannot silently replace the documented
-  figures.
+
 
 #### Two warmup modes
 
 | Mode | When | How |
 |------|------|-----|
-| Adaptive (default, `step_size=None`) | Best quality; adapts step size and mass matrix per chain via `blackjax.window_adaptation`. Chains run sequentially. | `NUTSSampler(num_warmup=200, num_samples=500)` |
+| Adaptive (default, `step_size=None`) | Best quality; adapts step size and mass matrix per chain via `blackjax.window_adaptation`, starting from a prior-scaled metric. Chains vmapped; each adapts independently. | `NUTSSampler(num_warmup=200, num_samples=500)` |
 | Fixed (`step_size=<float>`) | Faster with many chains; no adaptation. All chains vmapped in one compiled call. User must choose a good step size. | `NUTSSampler(..., step_size=0.01)` |
 
 ### Step 5: Diagnostics with ArviZ
@@ -300,13 +295,7 @@ it.
     | list of `(n_points, 2, 2)` | several fields overlaid, each with its own colour, width, linestyle and legend entry |
     | `(n_samples, n_points, 2, 2)` | a stack of fields, which is exactly what `sample()` returns |
 
-    That third spelling is why the posterior ensemble needs no loop over draws: the whole
-    band is one call. The script's `ensemble_covs()` helper builds that array once and all
-    three figures reuse it.
-
-    The trace plot in Step 5 is the one figure `psyphy.viz` does not draw, and that is a
-    scope decision rather than a gap. It is a convergence diagnostic over chains, not a
-    field of covariances in stimulus space, so it belongs to ArviZ.
+   
 
 <div align="center">
   <img src="../plots/nuts_overlay.png" width="650"/>
@@ -353,7 +342,7 @@ WPPMPredictivePosterior(nuts_posterior, X_test, ...)
   this is not a rounding error at low settings. It shrinks as `mc_samples` grows, which is
   what `--mode balanced` and `--mode full` are for. The real fix is a deterministic
   likelihood, which is what the neural surrogate provides.
-- **Sequential warmup**: adaptive mode runs one chain at a time. For >8 chains, fixed `step_size` mode + vmap is faster.
+- **Vmapped chains share a clock**: both modes vmap over chains, so every NUTS step waits for the slowest chain's tree. With many chains on a CPU, the batch can be slower than the sum of its parts; on a GPU it is usually close to the cost of one chain.
 - **Other samplers**: any sampler that produces an `MCMCPosterior` plugs into the same downstream pipeline. Future additions: `MALASampler`, `SGLDSampler`, NumPyro integration.
 
 ---
