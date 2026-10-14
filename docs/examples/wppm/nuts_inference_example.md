@@ -20,7 +20,7 @@ The companion script can be found at
     | `diagnostics` | `arviz>=1.0` | `MCMCPosterior.to_arviz()`, R-hat, ESS, the trace plot |
     | `viz` | `matplotlib>=3.5` | every figure on this page |
 
-  
+
     Everything on this page comes from one script. Pick a preset by how much compute
     you want to spend:
 
@@ -40,19 +40,58 @@ The companion script can be found at
 
 ---
 
-## Why MCMC instead of MAP?
+## Background: why MCMC, and what it is
 
 MAP estimation returns a single point estimate $\theta_\text{MAP}$:
 
 $$\theta_\text{MAP} = \arg\max_\theta \left[\log p(\mathcal{D} \mid \theta) + \log p(\theta)\right]$$
 
-This tells you *where the posterior peaks*, but not *how wide* it is. If the data are sparse or ambiguous, the posterior may be broad and the MAP estimate alone can't tell us that.
+This tells you *where the posterior peaks*, but not *how wide* it is. If the data are
+sparse or ambiguous the posterior may be broad, and the MAP estimate alone cannot tell you
+that. For a threshold contour the difference is the whole point: a point estimate gives one
+curve, where what you want to report is a curve with a band around it.
 
-MCMC (and specifically NUTS) draws samples from the **full posterior** $p(\theta \mid \mathcal{D})$. This enables:
+What we actually want instead is the posterior $p(\theta \mid \mathcal{D})$, the full distribution
+over parameters given the data. Bayes' rule writes it down in one line, but the line
+contains an integral over all of parameter space that nobody can evaluate here: `W` has 54
+entries in the smallest setting on this page. We cannot plot the posterior, and we cannot
+integrate against it directly.
+
+[Markov chain Monte Carlo](https://en.wikipedia.org/wiki/Markov_chain_Monte_Carlo) sidesteps
+that. Instead of computing the distribution, you construct a random walk whose long-run
+visiting frequency *is* that distribution. Run it long enough and the places it has been
+form a sample from the posterior, which is all you need: averages over the sample
+approximate averages over the posterior, and the spread of the sample is the uncertainty.
+Nothing is ever normalised, which is the trick, because the intractable integral is exactly
+the normalising constant.
+
+The catch is building a walk that explores efficiently. A naive random walk works in two or
+three dimensions and fails badly in fifty, where almost every direction you could step in
+leads somewhere less probable, so nearly all proposals are rejected and the chain crawls.
+[Hamiltonian Monte Carlo](https://en.wikipedia.org/wiki/Hamiltonian_Monte_Carlo) fixes this
+by using the *gradient* of the log posterior: it gives the parameter vector a random
+momentum and simulates it rolling along the posterior's own geometry, so a single proposal
+can travel a long way and still be accepted. **NUTS**, the No-U-Turn Sampler of
+[Hoffman and Gelman (2014)](https://jmlr.org/papers/v15/hoffman14a.html), removes the one
+awkward tuning knob by extending each trajectory until it starts to double back on itself.
+Betancourt's [*Conceptual Introduction to Hamiltonian Monte Carlo*](https://arxiv.org/abs/1701.02434)
+is the readable account of why this works and where it fails; it is worth an hour if you
+intend to trust these numbers.
+
+Two things follow for psyphy, and both shape this page:
+
+1. **The sampler needs gradients**, which is why the log posterior is written in JAX and
+   why `NUTSSampler` can hand it straight to BlackJAX.
+2. **The sampler needs the log density to be a fixed function.** psyphy's oddity likelihood
+   is estimated by Monte Carlo simulation, so it is *not* fixed; it returns a slightly
+   different number each call. That tension is real, and the determinism note below explains
+   what is done about it.
+
+What you get in exchange for the extra compute:
 
 - **Uncertainty quantification**: how spread out is our belief over model parameters?
 - **Posterior predictive distributions**: how uncertain are our predictions at new test points?
-- **Convergence diagnostics**: R-hat and ESS tell you whether the chains have mixed.
+- **Convergence diagnostics**: unlike optimisation, MCMC can tell you when it has failed.
 
 ---
 
@@ -116,7 +155,7 @@ identical in every mode, so only the thoroughness of the fit changes, never what
 fit:
 
 ```bash
-python nuts_inference_example.py                    # quick (default): GPU smoke test (3 min) 
+python nuts_inference_example.py                    # quick (default): GPU smoke test (3 min)
 python nuts_inference_example.py --mode balanced    # a real fit, roughly a GPU-hour
 python nuts_inference_example.py --mode full        # paper-scale MC, 4 x 1000 draws
 ```
@@ -218,7 +257,7 @@ pairing, ArviZ 1.x has a separate `az.plot_trace_dist`.
 
 #### Interpreting diagnostics
 
-Four numbers do most of the work. The first one is the one people forget.
+The 4 most important Diagnostics:
 
 | Diagnostic | What it measures | Good value |
 |---|---|---|
@@ -227,17 +266,24 @@ Four numbers do most of the work. The first one is the one people forget.
 | **ESS (bulk)** | Effective sample size: how many independent draws the chains are worth once autocorrelation is accounted for. | > 100 per chain |
 | **Acceptance rate** | Fraction of NUTS proposals accepted. Far below target means the step size is too large; far above means it is inefficiently small. | 0.6 to 0.9 |
 
-Divergences come first because the other three can all look healthy while the sampler is
-systematically missing part of the posterior. psyphy records them for you: `sampler_stats`
-carries `diverging`, `energy` and `n_steps` under ArviZ's standard names, so
-`az.plot_energy(idata)` and the divergence ticks on the trace plot work without extra
-wiring.
+**Divergences come first**, because the other three can all look healthy while the sampler
+is systematically missing part of the posterior. A divergence means the simulated trajectory
+blew up rather than following the posterior's geometry, which usually points at a region of
+curvature the step size cannot resolve, and the draws you keep are then biased in a way no
+amount of extra sampling fixes. Betancourt's
+[*Conceptual Introduction*](https://arxiv.org/abs/1701.02434) is the place to read what they
+mean geometrically. psyphy records them for you: `sampler_stats` carries `diverging`,
+`energy` and `n_steps` under ArviZ's standard names, so `az.plot_energy(idata)` and the
+divergence ticks on the trace plot work with no extra wiring.
 
-The thresholds above are not folklore. `< 1.01` and `> 100` are the values recommended in
-Vehtari et al. (2021), which also introduced the rank-normalized, split R-hat that ArviZ
-now computes by default; the original between-chain statistic is Gelman and Rubin (1992).
-Betancourt (2017) is the readable account of why divergences matter and what they indicate
-geometrically. All three are linked under Further reading.
+**R-hat** compares chains against each other, so it needs at least two of them; a single
+chain cannot tell you it is stuck. The idea goes back to
+[Gelman and Rubin (1992)](https://doi.org/10.1214/ss/1177011136), but the version ArviZ
+computes is the rank-normalized, split variant of
+[Vehtari et al. (2021)](https://doi.org/10.1214/20-BA1221), which is also where the
+`< 1.01` and `> 100` thresholds above come from. They are recommendations from that paper
+rather than folklore, and the paper is worth skimming for *why* the older `< 1.1` rule of
+thumb turned out to be too lenient.
 
 With `--mode quick` (2 chains and 150 draws) R-hat and ESS will not reach these
 thresholds, and they are not meant to. Use `--mode balanced` or `--mode full`, which exist
@@ -295,7 +341,7 @@ it.
     | list of `(n_points, 2, 2)` | several fields overlaid, each with its own colour, width, linestyle and legend entry |
     | `(n_samples, n_points, 2, 2)` | a stack of fields, which is exactly what `sample()` returns |
 
-   
+
 
 <div align="center">
   <img src="../plots/nuts_overlay.png" width="650"/>
@@ -355,17 +401,21 @@ WPPMPredictivePosterior(nuts_posterior, X_test, ...)
 - BlackJAX documentation: [blackjax-devs.github.io/blackjax](https://blackjax-devs.github.io/blackjax/)
 - ArviZ documentation: [python.arviz.org](https://python.arviz.org/)
 
-On the diagnostics, in the order worth reading them:
+The papers behind the method and the diagnostics, cited where they are used above and
+collected here:
 
-- Betancourt (2017), *A Conceptual Introduction to Hamiltonian Monte Carlo*. What NUTS is
-  doing and why divergences indicate a geometry the sampler cannot handle.
-  [arXiv:1701.02434](https://arxiv.org/abs/1701.02434)
-- Vehtari, Gelman, Simpson, Carpenter and Bürkner (2021), *Rank-normalization, folding, and
-  localization: an improved R-hat for assessing convergence of MCMC*. The source of the
-  `R-hat < 1.01` and `ESS > 100` thresholds used above, and of the R-hat ArviZ computes.
-  [Bayesian Analysis 16(2)](https://doi.org/10.1214/20-BA1221)
-- Gelman and Rubin (1992), *Inference from iterative simulation using multiple sequences*.
-  The original between-chain convergence statistic.
-  [Statistical Science 7(4)](https://doi.org/10.1214/ss/1177011136)
-- Hoffman and Gelman (2014), *The No-U-Turn Sampler*. The algorithm this page uses.
-  [JMLR 15](https://jmlr.org/papers/v15/hoffman14a.html)
+> Hoffman, M. D., & Gelman, A. (2014). *The No-U-Turn Sampler: adaptively setting path
+> lengths in Hamiltonian Monte Carlo.* Journal of Machine Learning Research, 15, 1593-1623.
+> [jmlr.org](https://jmlr.org/papers/v15/hoffman14a.html)
+>
+> Betancourt, M. (2017). *A Conceptual Introduction to Hamiltonian Monte Carlo.*
+> [arXiv:1701.02434](https://arxiv.org/abs/1701.02434)
+>
+> Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2021).
+> *Rank-normalization, folding, and localization: an improved $\widehat{R}$ for assessing
+> convergence of MCMC.* Bayesian Analysis, 16(2), 667-718.
+> [doi:10.1214/20-BA1221](https://doi.org/10.1214/20-BA1221)
+>
+> Gelman, A., & Rubin, D. B. (1992). *Inference from iterative simulation using multiple
+> sequences.* Statistical Science, 7(4), 457-472.
+> [doi:10.1214/ss/1177011136](https://doi.org/10.1214/ss/1177011136)
