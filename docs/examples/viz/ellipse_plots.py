@@ -69,7 +69,7 @@ def save(fig, name: str) -> None:
 def main() -> int:
     # --8<-- [start:single]
     centers, covs = example_field()
-  
+
     # One field. The default scale=1.0 draws true size. ellipses are small
     # relative to the grid.
     fig, ax = plt.subplots(figsize=(5, 5), dpi=150)
