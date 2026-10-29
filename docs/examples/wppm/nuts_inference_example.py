@@ -587,35 +587,24 @@ print("[5/7] Plotting posterior samples and the posterior mean field...")
 
 ELLIPSE_SCALE = 1.2  # magnification; ellipses are not drawn at true size
 
-
-def ensemble_covs(param_samples, points):
-    """Covariance field at `points` for every posterior sample.
-
-    Returns (n_samples, n_points, 2, 2), which is the "several fields" spelling
-    plot_ellipses accepts, so the whole ensemble draws in one call.
-    """
-    return jnp.stack(
-        [
-            WPPMCovarianceField(model, {"W": param_samples["W"][i]})(points)
-            for i in range(param_samples["W"].shape[0])
-        ]
-    )
-
-
-# Draw posterior parameter samples
+# Posterior samples as covariance fields
 # --8<-- [start:posterior_samples]
-n_ensemble = N_ENSEMBLE  # number of samples to visualize
-param_samples = nuts_posterior.sample(n_ensemble, key=jr.PRNGKey(0))
-# param_samples["W"].shape == (n_ensemble, *W_shape)
+fields = WPPMCovarianceFieldSamples.from_posterior(
+    nuts_posterior
+)  # every stored sample
+# (n_samples, n_ref, 2, 2): one field per sample
+covs_samples = fields(ref_points)
+# every k-th sample, so the plot shows n_ensemble contours from all chains
+n_ensemble = N_ENSEMBLE
+covs_ensemble = covs_samples[:: fields.n_samples // n_ensemble]
 # --8<-- [end:posterior_samples]
 
-# Posterior mean covariance field, E[Σ(x)]: Σ is computed for every stored
-# sample and the matrices are averaged. Not
+# Posterior mean covariance field, E[Σ(x)]: Σ is computed for every sample and
+# the matrices are averaged. Not
 # WPPMCovarianceField(model, nuts_posterior.params): params is the mean
 # parameter E[W], and Σ is nonlinear in W, so Σ(E[W]) comes out far too
 # small. See the WPPMCovarianceFieldSamples docstring.
 # --8<-- [start:posterior_mean]
-fields = WPPMCovarianceFieldSamples.from_posterior(nuts_posterior)  # all samples
 covs_mean = fields.mean(ref_points)  # (n_ref, 2, 2)
 # --8<-- [end:posterior_mean]
 covs_truth = truth_field(ref_points)
@@ -627,7 +616,7 @@ fig, ax = plt.subplots(figsize=(7, 7))
 # (n_ensemble, n_ref, 2, 2) is the "several fields" shape plot_ellipses takes
 plot_ellipses(
     jax.device_get(ref_points),
-    jax.device_get(ensemble_covs(param_samples, ref_points)),
+    jax.device_get(covs_ensemble),
     ax=ax,
     scale=ELLIPSE_SCALE,
     colors="C0",
@@ -683,13 +672,9 @@ print("[5b/7] Pointwise credible band on the threshold contours...")
 
 
 # --8<-- [start:credible_band]
-N_BAND = min(400, NUM_CHAINS * NUM_SAMPLES)  # posterior samples to use for the band
 CI_PROB = 0.89  # ArviZ's default, so the band and az.summary match
 
-band_fields = WPPMCovarianceFieldSamples.from_posterior(
-    nuts_posterior, N_BAND, key=jr.PRNGKey(1)
-)
-band = band_fields.band(ref_points, ci_prob=CI_PROB)
+band = fields.band(ref_points, ci_prob=CI_PROB)
 # band.lower / .median / .upper  (n_ref, n_directions): contour radius per direction
 # band.directions  (n_directions, 2): closed, so a filled polygon has no seam
 # --8<-- [end:credible_band]
@@ -733,7 +718,7 @@ ax.set_xlabel("Model dimension 1")
 ax.set_ylabel("Model dimension 2")
 ax.set_title(
     f"Pointwise {CI_PROB:.0%} credible band on the threshold contour\n"
-    f"{N_BAND} samples, chains={NUM_CHAINS}, samples={NUM_SAMPLES}, MC_samples={MC_SAMPLES}"
+    f"chains={NUM_CHAINS}, samples={NUM_SAMPLES}, MC_samples={MC_SAMPLES}"
 )
 ax.legend(loc="upper right", fontsize=8)
 ax.grid(True, alpha=0.3)
@@ -748,8 +733,8 @@ print("[5c/7] Nested credible bands at one reference point...")
 
 # --8<-- [start:nested_bands]
 # A sequence of probabilities gives one interval per level in a single call,
-# over the same draws the band above used:
-nested = band_fields.band(ref_points, ci_prob=[0.5, 0.8, 0.95])
+# over the same samples the band above used:
+nested = fields.band(ref_points, ci_prob=[0.5, 0.8, 0.95])
 # nested.lower / .median / .upper  (n_levels, n_ref, n_directions)
 # nested.ci_prob                    (0.5, 0.8, 0.95), the order of that axis
 # One shape for all three, so nested.lower[i] and nested.median[i] line up and
@@ -792,7 +777,7 @@ ax.set_xlabel("Model dimension 1")
 ax.set_ylabel("Model dimension 2")
 ax.set_title(
     "Nested credible bands on one threshold contour\n"
-    f"ci_prob=[0.5, 0.8, 0.95], {N_BAND} samples"
+    f"ci_prob=[0.5, 0.8, 0.95], {fields.n_samples} samples"
 )
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles[::-1], labels[::-1], loc="upper right", fontsize=8)
@@ -880,8 +865,8 @@ configs = [
         True,
     ),
 ]
-# Computed once, reused by the NUTS panel below.
-ensemble = jax.device_get(ensemble_covs(param_samples, ref_points))
+# the ensemble from section 5, reused by the NUTS panel below
+ensemble = jax.device_get(covs_ensemble)
 
 for ax, (field, color, label, with_ensemble) in zip(axes, configs):
     if with_ensemble:
