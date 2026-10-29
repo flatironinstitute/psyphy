@@ -184,12 +184,11 @@ backend stays hidden. Each chain runs a warmup phase, where the step size and ma
 are tuned and the samples discarded, then a sampling phase where the tuning is frozen and
 every sample is kept. The code and ArviZ call these draws. We say samples.
 
-What comes back is an `MCMCPosterior`. We use 3 things on it:
+What comes back is an `MCMCPosterior`. We use 2 things on it:
 
 | call | returns | used in |
 |---|---|---|
-| `nuts_posterior.sample(n, key=...)` | `n` samples, `{"W": (n, *W_shape)}` | Step 5, the contour ensemble |
-| `WPPMCovarianceFieldSamples.from_posterior(nuts_posterior)` | the draws of the field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ | Step 5, the red contours and the band |
+| [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`.from_posterior(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.band(x)` for a credible band. Pass `n` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
 | `covariance_to_arviz(nuts_posterior, points)` | $\Sigma$ at chosen points for every sample, in ArviZ's format | [the diagnostics page](mcmc_diagnostics.md) |
 
 One sample is one complete covariance field, so one threshold contour at every reference
@@ -210,15 +209,16 @@ fit, [`WPPMPredictivePosterior`](../../reference/posterior.md#psyphy.posterior.W
 ### Step 5: Plotting posterior samples and credible intervals
 
 Every sample is a complete covariance field, so the ensemble of samples is an ensemble of
-threshold contours.
+threshold contours. `from_posterior` holds every stored sample. Called at the reference
+points, it gives one $\Sigma$ per sample and point. We draw every k-th of them, so the
+plot shows `n_ensemble` contours from all chains.
 
-```python title="Draw posterior parameter samples"
+```python title="Draw posterior samples as covariance fields"
 --8<-- "docs/examples/wppm/nuts_inference_example.py:posterior_samples"
 ```
 
-For one summary field,
-[`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`.mean`
-builds $\Sigma$ from each sample and averages the matrices. The other route,
+For one summary field, `.mean` builds $\Sigma$ from each sample and averages the matrices.
+The other route,
 `WPPMCovarianceField(model, posterior.params)`, averages the samples of $W$ first and builds a
 single field from that mean parameter. The model is nonlinear in its parameters, so the two
 orders do not agree: averaging first drops the spread between samples. It reports contours
@@ -245,19 +245,20 @@ data constrain the threshold, wide spread means they do not. This is the figure 
 of the page, repeated here because it is what the snippet above produces.
 
 A cloud of contours is the full answer, but a paper reports an interval. psyphy computes
-one with `.band` on the same object, which takes the points to evaluate at. The draws are
-the ones the object was built with, so the band and the mean above describe one sample of
-the posterior.
+one with `.band`, a method on the same class, at the points we pass. The ensemble, the
+mean and the band all come from the same samples.
 
 ??? note "What to pass, and what we get back"
 
     | argument | what to pass |
     |---|---|
-    | `posterior` | the fitted posterior, here the `MCMCPosterior` from Step 4 |
     | `points` | the reference points, `(n_points, 2)` |
     | `ci_prob` | how much posterior mass the interval holds. `0.89` by default, matching ArviZ |
     | `ci_kind` | `"eti"` for equal-tailed, `"hdi"` for the narrowest interval of that mass |
-    | `n_samples`, `key` | how many samples to use, and the key to draw them with |
+    | `n_directions` | how many directions each contour is measured along. `181` by default, one every two degrees |
+
+    The samples the band uses are the ones the object was built with. `from_posterior` takes
+    `n` and `key` to build it from a random subset.
 
     What we get back is a
     [`ContourBand`](../../reference/model.md#psyphy.model.ContourBand): `lower`,
