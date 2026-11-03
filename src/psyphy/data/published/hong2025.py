@@ -150,7 +150,6 @@ PAPER_HYPERPARAMS: Mapping[str, Any] = {
     "momentum": 0.2,  # 'heavy-ball' momentum
     "total_steps": 1500,  # gradient steps per restart
     "n_restarts": 3,  # independent prior draws; the lowest final loss wins
-    # Hong et al tried 3.
     # -- Reporting ---------------------------------------------------------
     # The criterion the paper's thresholds are defined at: midway between
     # chance (1/3) and perfect, for a 3-alternative task

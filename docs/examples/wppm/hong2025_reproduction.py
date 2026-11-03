@@ -606,8 +606,18 @@ def stage3_refit(
             f"  restart {r}: loss {losses[0]:.5f} -> {losses[-1]:.5f}"
             f"  ({time.time() - t0:.1f}s)"
         )
+        if not np.isfinite(losses[-1]):
+            # nan < anything is False, so a non-finite best would never lose
+            # to a later, finite restart: discard it instead of keeping it.
+            print(f"  restart {r}: non-finite final loss, discarded")
+            continue
         if best is None or losses[-1] < best[1]:
             best = (posterior.params, losses[-1], list(losses))
+    if best is None:
+        raise RuntimeError(
+            f"all {cfg['restarts']} restarts ended with a non-finite loss; "
+            "no fit to save"
+        )
     params, _, loss_hist = best
 
     # --8<-- [start:save_fit]
