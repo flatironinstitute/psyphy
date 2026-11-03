@@ -884,7 +884,9 @@ class WPPMCovarianceFieldSamples:
     >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
     >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
     >>> ref_points = jnp.array([[-0.5, -0.5], [0.5, 0.5]])  # (n_points=2, d=2)
-    >>> fields = WPPMCovarianceFieldSamples.from_prior(model, n=50, key=jr.PRNGKey(0))
+    >>> fields = WPPMCovarianceFieldSamples.from_prior(
+    ...     model, n_samples=50, key=jr.PRNGKey(0)
+    ... )
     >>> fields(ref_points).shape  # (n_samples, n_points, d, d)
     (50, 2, 2, 2)
     >>> fields.mean(ref_points).shape  # (n_points, d, d)
@@ -909,7 +911,7 @@ class WPPMCovarianceFieldSamples:
 
     @classmethod
     def from_posterior(
-        cls, posterior, n_samples: int | None = None, *, key=None
+        cls, posterior, *, n_samples: int | None = None, key=None
     ) -> WPPMCovarianceFieldSamples:
         """
         Draws from a fitted posterior.
@@ -951,7 +953,7 @@ class WPPMCovarianceFieldSamples:
         >>> WPPMCovarianceFieldSamples.from_posterior(posterior).n_samples
         100
         >>> fields = WPPMCovarianceFieldSamples.from_posterior(
-        ...     posterior, 20, key=jr.PRNGKey(0)
+        ...     posterior, n_samples=20, key=jr.PRNGKey(0)
         ... )
         >>> fields.n_samples
         20
@@ -960,20 +962,20 @@ class WPPMCovarianceFieldSamples:
         return cls(posterior.model, draws)
 
     @classmethod
-    def from_prior(cls, model, *, n: int, key) -> WPPMCovarianceFieldSamples:
+    def from_prior(cls, model, *, n_samples: int, key) -> WPPMCovarianceFieldSamples:
         """
         Draws from the model's prior.
 
-        A prior stores no draws, so ``n`` and ``key`` are both required.
+        A prior stores no draws, so ``n_samples`` and ``key`` are both required.
 
         Parameters
         ----------
         model : WPPM
             Model whose prior we draw from.
-        n : int
+        n_samples : int
             Draws to take.
         key : jax.Array
-            PRNG key, split n ways.
+            PRNG key, split n_samples ways.
 
         Returns
         -------
@@ -985,12 +987,12 @@ class WPPMCovarianceFieldSamples:
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
         >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
         >>> fields = WPPMCovarianceFieldSamples.from_prior(
-        ...     model, n=8, key=jr.PRNGKey(0)
+        ...     model, n_samples=8, key=jr.PRNGKey(0)
         ... )
         >>> fields.samples["W"].shape  # (n_samples, degree+1, degree+1, d, m)
         (8, 3, 3, 2, 3)
         """
-        return cls(model, model.prior.sample(n, key=key))
+        return cls(model, model.prior.sample(n_samples, key=key))
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
@@ -1044,7 +1046,7 @@ class WPPMCovarianceFieldSamples:
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
         >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
         >>> fields = WPPMCovarianceFieldSamples.from_prior(
-        ...     model, n=16, key=jr.PRNGKey(0)
+        ...     model, n_samples=16, key=jr.PRNGKey(0)
         ... )
         >>> fields.mean(jnp.array([0.5, 0.3])).shape
         (2, 2)
@@ -1119,7 +1121,7 @@ class WPPMCovarianceFieldSamples:
         >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
         >>> ref_points = jnp.array([[-0.5, -0.5], [0.5, 0.5]])  # (n_points, 2)
         >>> fields = WPPMCovarianceFieldSamples.from_prior(
-        ...     model, n=50, key=jr.PRNGKey(1)
+        ...     model, n_samples=50, key=jr.PRNGKey(1)
         ... )
         >>> fields.band(ref_points).lower.shape  # (n_points, n_directions)
         (2, 181)

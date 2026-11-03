@@ -188,7 +188,7 @@ What comes back is an `MCMCPosterior`. We use 2 things on it:
 
 | call | returns | used in |
 |---|---|---|
-| [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`.from_posterior(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.band(x)` for a credible band. Pass `n` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
+| [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`.from_posterior(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.band(x)` for a credible band. Pass `n_samples` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
 | `covariance_to_arviz(nuts_posterior, points)` | $\Sigma$ at chosen points for every sample, in ArviZ's format | [the diagnostics page](mcmc_diagnostics.md) |
 
 One sample is one complete covariance field, so one threshold contour at every reference
