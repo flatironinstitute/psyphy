@@ -631,7 +631,7 @@ plot_ellipses(
     [jax.device_get(covs_mean), jax.device_get(covs_truth)],
     ax=ax,
     scale=ELLIPSE_SCALE,
-    colors=["#cc2222", "k"],
+    colors=["C3", "k"],
     labels=["Posterior mean", "Ground truth"],
     linewidths=[1.5, 1.2],
     alpha=[0.9, 0.7],
@@ -847,20 +847,20 @@ except ImportError:
 # 7. MAP vs NUTS mean comparison (side-by-side)
 # ---------------------------------------------------------------------------
 fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-# (field, colour, label, draw_the_posterior_ensemble_behind_it)
+# (field, color, label, draw_the_posterior_ensemble_behind_it)
 #
 
 configs = [
     (truth_field, "k", "Ground truth", False),
     (
         WPPMCovarianceField(model, map_posterior.params),
-        "#cc7700",
+        "C1",
         f"MAP ({MAP_STEPS} steps)",
         False,
     ),
     (
         fields.mean,
-        "#cc2222",
+        "C3",
         f"NUTS mean ({NUM_CHAINS}×{NUM_SAMPLES} samples) + {n_ensemble} of them shown",
         True,
     ),
@@ -879,7 +879,7 @@ for ax, (field, color, label, with_ensemble) in zip(axes, configs):
             linewidths=0.5,
             alpha=0.15,
         )
-        # A proxy handle: the ensemble is n_ensemble fields sharing one colour,
+        # A proxy handle: the ensemble is n_ensemble fields sharing one color,
         # so labelling it in plot_ellipses would give n_ensemble identical
         # legend entries.
         ax.plot(
@@ -945,7 +945,7 @@ plot_ellipses(
     ],
     ax=ax,
     scale=ELLIPSE_SCALE,
-    colors=["k", "#cc7700", "#cc2222"],
+    colors=["k", "C1", "C3"],
     labels=["Ground truth", f"MAP ({MAP_STEPS} steps)", "NUTS posterior mean"],
     linewidths=[1.2, 1.4, 1.6],
     linestyles=["-", "--", "-"],
@@ -955,7 +955,7 @@ plot_ellipses(
 # --8<-- [end:overlay]
 
 # plot_ellipses builds its legend from `labels`, one entry per field. The
-# ensemble is n_ensemble fields sharing one colour, so it gets a proxy handle
+# ensemble is n_ensemble fields sharing one color, so it gets a proxy handle
 # instead; labelling it there would produce n_ensemble identical entries.
 ax.plot(
     [],
