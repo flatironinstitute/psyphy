@@ -449,7 +449,7 @@ sense *psyphy's refit is indistinguishable from their fit*.
 
 ## Runtimes
 
-The full refit takes about 16 min on a single GPU. The table breaks the runtime down by
+The full refit takes about 3.5 min on a single GPU. The table breaks the runtime down by
 step.
 
 ??? note "Measured runtimes:"
@@ -461,7 +461,7 @@ step.
     | Exact covariance check | CPU | seconds | 10,609 points, deterministic |
     | Thresholds, paper settings | CPU | ~11 min | 49 refs, `n_theta=16`, `n_length=1000`, `mc=2000` (13.4 s per ref) |
     | Thresholds, `quick` preset | CPU | 20–23 s | `n_length=300`, `mc=500`, smoke tests only |
-    | Refit, full | 1 GPU | ~16 min | 6,000 trials, 1,500 steps, `mc=2000`, 3 restarts of ~317 s |
+    | Refit, full | 1 GPU | ~3.5 min | 6,000 trials, 1,500 steps, `mc=2000`, 3 restarts of ~70 s |
     | The paper's own run | H100 | 14 h | one subject: main fit + 120 bootstrap refits |
 
     The 14-hour figure is per observer, not for the whole paper. The WPPM is fit

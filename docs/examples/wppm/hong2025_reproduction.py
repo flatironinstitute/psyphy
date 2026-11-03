@@ -79,7 +79,7 @@ markdown page. CPU figures are from an Apple Silicon laptop with JAX using
     Stage 3  quick smoke test, 500 trials, 20 steps,
              mc=50 -- the fit itself                      CPU   0.8 s
     Stage 3  full: 6 000 trials, 1 500 steps, mc=2000,
-             3 restarts (3 x ~317 s)                      GPU   ~16 min
+             3 restarts (3 x ~70 s)                       GPU   ~3.5 min
 
 For reference, the paper's own SLURM header requests an H100 for 14 h -- but
 that covers the main fit *plus* 120 bootstrap refits, not a single fit.
