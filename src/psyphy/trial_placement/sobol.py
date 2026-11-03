@@ -32,16 +32,8 @@ class SobolPlacement:
 
     Notes
     -----
-    Not yet tested. Pending two design changes tracked in the trial-placement
-    follow-up issue:
-
-    1. ``TrialBatch`` currently stores stimuli as ``list[tuple[Any, Any]]``
-       (two-stimulus tuples). It should be updated to ``list[np.ndarray]`` each
-       of shape ``(K, d)`` to align with ``TrialData.stimuli`` and allow
-       ``ResponseData.add_batch`` to consume it without conversion.
-
-    2. The zero reference vector is hardcoded here. It should be an explicit
-       parameter.
+    ``TrialBatch`` stores stimuli as ``list[tuple[Any, Any]]``, and the reference
+    vector is fixed at zero.
     """
 
     def __init__(self, dim: int, bounds, seed: int = 0):

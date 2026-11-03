@@ -248,8 +248,9 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         -------
         responses : jnp.ndarray, shape (n_trials,), dtype int32
             Simulated binary responses (1 = correct, 0 = incorrect).
-        p_correct : jnp.ndarray, shape (n_trials,)
-            Estimated (P(correct)) per trial used to draw the responses.
+        probability parameters : tuple[jnp.ndarray]
+            1-tuple ``(p_correct,)``. ``p_correct`` has shape (n_trials,) and holds
+            the estimated P(correct) per trial used to draw the responses.
         """
         stimuli = jnp.asarray(stimuli)
         n_trials = int(stimuli.shape[0])
