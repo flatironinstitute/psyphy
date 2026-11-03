@@ -251,9 +251,8 @@ class WPPMPredictivePosterior:
         # properties, so they have nowhere to take a key, and both read these.
         self._draw_key, self._sweep_key = jr.split(key)
 
-        # Lazy evaluation cache. Annotated explicitly: without it the
-        # initialiser alone makes these `None`, and the `mean`/`variance`
-        # properties then look like they return None rather than an array.
+        # Lazy evaluation cache. The annotation keeps `mean`/`variance`
+        # from reading as returning None.
         self._mean: jnp.ndarray | None = None
         self._variance: jnp.ndarray | None = None
         self._computed = False
@@ -484,9 +483,8 @@ class WPPMPredictivePosterior:
         jnp.ndarray
             Shape (*sample_shape, n_test); or, when ``threshold_pred=True``,
             (*sample_shape, n_test, input_dim, input_dim): one recovered
-            threshold covariance per draw, i.e. genuine samples of Σ_thres
-            rather than a posterior-mean summary. Cost scales linearly in
-            the number of draws requested; see :class:`ThresholdConfig`.
+            threshold covariance per draw. Cost scales linearly in the number
+            of draws requested; see :class:`ThresholdConfig`.
         """
         n = int(jnp.prod(jnp.array(sample_shape))) if sample_shape else 1
         param_samples = self.param_posterior.sample(n, key=key)

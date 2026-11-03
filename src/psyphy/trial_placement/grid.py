@@ -26,8 +26,7 @@ class GridPlacement:
     - grid = your set of allowable trials; this class simply walks through that set.
     - Not yet tested. Pending the same ``TrialBatch`` redesign as ``SobolPlacement``:
       each trial's stimuli should be a single ``np.ndarray`` of shape ``(K, d)``
-      rather than a two-element tuple, to align with the generalized ``TrialData``
-      layout introduced in the data-object refactor.
+      rather than a two-element tuple.
     """
 
     def __init__(self, grid_points):

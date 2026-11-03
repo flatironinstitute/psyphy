@@ -41,8 +41,7 @@ class SobolPlacement:
        ``ResponseData.add_batch`` to consume it without conversion.
 
     2. The zero reference vector is hardcoded here. It should be an explicit
-       parameter so the caller controls which point in stimulus space acts as
-       the reference, rather than always using the origin.
+       parameter.
     """
 
     def __init__(self, dim: int, bounds, seed: int = 0):

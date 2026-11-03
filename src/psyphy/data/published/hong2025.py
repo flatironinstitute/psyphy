@@ -83,8 +83,8 @@ _TRANSFORM_MATRICES = "Transformation matrices"
 #:
 #: The transformation-matrix CSVs on OSF are named
 #: ``M_<From>To<To>_DELL_<date>_copy.csv``. Only one calibration is published,
-#: so this is effectively a constant; it is exposed as a parameter because the
-#: filenames carry it and a future recalibration would change it.
+#: so this is effectively a constant. :func:`fetch_calibration_matrix` takes it
+#: as ``file_date``.
 CALIBRATION_DATE = "02242025"
 
 #: Subject number -> observer initials, as used in the paper and the OSF tree.
@@ -378,10 +378,10 @@ def fetch_calibration_matrix(
 ) -> Path:
     """Download the 2-D W space -> RGB transformation matrix from OSF.
 
-    Separate from :func:`fetch` because this file is not per-subject and does
-    not live under the same OSF folder: it sits in
+    Unlike :func:`fetch`, this file is not per-subject: one copy serves every
+    observer. It sits in
     ``Calibration and transformation/Transformation matrices/``, alongside the
-    monitor colorimetry matrices, and one copy serves every observer.
+    monitor colorimetry matrices, outside the per-subject OSF folder.
 
     Parameters
     ----------
@@ -792,8 +792,8 @@ def build_paper_model(
 
     Notes
     -----
-    Imported lazily so that ``psyphy.data`` does not depend on ``psyphy.model``
-    at import time.
+    Imported lazily: ``psyphy.data`` does not import ``psyphy.model`` at import
+    time.
     """
     from psyphy.model.likelihood import OddityTask, OddityTaskConfig
     from psyphy.model.noise import GaussianNoise
