@@ -122,7 +122,9 @@ def test_mean_over_a_subsample(posterior, X, model):
     business and moves with the JAX version. What has to hold is that the mean
     uses the draws the object kept, whichever they are.
     """
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior, 10, key=jr.PRNGKey(3))
+    fields = WPPMCovarianceFieldSamples.from_posterior(
+        posterior, n_samples=10, key=jr.PRNGKey(3)
+    )
     assert fields.n_samples == 10
 
     by_hand = jnp.mean(
@@ -195,7 +197,9 @@ def test_samples_carries_the_draws(posterior):
 def test_arbitrary_batch_dimensions(posterior, model):
     """A grid of points keeps its shape, with the draws on the leading axis."""
     grid = jnp.zeros((4, 3, 2))  # (4, 3, d=2)
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior, 5, key=jr.PRNGKey(0))
+    fields = WPPMCovarianceFieldSamples.from_posterior(
+        posterior, n_samples=5, key=jr.PRNGKey(0)
+    )
     assert fields(grid).shape == (5, 4, 3, 2, 2)
     assert fields.mean(grid).shape == (4, 3, 2, 2)
 
@@ -205,19 +209,40 @@ def test_arbitrary_batch_dimensions(posterior, model):
 # ==============================================================================
 
 
-def test_from_prior_takes_n_and_key(model):
+def test_from_prior_takes_n_samples_and_key(model):
     """A prior stores no draws, so both are required."""
-    fields = WPPMCovarianceFieldSamples.from_prior(model, n=7, key=jr.PRNGKey(0))
+    fields = WPPMCovarianceFieldSamples.from_prior(
+        model, n_samples=7, key=jr.PRNGKey(0)
+    )
     assert fields.n_samples == 7
     assert fields.samples["W"].shape[0] == 7
     with pytest.raises(TypeError):
-        WPPMCovarianceFieldSamples.from_prior(model, n=7)
+        WPPMCovarianceFieldSamples.from_prior(model, n_samples=7)
+
+
+def test_constructors_take_the_count_by_the_same_keyword(model, posterior):
+    """from_prior and from_posterior both spell it n_samples, keyword-only."""
+    key = jr.PRNGKey(0)
+    assert (
+        WPPMCovarianceFieldSamples.from_prior(model, n_samples=4, key=key).n_samples
+        == 4
+    )
+    assert (
+        WPPMCovarianceFieldSamples.from_posterior(
+            posterior, n_samples=4, key=key
+        ).n_samples
+        == 4
+    )
+    with pytest.raises(TypeError):
+        WPPMCovarianceFieldSamples.from_prior(model, 4, key=key)
+    with pytest.raises(TypeError):
+        WPPMCovarianceFieldSamples.from_posterior(posterior, 4, key=key)
 
 
 def test_from_posterior_subsample_requires_a_key(posterior):
     """Picking 10 of 50 draws depends on a key, so we require one."""
     with pytest.raises(ValueError, match="key"):
-        WPPMCovarianceFieldSamples.from_posterior(posterior, 10)
+        WPPMCovarianceFieldSamples.from_posterior(posterior, n_samples=10)
 
 
 def test_from_posterior_needs_n_samples_without_a_draw_count(model):
@@ -231,7 +256,9 @@ def test_map_posterior_gives_sigma_of_theta_map(model, X):
     """For a MAP posterior every draw is θ_MAP, so the mean is Σ(θ_MAP)."""
     params = model.init_params(jr.PRNGKey(3))
     point_mass = MAPPosterior(params, model)
-    fields = WPPMCovarianceFieldSamples.from_posterior(point_mass, 3, key=jr.PRNGKey(0))
+    fields = WPPMCovarianceFieldSamples.from_posterior(
+        point_mass, n_samples=3, key=jr.PRNGKey(0)
+    )
     expected = WPPMCovarianceField(model, {"W": params["W"]})(X)
     assert jnp.allclose(fields.mean(X), expected, rtol=1e-5, atol=1e-9)
 

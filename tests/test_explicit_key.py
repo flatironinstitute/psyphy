@@ -123,7 +123,7 @@ class TestAllDrawsPathIsUnchanged:
             ref_points, ci_prob=0.89
         )
         subsampled = WPPMCovarianceFieldSamples.from_posterior(
-            posterior, 200, key=jr.PRNGKey(0)
+            posterior, n_samples=200, key=jr.PRNGKey(0)
         ).band(ref_points, ci_prob=0.89)
 
         assert jnp.array_equal(pooled.lower, subsampled.lower)
@@ -167,14 +167,14 @@ class TestSubsamplingStillTakesAKey:
     def test_subsample_needs_a_key(self, posterior, ref_points):
         """One check at construction now covers the mean and the band both."""
         with pytest.raises(ValueError, match="pass key="):
-            WPPMCovarianceFieldSamples.from_posterior(posterior, 50)
+            WPPMCovarianceFieldSamples.from_posterior(posterior, n_samples=50)
 
     def test_different_keys_give_different_subsamples(self, posterior, ref_points):
         a = WPPMCovarianceFieldSamples.from_posterior(
-            posterior, 50, key=jr.PRNGKey(0)
+            posterior, n_samples=50, key=jr.PRNGKey(0)
         ).mean(ref_points)
         b = WPPMCovarianceFieldSamples.from_posterior(
-            posterior, 50, key=jr.PRNGKey(12345)
+            posterior, n_samples=50, key=jr.PRNGKey(12345)
         ).mean(ref_points)
 
         assert not jnp.allclose(a, b, atol=1e-6)

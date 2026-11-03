@@ -38,14 +38,15 @@ breaking changes are called out below but do not force a minor-version bump.
   fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
   covs = fields.mean(ref_points)
   band = WPPMCovarianceFieldSamples.from_posterior(
-      posterior, 400, key=key
+      posterior, n_samples=400, key=key
   ).band(ref_points, ci_prob=0.89)
   ```
 
   `fields(ref_points)` gives Σ for every draw, `(n_samples, n_points, d, d)`, which
   replaces a Python loop over `posterior.sample`. `fields.samples` is the draws pytree, for
   a per-draw quantity psyphy does not ship. `WPPMCovarianceFieldSamples.from_prior(model,
-  n=..., key=...)` is the same object from a prior.
+  n_samples=..., key=...)` is the same object from a prior. Both constructors take
+  `n_samples` and `key` as keywords.
 
   `n_samples` and `key` move from the call to the construction, so one check covers every
   reduction. There is no `sqrt_cov`: an average of U Uᵀ is not U Uᵀ for any single U. Use
