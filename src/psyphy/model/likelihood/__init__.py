@@ -3,9 +3,8 @@
 Task likelihoods for psychophysical experiments: the mapping from a model and a
 set of stimuli to the likelihood of an observed response.
 
-Organised by the assumed response distribution rather than by task, so that the
-log-likelihood is written once per distribution and a new task only implements
-``predict``:
+Likelihoods are grouped by response distribution. The log-likelihood is written
+once per distribution, and a new task only implements ``predict``:
 
 Modules
 -------

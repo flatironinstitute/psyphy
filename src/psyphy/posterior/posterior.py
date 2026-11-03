@@ -59,8 +59,7 @@ class MAPPosterior:
             Number of samples
         key : jax.Array
             PRNG key. A delta distribution has no randomness, so the key goes
-            unread. It is required to keep one signature across every
-            :class:`psyphy.posterior.ParameterSource`.
+            unread.
 
         Returns
         -------

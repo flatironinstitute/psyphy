@@ -106,10 +106,10 @@ class MAPOptimizer(InferenceEngine):
                that does no clipping) pass ``max_grad_norm=None``.
 
             Note that the *model* is unaffected: ``WPPM.log_posterior_from_data``
-            still returns the true (summed) log posterior. Scaling is
-            step-size conditioning and lives here, in the optimizer, so that
-            density-based consumers (e.g. a Laplace approximation taking the
-            Hessian at the mode) keep seeing the unnormalized log posterior.
+            still returns the true (summed) log posterior. The scaling is
+            applied in the optimizer only. Density-based consumers (e.g. a
+            Laplace approximation taking the Hessian at the mode) keep seeing
+            the unnormalized log posterior.
 
             Because the recorded loss is per-trial under ``"mean"``, learning
             curves are not comparable to those produced with ``"sum"``: the

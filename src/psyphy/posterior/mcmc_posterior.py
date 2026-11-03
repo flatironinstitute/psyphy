@@ -182,8 +182,8 @@ class MCMCPosterior:
         :meth:`sample`; for the posterior mean parameter use :attr:`params`.
 
         The returned dict is a fresh mapping, so adding or removing keys does
-        not affect the posterior, but the arrays themselves are shared. JAX
-        arrays are immutable, so that is safe.
+        not affect the posterior, but the arrays themselves are shared (JAX
+        arrays are immutable).
         """
         return dict(self._samples)
 
@@ -215,7 +215,7 @@ class MCMCPosterior:
             ArviZ >= 1.0 returns xarray's DataTree; ``arviz.InferenceData`` was
             the 0.x type and is gone (it is still importable on 1.x but emits a
             MigrationWarning). Measured: on arviz 0.23.4 every access pattern
-            documented below raises, which is why the extra pins ``arviz>=1.0``.
+            documented below raises. The extra pins ``arviz>=1.0``.
             Contains a ``posterior`` group with variables shaped
             ``(n_chains, n_draws, *param_shape)``.
             For WPPM: variable ``W`` of shape
