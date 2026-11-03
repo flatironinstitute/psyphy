@@ -85,9 +85,9 @@ def ellipse_segments(
 
     Notes
     -----
-    Non-positive-definite covariances are skipped rather than raising. Callers
-    should surface ``valid.sum() < len(valid)`` to the user rather than ignore
-    it -- a silently thinned field is hard to notice by eye.
+    Non-positive-definite covariances are skipped rather than raising. Check
+    ``valid.sum() < len(valid)`` and report it rather than ignore it: a
+    silently thinned field is hard to notice by eye.
 
     Examples
     --------
@@ -116,14 +116,14 @@ def auto_scale(
     """Scale factor that fits a field of ellipses to its own grid.
 
     Sizes the *median* ellipse so its typical radius is ``fraction`` of the
-    median nearest-neighbour spacing between centers. The same call fits a
+    median nearest-neighbor spacing between centers. The same call fits a
     coarse 7x7 grid and a dense 103x103 one.
 
     Parameters
     ----------
     centers : array_like, shape (n_points, 2)
         Ellipse centers. At least two are required, since the spacing is a
-        nearest-neighbour distance.
+        nearest-neighbor distance.
     covs : array_like, shape (n_points, 2, 2)
         Covariance matrix per center.
     fraction : float, default=0.35
@@ -137,7 +137,7 @@ def auto_scale(
     Notes
     -----
     **This is not always a magnification.** On a dense grid the factor can be
-    well below 1, shrinking ellipses so neighbours do not overlap. On the Hong
+    well below 1, shrinking ellipses so neighbors do not overlap. On the Hong
     et al. (2025) data it is ~1.24 for the 49-point threshold grid and ~0.22
     for the 10 609-point noise grid.
 
