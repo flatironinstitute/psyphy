@@ -10,7 +10,7 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Breaking
 
-- **`ThresholdConfig.target_pc` is now `target_prob_correct` (cleanup only, no behavior change)
+- **`ThresholdConfig.target_pc` is now `target_prob_correct` (cleanup only, no behavior change).**
 
   ```python
   # before
@@ -19,10 +19,9 @@ breaking changes are called out below but do not force a minor-version bump.
   # now
   ThresholdConfig(n_theta=16, n_length=1000, target_prob_correct=2 / 3)
   ```
- The default is unchanged at 2/3, the oddity task's criterion, so a
+
+  The default is unchanged at 2/3, the oddity task's criterion, so a
   caller relying on the default needs no edit.
-
-
 
 - **`PosteriorMeanCovarianceField` and `contour_band` are gone, and their reductions are
   methods on the new `WPPMCovarianceFieldSamples`.** The draws are taken once, when the
@@ -53,7 +52,6 @@ breaking changes are called out below but do not force a minor-version bump.
   `jnp.linalg.cholesky(fields.mean(x))` for a factor of the mean matrix, or
   `WPPMCovarianceField` for one parameter set. The numbers are unchanged: the mean and the
   band reproduce what the removed entry points returned, bit for bit.
-
 
 - **`WPPMPredictivePosterior` takes a required `key`, and `cov_field` is gone.**
   `mean` and `variance` are properties, so the constructor is the only place their
@@ -107,7 +105,7 @@ breaking changes are called out below but do not force a minor-version bump.
   and `contour_band(posterior, points)` pool the stored samples in order instead of asking
   `posterior.sample` for a full-size draw. Both keep their current call shape and need no
   key, and the numbers are unchanged, because a full-size draw without replacement is a
-  permutation  (neither a mean nor a quantile depends on order)
+  permutation (neither a mean nor a quantile depends on order).
 
   A key is now required when `n_samples` is given, since that genuinely subsamples:
 
@@ -126,9 +124,8 @@ breaking changes are called out below but do not force a minor-version bump.
   `Prior`, `MAPPosterior` and `MCMCPosterior` all satisfy it, and `ParameterPosterior` now
   extends it with `params` and `model`.
 
-  Code written against `ParameterSource` accepts a prior and a fitted posterior alike, so a
-  prior predictive check and a posterior predictive check become one function called twice.
-  Chain structure and a density stay off it: `sample` pools the chains, and `MCMCPosterior`
+  A function that only calls `sample` on a `ParameterSource` works on a prior and on a
+  fitted posterior. Chain structure and a density stay off it: `sample` pools the chains, and `MCMCPosterior`
   has no `log_prob`.
 
 - **`Prior.sample(n, *, key)`**, the vectorized form of `sample_params`. Draw `i` equals
@@ -154,7 +151,7 @@ breaking changes are called out below but do not force a minor-version bump.
 
   ```python
   # before
-  field.cov(jnp.array([0.5, 0.3]))        # (2, 2),  single point only
+  field.cov(jnp.array([0.5, 0.3]))        # (2, 2), single point only
   field.cov_batch(jnp.zeros((10, 2)))     # (10, 2, 2), batch only
 
   # now
@@ -186,7 +183,7 @@ breaking changes are called out below but do not force a minor-version bump.
 - **`OddityTask.predict` declared the wrong return type.** It was annotated
   `-> jnp.ndarray` while `TaskLikelihood.predict` specifies `-> tuple[jnp.ndarray, ...]`,
   and its helper `_simulate_trial_mc` was annotated the same way. Both already returned
-  the one-tuple `(p_correct,)` that the base class documents, so **behaviour is
+  the one-tuple `(p_correct,)` that the base class documents, so **behavior is
   unchanged**; only the declarations were wrong.
 - **`PredictivePosterior.mean` and `.variance` looked like they could return `None`.**
   The lazy cache they read is initialized to `None` and populated by
