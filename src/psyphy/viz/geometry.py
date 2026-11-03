@@ -85,10 +85,9 @@ def ellipse_segments(
 
     Notes
     -----
-    Non-positive-definite covariances are skipped rather than raising, because
-    a single bad matrix should not discard an otherwise usable field. Callers
-    should surface ``valid.sum() < len(valid)`` to the user rather than ignore
-    it -- a silently thinned field is hard to notice by eye.
+    Non-positive-definite covariances are skipped rather than raising. Check
+    ``valid.sum() < len(valid)`` and report it rather than ignore it: a
+    silently thinned field is hard to notice by eye.
 
     Examples
     --------
@@ -117,15 +116,14 @@ def auto_scale(
     """Scale factor that fits a field of ellipses to its own grid.
 
     Sizes the *median* ellipse so its typical radius is ``fraction`` of the
-    median nearest-neighbour spacing between centers. This adapts to the grid
-    rather than assuming one: the same call gives a readable figure on a coarse
-    7x7 grid and on a dense 103x103 one.
+    median nearest-neighbor spacing between centers. The same call fits a
+    coarse 7x7 grid and a dense 103x103 one.
 
     Parameters
     ----------
     centers : array_like, shape (n_points, 2)
         Ellipse centers. At least two are required, since the spacing is a
-        nearest-neighbour distance.
+        nearest-neighbor distance.
     covs : array_like, shape (n_points, 2, 2)
         Covariance matrix per center.
     fraction : float, default=0.35
@@ -139,7 +137,7 @@ def auto_scale(
     Notes
     -----
     **This is not always a magnification.** On a dense grid the factor can be
-    well below 1, shrinking ellipses so neighbours do not overlap. On the Hong
+    well below 1, shrinking ellipses so neighbors do not overlap. On the Hong
     et al. (2025) data it is ~1.24 for the 49-point threshold grid and ~0.22
     for the 10 609-point noise grid.
 
@@ -148,8 +146,8 @@ def auto_scale(
     it to all of them, or relative sizes become meaningless;
     :func:`psyphy.viz.plot_ellipses` enforces this.
 
-    Uses a KD-tree rather than a full pairwise distance matrix, which would be
-    O(n^2) in time and memory -- negligible at n=49, about 1.8 GB at n=10 609.
+    Spacing comes from a KD-tree query, so no (n_points, n_points) distance
+    matrix is built.
     """
     centers, covs = _validate_field(centers, covs)
     if len(centers) < 2:

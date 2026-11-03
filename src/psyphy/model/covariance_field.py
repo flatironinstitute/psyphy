@@ -71,8 +71,8 @@ def _draws_from(posterior, n_samples: int | None, key) -> tuple[dict, int]:
     - ``None`` pools every stored draw from ``posterior.samples``, in stored
       order. No key, since a mean or a quantile over the whole pool does not
       depend on the order it arrives in.
-    - an int calls ``posterior.sample(n_samples, key=key)``, which subsamples. The
-      result depends on the key, so we require one.
+    - an int calls ``posterior.sample(n_samples, key=key)``, which subsamples.
+      ``key`` is required.
 
     Parameters
     ----------
@@ -429,9 +429,8 @@ class WPPMCovarianceField:
         # isinstance(posterior, MCMCPosterior) would need an import from
         # psyphy.posterior, which already imports psyphy.model -> cycle.
         #
-        # This warns instead of switching to the posterior-mean field because
-        # that would change the return type (and drop sqrt_cov) for existing
-        # callers.
+        # Warns and does not switch to the posterior-mean field, which has a
+        # different return type and no sqrt_cov.
         if getattr(posterior, "n_draws", None) is not None:
             warnings.warn(
                 f"from_posterior() on a {type(posterior).__name__} builds Σ from the "
@@ -1168,9 +1167,8 @@ class WPPMCovarianceFieldSamples:
         bounds = [reduce(radii, p) for p in probs]
         lower = jnp.stack([lo for lo, _ in bounds])  # (n_levels, n_pts, n_dir)
         upper = jnp.stack([hi for _, hi in bounds])
-        # One median whatever ci_prob holds, repeated per level so that lower,
-        # median and upper always share a shape. Indexing median[i] in a loop over
-        # levels would otherwise reach a reference point instead.
+        # One median whatever ci_prob holds, repeated per level so lower,
+        # median and upper share a shape.
         median = jnp.median(radii, axis=0)  # (n_points, n_directions)
         median = jnp.broadcast_to(median, lower.shape)  # (n_levels, n_pts, n_dir)
 
