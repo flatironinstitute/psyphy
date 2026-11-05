@@ -441,7 +441,7 @@ class WPPMCovarianceField:
                 UserWarning,
                 stacklevel=2,
             )
-        return cls(posterior._model, posterior.params)
+        return cls(posterior.model, posterior.params)
 
     @classmethod
     def from_params(cls, model, params: dict) -> WPPMCovarianceField:
