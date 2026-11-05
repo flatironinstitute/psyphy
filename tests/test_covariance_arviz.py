@@ -46,7 +46,6 @@ def _full_matmul_precision():
 def model():
     """Small 2D WPPM: W has shape (3, 3, 2, 3) -- embedding_dim m = 3."""
     return WPPM(
-        input_dim=2,
         prior=Prior(
             input_dim=2,
             basis_degree=2,
@@ -56,7 +55,6 @@ def model():
         ),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=1,
         diag_term=1e-4,
     )
 

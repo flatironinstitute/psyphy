@@ -40,7 +40,7 @@ from psyphy.posterior import (
 
 @pytest.fixture
 def model():
-    return WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+    return WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
 
 
 @pytest.fixture
@@ -242,7 +242,6 @@ class TestMinimalPosteriorThroughConsumers:
             Prior(input_dim=2, basis_degree=2),
             OddityTask(),
             GaussianNoise(),
-            input_dim=2,
         )
         params = model.init_params(jr.PRNGKey(0))
         return MinimalPosterior(params, model), MAPPosterior(params, model)

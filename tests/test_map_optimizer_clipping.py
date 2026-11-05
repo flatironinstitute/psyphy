@@ -32,7 +32,6 @@ NEVER_CLIPS = 1e12
 @pytest.fixture
 def model():
     return WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3),
         likelihood=OddityTask(),
         noise=GaussianNoise(),

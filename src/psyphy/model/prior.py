@@ -37,21 +37,21 @@ class Prior:
 
     Parameters
     ----------
-    input_dim : int
-        Dimensionality of the model space (same as WPPM.input_dim)
-    basis_degree : int | None, default=None
+    input_dim : int, default=2
+        Dimensionality of the model space. WPPM.input_dim reads this.
+    basis_degree : int | None, default=4
         Degree of Chebyshev basis for Wishart process.
         If set, uses Wishart mode with W coefficients.
-    variance_scale : float, default=1.0
+    variance_scale : float, default=4e-3
         Prior variance for degree-0 (constant) coefficient in Wishart mode.
-        Controls overall scale of covariances.
-    decay_rate : float, default=0.5
+        Controls overall scale of covariances. WPPM.variance_scale reads this.
+    decay_rate : float, default=0.4
         Geometric decay rate for prior variance over higher-degree coefficients.
         Prior variance for degree-d coefficient = variance_scale * (decay_rate^d).
-        Smaller decay_rate -> stronger smoothness prior.
-    extra_embedding_dims : int, default=0
+        Smaller decay_rate -> stronger smoothness prior. WPPM.decay_rate reads this.
+    extra_embedding_dims : int, default=1
         Additional latent dimensions in U matrices beyond input dimensions.
-        Allows richer ellipsoid shapes in Wishart mode.
+        Allows richer ellipsoid shapes in Wishart mode. WPPM.embedding_dim reads this.
     """
 
     input_dim: int = 2

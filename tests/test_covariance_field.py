@@ -32,17 +32,15 @@ from psyphy.model.noise import GaussianNoise
 def wishart_model():
     """Create Wishart model (with basis expansion)."""
     return WPPM(
-        input_dim=2,
         prior=Prior(
             input_dim=2,
             basis_degree=3,
             variance_scale=4e-3,
             decay_rate=0.3,
-            extra_embedding_dims=1,  # should match model's extra_dims
+            extra_embedding_dims=1,
         ),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=1,
         diag_term=1e-3,
     )
 

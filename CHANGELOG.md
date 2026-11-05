@@ -10,6 +10,26 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Breaking
 
+- **`WPPM` no longer takes `input_dim`, `extra_dims`, `variance_scale` or `decay_rate`.**
+  They were duplicated on `Prior`, and nothing read 2 of the 4 copies on `WPPM`:
+  `variance_scale` and `decay_rate` were stored and never used, and `extra_dims` fed only
+  `embedding_dim`, silently disagreeing with the parameter shape when it differed from
+  `Prior.extra_embedding_dims`. `WPPM.input_dim`, `.embedding_dim`, `.variance_scale` and
+  `.decay_rate` are now read-only properties that read `self.prior`:
+
+  ```python
+  # before
+  WPPM(prior, likelihood, input_dim=2, extra_dims=1, variance_scale=4e-3, decay_rate=0.4)
+
+  # now
+  Prior(input_dim=2, extra_embedding_dims=1, variance_scale=4e-3, decay_rate=0.4)
+  WPPM(prior, likelihood)
+  ```
+
+  Passing any of the 4 names to `WPPM` now raises `TypeError` and says to pass them to
+  `Prior` instead. `diag_term` is unchanged: it is a numerical-stability term in
+  Sigma(x) = U(x) U(x)^T + diag_term * I, not a property of the prior distribution.
+
 - **`ThresholdConfig.target_pc` is now `target_prob_correct` (cleanup only, no behavior change).**
 
   ```python

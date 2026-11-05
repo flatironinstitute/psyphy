@@ -30,56 +30,31 @@ class MockMultiGaussianTask(GaussianTaskLikelihood):
         return jnp.array(0.0)
 
 
-def test_input_dim_mismatch_raises_error():
-    """Test that initializing WPPM with mismatching input_dim raises ValueError."""
-    input_dim_prior = 2
-    input_dim_model = 3
-
-    prior = Prior(input_dim=input_dim_prior)
-    task = MockTask()
-
-    with pytest.raises(ValueError, match="Dimension mismatch"):
-        WPPM(input_dim=input_dim_model, prior=prior, likelihood=task)
+def test_input_dim_reads_from_prior():
+    """WPPM.input_dim delegates to prior.input_dim; there is no second copy to mismatch."""
+    prior = Prior(input_dim=3)
+    model = WPPM(prior=prior, likelihood=MockTask())
+    assert model.input_dim == 3
+    assert model.prior.input_dim == 3
 
 
-def test_input_dim_match_success():
-    """Test that initializing WPPM with matching input_dim succeeds."""
-    input_dim = 2
-
-    prior = Prior(input_dim=input_dim)
-    task = MockTask()
-
-    model = WPPM(input_dim=input_dim, prior=prior, likelihood=task)
-    assert model.input_dim == input_dim
-    assert model.prior.input_dim == input_dim
-
-
-def test_input_dim_mismatch_raises_error_gaussians():
-    """Test that initializing WPPM with mismatching input_dim raises ValueError on Gaussian Tasks."""
-    input_dim_prior = 2
-    input_dim_model = 3
-
-    prior = Prior(input_dim=input_dim_prior)
-    task = MockGaussianTask()
-    multi_task = MockMultiGaussianTask()
-
-    with pytest.raises(ValueError, match="Dimension mismatch"):
-        WPPM(input_dim=input_dim_model, prior=prior, likelihood=task)
-    with pytest.raises(ValueError, match="Dimension mismatch"):
-        WPPM(input_dim=input_dim_model, prior=prior, likelihood=multi_task)
+def test_input_dim_kwarg_on_wppm_raises():
+    """A caller cannot pass input_dim to WPPM; it only takes it through Prior."""
+    with pytest.raises(TypeError, match="no longer takes"):
+        WPPM(prior=Prior(input_dim=2), likelihood=MockTask(), input_dim=2)
 
 
 def test_input_dim_match_success_gaussians():
-    """Test that initializing WPPM with matching input_dim succeeds on Gaussian Tasks."""
+    """WPPM.input_dim agrees with the prior for both Gaussian task shapes."""
     input_dim = 2
 
     prior = Prior(input_dim=input_dim)
     task = MockGaussianTask()
     multi_task = MockMultiGaussianTask()
 
-    model = WPPM(input_dim=input_dim, prior=prior, likelihood=task)
+    model = WPPM(prior=prior, likelihood=task)
     assert model.input_dim == input_dim
     assert model.prior.input_dim == input_dim
-    multi_model = WPPM(input_dim=input_dim, prior=prior, likelihood=multi_task)
+    multi_model = WPPM(prior=prior, likelihood=multi_task)
     assert multi_model.input_dim == input_dim
     assert multi_model.prior.input_dim == input_dim

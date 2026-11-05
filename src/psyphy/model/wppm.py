@@ -7,11 +7,10 @@ Wishart Process Psychophysical Model (WPPM)
 Goals
 -----
 Wishart Process Psychophysical Model (WPPM):
-   - Expose hyperparameters needed to for example use Model config used in Hong et al.:
-       * extra_dims: embedding size for basis expansions
-       * variance_scale: global covariance scale
-       * decay_rate: smoothness/length-scale for covariance field
-       * diag_term: numerical stabilizer added to covariance diagonals
+   - Read input_dim, embedding_dim, variance_scale, decay_rate and basis_degree from
+     the Prior it is built with, so each one has a single place where it is set.
+   - Add diag_term, the numerical stabilizer in Sigma(x) = U(x) U(x)^T + diag_term * I,
+     which is a WPPM setting rather than a property of the prior distribution.
 
 All numerics use JAX (jax.numpy as jnp) to support autodiff and optax optimizers
 """
@@ -41,32 +40,20 @@ class WPPM(Model):
 
     Parameters
     ----------
-    input_dim : int
-        Dimensionality of the *input stimulus space* (e.g., 2 for isoluminant plane,
-        3 for RGB). Both reference and comparison live in R^{input_dim}.
     prior : Prior
-        Prior distribution over model parameters. Controls basis_degree in WPPM (basis expansion).
-        The WPPM delegates
-        to prior.basis_degree to ensure consistency between parameter sampling and
-        basis evaluation.
+        Prior distribution over model parameters. WPPM reads input_dim,
+        embedding_dim, variance_scale, decay_rate and basis_degree from the prior,
+        so each one is set once and the two objects cannot disagree.
     likelihood : TaskLikelihood
         Psychophysical task mapping that defines how discriminability translates
         to p(correct) and how log-likelihood of responses is computed.
         (e.g., OddityTask)
     noise : Any, optional
         Noise model describing internal representation noise (e.g., GaussianNoise).
-
-    hyperparameters
-    -----------------------------------
-    extra_dims : int, default=0
-        Additional embedding dimensions for basis expansions (beyond input_dim).
-        embedding_dim = input_dim + extra_dims.
-    variance_scale : float, default=1.0
-        Global scaling factor for covariance magnitude
-    decay_rate : float, default=1.0
-        Smoothness/length-scale for spatial covariance variation
     diag_term : float, default=1e-6
-        Small positive value added to the covariance diagonal for numerical stability.
+        Small positive value added to the covariance diagonal for numerical
+        stability: Sigma(x) = U(x) U(x)^T + diag_term * I. A WPPM setting, not a
+        property of the prior.
 
     **model_kwargs : Any
         Reserved for *future* keyword arguments accepted by the base `Model.__init__`.
@@ -79,10 +66,6 @@ class WPPM(Model):
         likelihood: TaskLikelihood,
         noise: Any | None = None,
         *,  # everything after here is keyword-only
-        input_dim: int = 2,
-        extra_dims: int = 1,
-        variance_scale: float = 4e-3,
-        decay_rate: float = 0.4,
         diag_term: float = 1e-6,
         **model_kwargs: Any,
     ) -> None:
@@ -92,32 +75,34 @@ class WPPM(Model):
         # It should NOT be used for WPPM-specific math (e.g. alternative covariance
         # parameterizations) or for task-specific likelihood knobs.
         if model_kwargs:
-            known_misuses = {"num_samples", "bandwidth", "online_config"}
-            bad = sorted(known_misuses.intersection(model_kwargs.keys()))
-            if bad:
+            task_misuses = {"num_samples", "bandwidth", "online_config"}
+            bad_task = sorted(task_misuses.intersection(model_kwargs.keys()))
+            if bad_task:
                 raise TypeError(
                     "Do not pass task-specific kwargs via WPPM(..., **model_kwargs). "
-                    f"Move {bad} into the task config (e.g. OddityTaskConfig)."
+                    f"Move {bad_task} into the task config (e.g. OddityTaskConfig)."
+                )
+            prior_misuses = {
+                "input_dim",
+                "extra_dims",
+                "extra_embedding_dims",
+                "variance_scale",
+                "decay_rate",
+            }
+            bad_prior = sorted(prior_misuses.intersection(model_kwargs.keys()))
+            if bad_prior:
+                raise TypeError(
+                    f"WPPM no longer takes {bad_prior}. Pass them to Prior; "
+                    "WPPM.input_dim, .embedding_dim, .variance_scale and "
+                    ".decay_rate read them from prior."
                 )
 
         super().__init__(**model_kwargs)
 
         # --- core components ---
-        self.input_dim = int(input_dim)  # stimulus-space dimensionality
         self.prior = prior  # prior over parameter PyTree
-
-        if self.prior.input_dim != self.input_dim:
-            raise ValueError(
-                f"Dimension mismatch: Model initialized with input_dim={self.input_dim}, "
-                f"but Prior expects input_dim={self.prior.input_dim}."
-            )
-
         self.likelihood = likelihood  # task mapping and likelihood
         self.noise = noise  # noise model
-
-        self.extra_dims = int(extra_dims)
-        self.variance_scale = float(variance_scale)
-        self.decay_rate = float(decay_rate)
         self.diag_term = float(diag_term)
 
     @property
@@ -140,28 +125,47 @@ class WPPM(Model):
         return self.prior.basis_degree
 
     @property
-    def embedding_dim(self) -> int:
+    def input_dim(self) -> int:
         """
-        Dimension of the embedding space.
+        Dimensionality of the input stimulus space.
 
-        embedding_dim = input_dim + extra_dims.
-        this represents the full perceptual space where:
-        - First input_dim dimensions correspond to observable stimulus features
-        - Remaining extra_dims are latent  dimensions
+        Delegates to self.prior.input_dim, the single place this is set.
 
         Returns
         -------
         int
-            input_dim + extra_dims
+            e.g. 2 for the isoluminant plane, 3 for RGB.
+        """
+        return self.prior.input_dim
 
-        Notes
-        -----
-        This is a computed property, not a constructor parameter.
+    @property
+    def embedding_dim(self) -> int:
+        """
+        Dimension of the embedding space.
+
+        embedding_dim = input_dim + extra_embedding_dims, both read from the
+        prior. The first input_dim coordinates are the observable stimulus
+        features, the rest are latent dimensions.
+
+        Returns
+        -------
+        int
+            input_dim + extra_embedding_dims
         """
         if self.basis_degree is None:
             raise ValueError("Basis degree must be set for embedding.")
         # Wishart mode: full perceptual space
-        return self.input_dim + self.extra_dims
+        return self.prior.input_dim + self.prior.extra_embedding_dims
+
+    @property
+    def variance_scale(self) -> float:
+        """Global scaling factor for covariance magnitude. Reads self.prior.variance_scale."""
+        return self.prior.variance_scale
+
+    @property
+    def decay_rate(self) -> float:
+        """Smoothness/length-scale for spatial covariance variation. Reads self.prior.decay_rate."""
+        return self.prior.decay_rate
 
     def _validate_basis_input(self, x: jnp.ndarray) -> None:
         """Validate that inputs are in the expected basis domain.
@@ -310,8 +314,8 @@ class WPPM(Model):
         Returns
         -------
         U : jnp.ndarray, shape (input_dim, embedding_dim)
-            Rectangular square root matrix if extra_dims > 0.
-            embedding_dim = input_dim + extra_dims
+            Rectangular square root matrix if extra_embedding_dims > 0.
+            embedding_dim = input_dim + extra_embedding_dims
 
         Raises
         ------
@@ -320,7 +324,7 @@ class WPPM(Model):
 
         Notes
         -----
-        U is rectangular when extra_dims > 0.
+        U is rectangular when extra_embedding_dims > 0.
         When multiplied U @ U^T, this produces covariance in stimulus space:
         Σ(x) \in R^(input_dim x input_dim)
         """
@@ -335,12 +339,12 @@ class WPPM(Model):
         if self.input_dim == 2:
             # W[i,j,d,e] * phi[i,j] -> U[d,e]
             # W is (degree+1, degree+1, input_dim, embedding_dim)
-            # U is rectangular if extra_dims > 0: (input_dim, embedding_dim)
+            # U is rectangular if extra_embedding_dims > 0: (input_dim, embedding_dim)
             U = jnp.einsum("ijde,ij->de", W, phi)
         elif self.input_dim == 3:
             # W[i,j,k,d,e] * phi[i,j,k] -> U[d,e]
             # W is (degree+1, degree+1, degree+1, input_dim, embedding_dim)
-            # U is rectangular if extra_dims > 0: (input_dim, embedding_dim)
+            # U is rectangular if extra_embedding_dims > 0: (input_dim, embedding_dim)
             U = jnp.einsum("ijkde,ijk->de", W, phi)
         elif self.input_dim == 1:
             # W[i,d,e] * phi[i] -> U[d,e]
@@ -363,7 +367,7 @@ class WPPM(Model):
 
         Wishart mode (basis_degree set):
             Σ(x) = U(x) @ U(x)^T + diag_term * I
-            where U(x) is rectangular (input_dim, embedding_dim) if extra_dims > 0.
+            where U(x) is rectangular (input_dim, embedding_dim) if extra_embedding_dims > 0.
             - Varies smoothly with x
             - Guaranteed positive-definite
             - Returns stimulus covariance directly (input_dim, input_dim)

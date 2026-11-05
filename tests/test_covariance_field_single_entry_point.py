@@ -26,10 +26,8 @@ from psyphy.model.covariance_field import WPPMCovarianceField
 def wishart_field():
     """Create Wishart mode covariance field for testing."""
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
         likelihood=OddityTask(),
-        extra_dims=1,
     )
     key = jr.PRNGKey(123)
     return WPPMCovarianceField.from_prior(model, key)
@@ -39,7 +37,6 @@ def wishart_field():
 def field_3d():
     """Create 3D covariance field for testing."""
     model = WPPM(
-        input_dim=3,
         prior=Prior(input_dim=3, basis_degree=2),
         likelihood=OddityTask(),
     )
@@ -322,7 +319,6 @@ class TestEdgeCases:
     def test_1d_input_space_single_point(self):
         """For input_dim=1, single point has shape (1,)."""
         model = WPPM(
-            input_dim=1,
             prior=Prior(input_dim=1, basis_degree=2),
             likelihood=OddityTask(),
         )
@@ -338,7 +334,6 @@ class TestEdgeCases:
     def test_1d_input_space_batch(self):
         """For input_dim=1, batch requires shape (n, 1)."""
         model = WPPM(
-            input_dim=1,
             prior=Prior(input_dim=1, basis_degree=2),
             likelihood=OddityTask(),
         )

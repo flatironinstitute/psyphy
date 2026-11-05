@@ -116,7 +116,6 @@ def _toy_model():
     from psyphy.model import WPPM, GaussianNoise, OddityTask, OddityTaskConfig, Prior
 
     return WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=1),
         likelihood=OddityTask(OddityTaskConfig(num_samples=20)),
         noise=GaussianNoise(),
