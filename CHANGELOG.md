@@ -49,10 +49,10 @@ breaking changes are called out below but do not force a minor-version bump.
   `n_samples` and `key` as keywords.
 
   `n_samples` and `key` move from the call to the construction, so one check covers every
-  reduction. There is no `sqrt_cov`: an average of U Uᵀ is not U Uᵀ for any single U. Use
-  `jnp.linalg.cholesky(fields.mean(x))` for a factor of the mean matrix, or
+  reduction. There is no `sqrt_cov`: an average of U Uᵀ is not U Uᵀ for any single U. Instad, use
+  `jnp.linalg.cholesky(fields.mean(x))` to get the 'square root' of the mean matrix, or
   `WPPMCovarianceField` for one parameter set. The numbers are unchanged: the mean and the
-  band reproduce what the removed entry points returned, bit for bit.
+  band reproduce what the removed entry points returned.
 
 - **`WPPMPredictivePosterior` takes a required `key`, and `cov_field` is gone.**
   `mean` and `variance` are properties, so the constructor is the only place their
@@ -181,6 +181,10 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Fixed
 
+- **`WPPMCovarianceField.from_posterior` accepts any `ParameterPosterior`.** It read the
+  private `posterior._model`, so a posterior class with `params`, `model` and `sample`
+  passed `isinstance(posterior, ParameterPosterior)` and then raised `AttributeError`. It
+  now reads `posterior.model`. Nothing changes for `MAPPosterior` or `MCMCPosterior`.
 - **`OddityTask.predict` declared the wrong return type.** It was annotated
   `-> jnp.ndarray` while `TaskLikelihood.predict` specifies `-> tuple[jnp.ndarray, ...]`,
   and its helper `_simulate_trial_mc` was annotated the same way. Both already returned
@@ -188,13 +192,13 @@ breaking changes are called out below but do not force a minor-version bump.
   unchanged**; only the declarations were wrong.
 - **`PredictivePosterior.mean` and `.variance` looked like they could return `None`.**
   The lazy cache they read is initialized to `None` and populated by
-  `_ensure_computed()`; it is now annotated and the invariant is asserted.
-- Three `list[np.array]` annotations in `psyphy.data.dataset` used the `np.array`
-  *function* in type position instead of `np.ndarray`.
+  `_ensure_computed()`; it is now annotated and the invariant is asserted
+- 3 `list[np.array]` annotations in `psyphy.data.dataset` used the `np.array`
+  *function* in type position instead of `np.ndarray`
 
 ### Internal
 
-- **mypy now means one thing.** The commit hook, CI and local runs previously used three
+- **mypy now means 1 thing.** The commit hook, CI and local runs previously used three
   different mypy configurations that disagreed with each other. CI now runs the same
   pre-commit hook a developer runs, mypy is pinned to one version in both
   `.pre-commit-config.yaml` and the `dev` extra, and the hook checks the whole project

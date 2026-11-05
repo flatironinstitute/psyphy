@@ -11,6 +11,9 @@ What these pin:
 3. The three draw semantics behind the one method name: independent draws from a
    prior, one repeated parameter set from a MAP fit, a subsample of stored draws
    from an MCMC fit.
+4. Every consumer of ParameterPosterior accepts a class with only the protocol's
+   members, and gives the same numbers as for a MAPPosterior holding the same
+   parameters.
 """
 
 import jax
@@ -18,8 +21,21 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.model import WPPM, OddityTask, Prior
-from psyphy.posterior import MAPPosterior, MCMCPosterior, ParameterSource
+from psyphy.model import (
+    WPPM,
+    GaussianNoise,
+    OddityTask,
+    Prior,
+    WPPMCovarianceField,
+    WPPMCovarianceFieldSamples,
+)
+from psyphy.posterior import (
+    MAPPosterior,
+    MCMCPosterior,
+    ParameterPosterior,
+    ParameterSource,
+    WPPMPredictivePosterior,
+)
 
 
 @pytest.fixture
@@ -194,3 +210,73 @@ class TestDrawSemantics:
 
         assert from_prior.shape == (3, 2, 2, 2)  # (n_draws, n_points, d, d)
         assert from_map.shape == (3, 2, 2, 2)
+
+
+# ==============================================================================
+# Consumers read only the protocol's members
+# ==============================================================================
+
+
+class MinimalPosterior:
+    """params, model and sample, and nothing else."""
+
+    def __init__(self, params, model):
+        self.params = params
+        self.model = model
+
+    def sample(self, n, *, key):
+        return jax.tree.map(lambda x: jnp.broadcast_to(x, (n, *x.shape)), self.params)
+
+
+class TestMinimalPosteriorThroughConsumers:
+    """A posterior from outside psyphy works wherever a MAPPosterior does.
+
+    Each test compares against a MAPPosterior with the same parameters, so a
+    consumer that reaches for a private attribute fails with AttributeError.
+    """
+
+    @pytest.fixture
+    def pair(self):
+        # predict_prob needs a noise model, which the module fixture leaves as None
+        model = WPPM(
+            Prior(input_dim=2, basis_degree=2),
+            OddityTask(),
+            GaussianNoise(),
+            input_dim=2,
+        )
+        params = model.init_params(jr.PRNGKey(0))
+        return MinimalPosterior(params, model), MAPPosterior(params, model)
+
+    @pytest.fixture
+    def points(self):
+        return jnp.array([[0.0, 0.0], [0.5, -0.3]])  # (n_points=2, d=2)
+
+    def test_conforms(self, pair):
+        minimal, _ = pair
+        assert isinstance(minimal, ParameterPosterior)
+
+    def test_covariance_field_from_posterior(self, pair, points):
+        minimal, map_posterior = pair
+        a = WPPMCovarianceField.from_posterior(minimal)(points)
+        b = WPPMCovarianceField.from_posterior(map_posterior)(points)
+        assert jnp.array_equal(a, b)
+
+    def test_covariance_field_samples_from_posterior(self, pair, points):
+        minimal, map_posterior = pair
+        key = jr.PRNGKey(0)
+        a = WPPMCovarianceFieldSamples.from_posterior(minimal, n_samples=3, key=key)
+        b = WPPMCovarianceFieldSamples.from_posterior(
+            map_posterior, n_samples=3, key=key
+        )
+        assert jnp.array_equal(a.mean(points), b.mean(points))
+
+    def test_predictive_posterior(self, pair, points):
+        minimal, map_posterior = pair
+        X = jnp.stack(
+            [points, points + 0.1], axis=1
+        )  # (n_test=2, 2: ref, comparison, d=2)
+        key = jr.PRNGKey(0)
+        a = WPPMPredictivePosterior(minimal, X, n_samples=2, key=key)
+        b = WPPMPredictivePosterior(map_posterior, X, n_samples=2, key=key)
+        assert jnp.array_equal(a.mean, b.mean)
+        assert jnp.array_equal(a.variance, b.variance)
