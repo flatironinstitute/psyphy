@@ -149,8 +149,8 @@ PAPER_HYPERPARAMS: Mapping[str, Any] = {
     "learning_rate": 1e-4,  # gradient step size
     "momentum": 0.2,  # 'heavy-ball' momentum
     "total_steps": 1500,  # gradient steps per restart
-    "n_restarts": 1,  # independent prior draws; the lowest final loss wins
-    # Hong et al tried 3, but 1 is enough to reproduce the published fit.
+    "n_restarts": 3,  # independent prior draws; the lowest final loss wins
+    # Hong et al tried 3.
     # -- Reporting ---------------------------------------------------------
     # The criterion the paper's thresholds are defined at: midway between
     # chance (1/3) and perfect, for a 3-alternative task
