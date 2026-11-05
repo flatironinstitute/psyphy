@@ -23,7 +23,7 @@ from psyphy.posterior import MAPPosterior, MCMCPosterior
 
 @pytest.fixture
 def model():
-    return WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+    return WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
 
 
 @pytest.fixture

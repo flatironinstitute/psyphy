@@ -34,7 +34,6 @@ class TestMCLikelihood:
         MC likelihood works in both modes (MVP and full WPPM).
         """
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(sigma=0.03),
@@ -101,7 +100,6 @@ class TestMCLikelihood:
         # MC likelihood with many samples: create a separate model instance
         # whose task config sets MC fidelity and smoothing.
         mc_model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=5000, bandwidth=1e-3)
@@ -131,7 +129,6 @@ class TestMCLikelihood:
     def test_mc_likelihood_increases_num_samples(self, model, simple_params):
         """Increasing num_samples should reduce MC variance."""
         model = WPPM(
-            input_dim=model.input_dim,
             prior=model.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=100, bandwidth=1e-2)
@@ -156,7 +153,6 @@ class TestMCLikelihood:
         )
 
         model_1000 = WPPM(
-            input_dim=model.input_dim,
             prior=model.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=1000, bandwidth=1e-2)
@@ -230,7 +226,6 @@ class TestMCLikelihood:
         )
 
         model = WPPM(
-            input_dim=1,
             prior=Prior(input_dim=1, basis_degree=2),
             likelihood=task,
             noise=GaussianNoise(sigma=0.0),
@@ -262,7 +257,6 @@ class TestMCLikelihood:
         )
 
         model = WPPM(
-            input_dim=model.input_dim,
             prior=model.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=1000, bandwidth=bandwidth)
@@ -282,7 +276,6 @@ class TestMCLikelihood:
     def test_mc_likelihood_reproducibility(self, model, simple_params):
         """Same seed should give same MC likelihood."""
         model = WPPM(
-            input_dim=model.input_dim,
             prior=model.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=500, bandwidth=1e-2)
@@ -311,7 +304,6 @@ class TestMCLikelihood:
     def test_mc_likelihood_different_seeds_vary(self, model, simple_params):
         """Different seeds should give slightly different MC estimates."""
         model = WPPM(
-            input_dim=model.input_dim,
             prior=model.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=100, bandwidth=1e-2)
@@ -347,7 +339,6 @@ class TestMCLikelihoodEdgeCases:
     @pytest.fixture
     def model(self):
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(sigma=0.03),
@@ -357,7 +348,6 @@ class TestMCLikelihoodEdgeCases:
         """Test that MC likelihood works in Wishart mode (basis expansion)."""
         # Create model in Wishart mode
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=0),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=500, bandwidth=1e-2)
@@ -407,7 +397,6 @@ class TestMCLikelihoodEdgeCases:
         data.add_trial(input=(stim, stim), resp=1)
 
         model = WPPM(
-            input_dim=model.input_dim,
             prior=model.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=1000, bandwidth=1e-2)
@@ -434,7 +423,6 @@ class TestMCLikelihoodEdgeCases:
         data.add_trial(input=(jnp.array([-0.9, -0.9]), jnp.array([0.9, 0.9])), resp=1)
 
         model = WPPM(
-            input_dim=model.input_dim,
             prior=model.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=1000, bandwidth=1e-2)
@@ -481,7 +469,6 @@ class TestGradientCompatibility:
     @pytest.fixture
     def model(self):
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=500, bandwidth=1e-2)
@@ -604,7 +591,6 @@ class TestGradientCompatibility:
         We need to verify gradients stay finite even with bandwidth = 1e-4.
         """
         model = WPPM(
-            input_dim=model.input_dim,
             prior=model.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=500, bandwidth=1e-4)
@@ -646,7 +632,6 @@ class TestProbabilityClipping:
     def model(self):
         """Model with very low noise for testing extreme cases."""
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=1000, bandwidth=1e-3)
@@ -772,7 +757,6 @@ class TestNumericalStability:
         computation using jnp.linalg.solve(). Should not return NaN or inf.
         """
         model = WPPM(
-            input_dim=3,
             prior=Prior(input_dim=3, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=500, bandwidth=1e-2)
@@ -809,7 +793,6 @@ class TestNumericalStability:
         different numerical properties. Test that it's also stable.
         """
         model = WPPM(
-            input_dim=3,
             prior=Prior(input_dim=3, extra_embedding_dims=2, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=500, bandwidth=1e-2)
@@ -850,7 +833,6 @@ class TestConvergenceRate:
     def model(self):
         """Simple model for convergence testing."""
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=100, bandwidth=1e-2)
@@ -879,7 +861,6 @@ class TestConvergenceRate:
         for n_samples in sample_sizes:
             # Configure MC fidelity via task config (strict API).
             model_n = WPPM(
-                input_dim=model.input_dim,
                 prior=model.prior,
                 likelihood=OddityTask(
                     config=OddityTaskConfig(num_samples=n_samples, bandwidth=1e-2)
@@ -916,7 +897,6 @@ class TestSimulate:
     @pytest.fixture
     def model(self):
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=500, bandwidth=1e-2)

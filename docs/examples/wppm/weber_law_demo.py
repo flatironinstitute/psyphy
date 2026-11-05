@@ -291,7 +291,7 @@ print("[2/5] Fitting 1D WPPM via MAPOptimizer ...")
 # --8<-- [start:fit]
 prior = Prior(input_dim=1, basis_degree=BASIS_DEGREE_FIT)
 model = WPPM(
-    input_dim=1,  # 1D in put stimuli
+    # 1D in put stimuli
     prior=prior,
     likelihood=task,  # 3-AFC odd-one out
     noise=GaussianNoise(sigma=0.0),
@@ -844,8 +844,6 @@ if RUN_BASIS_SWEEP:
     for degree in sweep_degrees:
         prior_d = Prior(input_dim=1, basis_degree=degree, extra_embedding_dims=0)
         model_d = WPPM(
-            input_dim=1,
-            extra_dims=0,
             prior=prior_d,
             likelihood=task_sweep,
             noise=GaussianNoise(sigma=0.0),

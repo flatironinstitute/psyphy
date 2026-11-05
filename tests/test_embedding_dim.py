@@ -21,11 +21,9 @@ def test_wppm_no_embedding_dim_parameter():
     """WPPM should not have embedding_dim as constructor parameter."""
     # This should work WITHOUT embedding_dim
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3),  # Need Wishart mode for extra_dims
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=1,
     )
 
     # embedding_dim should be computed property
@@ -35,7 +33,6 @@ def test_wppm_no_embedding_dim_parameter():
     # Should NOT be settable in constructor
     with pytest.raises(TypeError):
         WPPM(
-            input_dim=2,
             embedding_dim=5,  # This should fail
             prior=Prior(input_dim=2),
             likelihood=OddityTask(),
@@ -61,15 +58,15 @@ def test_wppm_no_embedding_dim_parameter():
 def test_embedding_dim_computed_correctly(
     input_dim, extra_dims, expected_embedding_dim
 ):
-    """Test that embedding_dim = input_dim + extra_dims."""
+    """Test that embedding_dim = input_dim + extra_embedding_dims, both read from the prior."""
     model = WPPM(
-        input_dim=input_dim,
         prior=Prior(
-            input_dim=input_dim, basis_degree=3
-        ),  # Need Wishart mode for extra_dims
+            input_dim=input_dim,
+            basis_degree=3,  # Need Wishart mode for extra_embedding_dims
+            extra_embedding_dims=extra_dims,
+        ),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=extra_dims,
     )
 
     assert model.embedding_dim == expected_embedding_dim
@@ -83,11 +80,9 @@ def test_embedding_dim_computed_correctly(
 def test_wishart_W_shape_uses_full_embedding_dim():
     """W should have shape (degree+1, degree+1, input_dim, embedding_dim) (rectangular)."""
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=1,
     )
 
     key = jr.PRNGKey(42)
@@ -110,11 +105,9 @@ def test_wishart_W_shape_uses_full_embedding_dim():
 def test_local_covariance_shape_wishart():
     """local_covariance should return (input_dim, input_dim) with rectangular U."""
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=1,
     )
 
     key = jr.PRNGKey(42)
@@ -135,11 +128,9 @@ def test_local_covariance_shape_wishart():
 def test_compute_sqrt_shape():
     """_compute_sqrt should return (input_dim, embedding_dim) with rectangular design."""
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=1,
     )
 
     key = jr.PRNGKey(42)
@@ -160,11 +151,9 @@ def test_compute_sqrt_shape():
 def test_full_embedding_covariance_positive_definite():
     """Covariance in stimulus space should be positive definite with rectangular U."""
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=2),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=2,
     )
 
     key = jr.PRNGKey(42)
@@ -189,11 +178,9 @@ def test_full_embedding_covariance_positive_definite():
 def test_stimulus_subspace_positive_definite():
     """Stimulus subspace covariance should be positive definite."""
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
-        extra_dims=1,
     )
 
     key = jr.PRNGKey(42)

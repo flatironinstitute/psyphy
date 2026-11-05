@@ -820,8 +820,6 @@ def build_paper_model(
         )
     )
     return WPPM(
-        input_dim=PAPER_HYPERPARAMS["input_dim"],
-        extra_dims=PAPER_HYPERPARAMS["extra_dims"],
         prior=prior,
         likelihood=task,
         noise=GaussianNoise(),

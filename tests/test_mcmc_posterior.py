@@ -43,8 +43,6 @@ def _has_arviz() -> bool:
 def tiny_model():
     """Minimal WPPM: degree=1, 2D, 1 extra dim -> W shape (2,2,2,3)."""
     return WPPM(
-        input_dim=2,
-        extra_dims=1,
         prior=Prior(input_dim=2, basis_degree=1, extra_embedding_dims=1),
         likelihood=OddityTask(config=OddityTaskConfig(num_samples=5)),
         noise=GaussianNoise(),

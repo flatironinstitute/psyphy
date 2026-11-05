@@ -491,7 +491,7 @@ class WPPMCovarianceField:
         -------
         jnp.ndarray, shape (input_dim, embedding_dim)
             Rectangular square root matrix U(x).
-            embedding_dim = input_dim + extra_dims
+            embedding_dim = input_dim + extra_embedding_dims
 
 
         Notes
@@ -510,7 +510,7 @@ class WPPMCovarianceField:
         >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
         >>> x = jnp.array([0.5, 0.3])
         >>> U = field.sqrt_cov(x)
-        >>> U.shape  # (input_dim, embedding_dim) for input_dim=2, extra_dims=1
+        >>> U.shape  # (input_dim, embedding_dim) for input_dim=2, extra_embedding_dims=1
         (2, 3)
         >>> # Σ = U @ U^T + λI
         >>> bool(jnp.allclose(U @ U.T + model.diag_term * jnp.eye(2), field(x)))
@@ -536,7 +536,7 @@ class WPPMCovarianceField:
         -------
         jnp.ndarray, shape (n_points, input_dim, embedding_dim)
             Rectangular square root matrices at each location.
-            embedding_dim = input_dim + extra_dims
+            embedding_dim = input_dim + extra_embedding_dims
 
         Raises
         ------

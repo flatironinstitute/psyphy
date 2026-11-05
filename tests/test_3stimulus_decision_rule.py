@@ -26,7 +26,6 @@ class TestThreeStimulusDecisionRule:
         """
         # Create  model
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=5000, bandwidth=1e-2)
@@ -69,7 +68,6 @@ class TestThreeStimulusDecisionRule:
         """
         # Create a simple MVP model with small noise
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=5000, bandwidth=1e-2)
@@ -108,7 +106,6 @@ class TestThreeStimulusDecisionRule:
         the discriminability of the stimuli.
         """
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=5000, bandwidth=1e-2)
@@ -144,11 +141,9 @@ class TestThreeStimulusDecisionRule:
         """
         # Create Wishart model
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
             likelihood=OddityTask(),
             noise=GaussianNoise(sigma=0.01),
-            extra_dims=1,
         )
         params = model.init_params(jr.PRNGKey(0))
 
@@ -292,7 +287,6 @@ class TestEdgeCases:
         Small bandwidth -> step function -> should still work but be more deterministic.
         """
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=1000, bandwidth=1e-6)
@@ -324,7 +318,6 @@ class TestEdgeCases:
         Should still produce reasonable results, just with more variance.
         """
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=10, bandwidth=1e-2)
@@ -356,7 +349,6 @@ class TestEdgeCases:
         """
         task = OddityTask(config=OddityTaskConfig(num_samples=5000, bandwidth=1e-2))
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=task,
             noise=GaussianNoise(sigma=0.01),
@@ -395,7 +387,6 @@ class TestEdgeCases:
         """
         task = OddityTask(config=OddityTaskConfig(num_samples=1000, bandwidth=1e-2))
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=task,
             noise=GaussianNoise(sigma=0.01),
@@ -462,7 +453,6 @@ class TestEdgeCases:
         """
         task = OddityTask(config=OddityTaskConfig(num_samples=1000, bandwidth=1e-2))
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=task,
             noise=GaussianNoise(sigma=0.01),
@@ -506,7 +496,6 @@ class TestDecisionRuleSymmetry:
         """
         task = OddityTask(config=OddityTaskConfig(num_samples=2000, bandwidth=1e-2))
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=task,
             noise=GaussianNoise(sigma=0.01),

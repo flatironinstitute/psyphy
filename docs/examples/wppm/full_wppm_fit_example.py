@@ -184,8 +184,6 @@ truth_prior = Prior(
     # are before fitting
 )
 truth_model = WPPM(
-    input_dim=input_dim,
-    extra_dims=extra_dims,
     prior=truth_prior,
     likelihood=task,  # oddity task ("pick the odd-one out among 3 stimuli")
     noise=noise,  # (Gaussian noise)
@@ -287,7 +285,6 @@ prior = Prior(
     # are before fitting
 )
 model = WPPM(
-    input_dim=input_dim,
     prior=prior,
     likelihood=task,
     noise=noise,  # Gaussian

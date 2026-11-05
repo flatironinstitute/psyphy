@@ -53,8 +53,6 @@ def _full_matmul_precision():
 def tiny_model():
     """Minimal WPPM: degree=1, 2D, 1 extra dim -> W shape (2, 2, 2, 3)."""
     return WPPM(
-        input_dim=2,
-        extra_dims=1,
         prior=Prior(input_dim=2, basis_degree=1, extra_embedding_dims=1),
         likelihood=OddityTask(config=OddityTaskConfig(num_samples=5)),
         noise=GaussianNoise(),
@@ -327,8 +325,6 @@ def test_ci_prob_out_of_range_is_rejected(posterior, points):
 def test_non_2d_models_are_rejected():
     """The direction grid is a circle, so only 2-D stimulus spaces work today."""
     model = WPPM(
-        input_dim=1,
-        extra_dims=1,
         prior=Prior(input_dim=1, basis_degree=1, extra_embedding_dims=1),
         likelihood=OddityTask(config=OddityTaskConfig(num_samples=5)),
         noise=GaussianNoise(),

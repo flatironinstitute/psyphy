@@ -30,7 +30,6 @@ class TestParameterPosterior:
     def model(self):
         """Create a simple WPPM model."""
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -92,7 +91,6 @@ class TestPredictivePosterior:
     def model(self):
         """Create a simple WPPM model."""
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -187,7 +185,6 @@ class TestPredictivePosterior:
         running MAPOptimizer.
         """
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(config=OddityTaskConfig(num_samples=20)),
             noise=GaussianNoise(),
@@ -233,7 +230,6 @@ class TestPredictivePosterior:
         not the implementation, so this uses settings near the tutorial's.
         """
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(config=OddityTaskConfig(num_samples=500)),
             noise=GaussianNoise(),
@@ -349,7 +345,6 @@ class TestIntegration:
         """Test complete workflow: fit → parameter posterior → predictive posterior."""
         # 1. Create model
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),

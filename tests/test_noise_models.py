@@ -26,7 +26,6 @@ class TestNoiseModels:
     @pytest.fixture
     def model_gaussian(self):
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=2000, bandwidth=1e-2)
@@ -37,7 +36,6 @@ class TestNoiseModels:
     @pytest.fixture
     def model_student_t(self):
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=2000, bandwidth=1e-2)
@@ -90,7 +88,6 @@ class TestNoiseModels:
 
         # Override MC fidelity for this test via task config.
         model_student_t = WPPM(
-            input_dim=model_student_t.input_dim,
             prior=model_student_t.prior,
             likelihood=OddityTask(
                 config=OddityTaskConfig(num_samples=500, bandwidth=1e-2)

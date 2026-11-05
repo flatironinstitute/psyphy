@@ -36,7 +36,6 @@ from psyphy.posterior import (
 @pytest.fixture
 def model():
     return WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=2),
         likelihood=OddityTask(OddityTaskConfig(num_samples=100)),
         noise=GaussianNoise(),

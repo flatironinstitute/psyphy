@@ -28,7 +28,6 @@ class TestModelFit:
     def model(self):
         """Create a WPPM model."""
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -72,7 +71,6 @@ class TestModelPosterior:
     def posterior(self):
         """Create a fitted posterior."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -141,7 +139,6 @@ class TestConditionOnObservations:
     def model(self):
         """Create a model."""
         return WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -176,7 +173,6 @@ class TestIntegrationWorkflow:
         """Test complete workflow with new API."""
         # 1. Create model
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -220,7 +216,6 @@ class TestIntegrationWorkflow:
         """Test online learning manually."""
         # 1. Create model
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),

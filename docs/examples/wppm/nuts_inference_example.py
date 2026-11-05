@@ -386,8 +386,6 @@ truth_prior = Prior(
     variance_scale=VARIANCE_SCALE,
 )
 truth_model = WPPM(
-    input_dim=INPUT_DIM,
-    extra_dims=EXTRA_DIMS,
     prior=truth_prior,
     likelihood=task,
     noise=noise,
@@ -441,7 +439,6 @@ prior = Prior(
     variance_scale=VARIANCE_SCALE,
 )
 model = WPPM(
-    input_dim=INPUT_DIM,
     prior=prior,
     likelihood=task,
     noise=noise,

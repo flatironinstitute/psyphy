@@ -23,7 +23,6 @@ class TestWishartParameters:
     def test_wishart_params_structure(self):
         """With basis_degree set, params should include W coefficients."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -50,11 +49,9 @@ class TestWishartParameters:
         """
         extra_dims = 2
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=extra_dims),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
-            extra_dims=extra_dims,
         )
 
         params = model.init_params(jr.PRNGKey(0))
@@ -103,7 +100,6 @@ class TestSpatiallyVaryingCovariance:
     def test_covariance_varies_with_location(self):
         """Σ(x) should be different at different locations."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -123,7 +119,6 @@ class TestSpatiallyVaryingCovariance:
     def test_covariance_smooth_variation(self):
         """Σ(x) should vary smoothly - nearby points have similar covariances."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3, decay_rate=0.8),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -148,7 +143,6 @@ class TestSpatiallyVaryingCovariance:
     def test_covariance_positive_definite_everywhere(self):
         """Σ(x) must be positive definite at all locations."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -170,7 +164,6 @@ class TestSpatiallyVaryingCovariance:
     def test_covariance_shape_in_stimulus_space(self):
         """Σ(x) should be input_dim x input_dim."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -185,7 +178,6 @@ class TestSpatiallyVaryingCovariance:
     def test_sqrt_U_shape(self):
         """U(x) should be input_dim x embedding_dim."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -202,7 +194,6 @@ class TestSpatiallyVaryingCovariance:
         """diag_term should ensure minimum eigenvalue."""
         diag_term = 0.1
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -224,7 +215,6 @@ class TestWishartIntegration:
     def test_prediction_with_wishart(self):
         """Model predictions should work with Wishart covariance."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -244,7 +234,6 @@ class TestWishartIntegration:
     def test_fit_with_wishart(self):
         """Full fitting pipeline should work with Wishart process."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),  # Lower degree for speed
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -288,11 +277,9 @@ class TestComputeU:
         """
         extra_dims = 2
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=extra_dims),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
-            extra_dims=extra_dims,
         )
 
         params = model.init_params(jr.PRNGKey(0))
@@ -308,7 +295,6 @@ class TestComputeU:
     def test_compute_sqrt_varies_with_location(self):
         """U(x) should vary with stimulus location."""
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),
@@ -329,7 +315,6 @@ class TestComputeU:
         """Verify Σ(x) = U(x) @ U(x)^T + diag_term * I."""
         diag_term = 0.01
         model = WPPM(
-            input_dim=2,
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
             noise=GaussianNoise(),

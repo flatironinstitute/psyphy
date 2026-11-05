@@ -19,7 +19,6 @@ from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
 @pytest.mark.parametrize("input_dim", [2, 3])
 def test_evaluate_basis_at_point_accepts_chebyshev_domain(input_dim: int) -> None:
     model = WPPM(
-        input_dim=input_dim,
         prior=Prior(input_dim=input_dim, basis_degree=3),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
@@ -38,7 +37,6 @@ def test_evaluate_basis_at_point_accepts_chebyshev_domain(input_dim: int) -> Non
 @pytest.mark.parametrize("bad_x", [jnp.array([1.1, 0.0]), jnp.array([-1.2, 0.0])])
 def test_evaluate_basis_at_point_rejects_out_of_range_2d(bad_x: jnp.ndarray) -> None:
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=2),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
@@ -50,7 +48,6 @@ def test_evaluate_basis_at_point_rejects_out_of_range_2d(bad_x: jnp.ndarray) -> 
 
 def test_evaluate_basis_at_point_rejects_wrong_shape() -> None:
     model = WPPM(
-        input_dim=2,
         prior=Prior(input_dim=2, basis_degree=2),
         likelihood=OddityTask(),
         noise=GaussianNoise(),
