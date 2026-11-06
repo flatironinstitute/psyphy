@@ -40,7 +40,7 @@ Usage Examples
 >>> import jax.numpy as jnp
 >>> import jax.random as jr
 >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
->>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+>>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
 >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
 >>> field(jnp.array([0.5, 0.3])).shape
 (2, 2)
@@ -185,7 +185,7 @@ class WPPMCovarianceField:
     >>> import jax.numpy as jnp
     >>> import jax.random as jr
     >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-    >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+    >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
     >>> # from the prior
     >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
     >>> field(jnp.array([0.5, 0.3])).shape
@@ -250,9 +250,7 @@ class WPPMCovarianceField:
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
         >>> # 2D stimulus space (e.g., isoluminant plane)
-        >>> model_2d = WPPM(
-        ...     Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2
-        ... )
+        >>> model_2d = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> field_2d = WPPMCovarianceField.from_prior(model_2d, jr.PRNGKey(0))
         >>>
         >>> # Single 2D point
@@ -268,9 +266,7 @@ class WPPMCovarianceField:
         >>> Sigmas_grid = field_2d(X_grid)  # Shape (10, 10, 2, 2)
         >>>
         >>> # 3D stimulus space (e.g., RGB)
-        >>> model_3d = WPPM(
-        ...     Prior(input_dim=3, basis_degree=2), OddityTask(), input_dim=3
-        ... )
+        >>> model_3d = WPPM(Prior(input_dim=3, basis_degree=2), OddityTask())
         >>> field_3d = WPPMCovarianceField.from_prior(model_3d, jr.PRNGKey(0))
         >>>
         >>> # Single 3D point
@@ -376,7 +372,7 @@ class WPPMCovarianceField:
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(42))
         >>> field(jnp.array([0.5, 0.5])).shape
         (2, 2)
@@ -417,7 +413,7 @@ class WPPMCovarianceField:
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> from psyphy.inference import MAPOptimizer
         >>> map_posterior = MAPOptimizer().fit(model, data)  # doctest: +SKIP
         >>> field = WPPMCovarianceField.from_posterior(map_posterior)  # doctest: +SKIP
@@ -470,7 +466,7 @@ class WPPMCovarianceField:
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> params = model.init_params(jr.PRNGKey(0))  # {"W": (3, 3, 2, 3)}
         >>> field = WPPMCovarianceField.from_params(model, params)
         >>> field(jnp.array([0.5, 0.5])).shape
@@ -506,7 +502,7 @@ class WPPMCovarianceField:
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
         >>> x = jnp.array([0.5, 0.3])
         >>> U = field.sqrt_cov(x)
@@ -552,7 +548,7 @@ class WPPMCovarianceField:
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
         >>> X_grid = jnp.array([[0.1, 0.2], [0.5, 0.5], [0.9, 0.8]])  # (3, 2)
         >>> field.sqrt_cov_batch(X_grid).shape  # (n_points, input_dim, embedding_dim)
@@ -636,7 +632,7 @@ def covariance_to_arviz(posterior, points):
     >>> import jax.numpy as jnp
     >>> import jax.random as jr
     >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-    >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+    >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
     >>> from psyphy.posterior import MCMCPosterior
     >>> # stand-in for NUTSSampler().fit(model, data): 2 chains of 50 prior samples
     >>> keys = jr.split(jr.PRNGKey(1), 100)
@@ -882,7 +878,7 @@ class WPPMCovarianceFieldSamples:
     >>> import jax.numpy as jnp
     >>> import jax.random as jr
     >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
-    >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+    >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
     >>> ref_points = jnp.array([[-0.5, -0.5], [0.5, 0.5]])  # (n_points=2, d=2)
     >>> fields = WPPMCovarianceFieldSamples.from_prior(
     ...     model, n_samples=50, key=jr.PRNGKey(0)
@@ -944,7 +940,7 @@ class WPPMCovarianceFieldSamples:
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
         >>> from psyphy.posterior import MCMCPosterior
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> keys = jr.split(jr.PRNGKey(1), 100)
         >>> W = jnp.stack(
         ...     [model.init_params(k)["W"] for k in keys]
@@ -985,7 +981,7 @@ class WPPMCovarianceFieldSamples:
         --------
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> fields = WPPMCovarianceFieldSamples.from_prior(
         ...     model, n_samples=8, key=jr.PRNGKey(0)
         ... )
@@ -1044,7 +1040,7 @@ class WPPMCovarianceFieldSamples:
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> fields = WPPMCovarianceFieldSamples.from_prior(
         ...     model, n_samples=16, key=jr.PRNGKey(0)
         ... )
@@ -1118,7 +1114,7 @@ class WPPMCovarianceFieldSamples:
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
         >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> ref_points = jnp.array([[-0.5, -0.5], [0.5, 0.5]])  # (n_points, 2)
         >>> fields = WPPMCovarianceFieldSamples.from_prior(
         ...     model, n_samples=50, key=jr.PRNGKey(1)

@@ -237,7 +237,7 @@ class MCMCPosterior:
         >>> import arviz as az
         >>> from psyphy.model import WPPM, OddityTask, Prior
         >>> from psyphy.posterior import MCMCPosterior
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask(), input_dim=2)
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> # stand-in for NUTSSampler().fit(model, data): 2 chains of 50 prior draws
         >>> keys = jr.split(jr.PRNGKey(1), 100)
         >>> W = jnp.stack(

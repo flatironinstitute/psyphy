@@ -84,7 +84,6 @@ class OddityTask(BernoulliTaskLikelihood):
     ...     config=OddityTaskConfig(num_samples=1000, bandwidth=1e-2)
     ... )
     >>> model = WPPM(
-    ...     input_dim=2,
     ...     prior=Prior(input_dim=2),
     ...     likelihood=likelihood,
     ...     noise=GaussianNoise(),
