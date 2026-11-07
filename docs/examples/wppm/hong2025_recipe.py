@@ -2,7 +2,7 @@
 
 This file exists so the orientation block at the top of
 ``hong2025_reproduction.md`` is quoted from code that runs, rather than typed
-into the Markdown and left to rot. It is deliberately minimal: no argparse, no
+into the Markdown and left to rot. It is minimal: no argparse, no
 figures, no refit. For the full pipeline see ``hong2025_reproduction.py``.
 
 Run it with::

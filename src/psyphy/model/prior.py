@@ -77,8 +77,8 @@ class Prior:
 
         Returns
         -------
-        basis_degrees : jnp.ndarray
-            Array of total degrees, shape (degree+1, degree+1) for 2D
+        basis_degrees : jnp.ndarray, shape (degree+1,) * input_dim
+            Array of total degrees.
         """
         if self.basis_degree is None:
             return jnp.array([])
@@ -115,8 +115,8 @@ class Prior:
 
         Returns
         -------
-        variances : jnp.ndarray
-            Prior variances, shape matches basis degree grid
+        variances : jnp.ndarray, shape (degree+1,) * input_dim
+            Prior variances, same shape as ``_compute_basis_degree_grid``'s output.
         """
         basis_degrees = self._compute_basis_degree_grid()
         return self.variance_scale * (self.decay_rate**basis_degrees)

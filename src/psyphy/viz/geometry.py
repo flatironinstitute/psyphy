@@ -77,9 +77,9 @@ def ellipse_segments(
 
     Returns
     -------
-    segments : list of np.ndarray
-        One ``(n_points, 2)`` array per **positive-definite** covariance, in
-        input order. Shorter than ``centers`` when some are skipped.
+    segments : list of np.ndarray, each shape (n_points, 2)
+        One array per **positive-definite** covariance, in input order.
+        Shorter than ``centers`` when some are skipped.
     valid : np.ndarray of bool, shape (n_points,)
         Which covariances were positive-definite and therefore drawn.
 

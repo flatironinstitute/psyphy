@@ -63,7 +63,7 @@ class MCMCPosterior:
         # For WPPM: {"W": (n_chains, n_draws, degree+1, degree+1, input_dim, embedding_dim)}
         # e.g. 4 chains × 1000 draws, degree=1, input_dim=2, extra_dims=1:
         #      {"W": (4, 1000, 2, 2, 2, 3)}
-        # This is the canonical shape that flows from NUTSSampler -> here -> ArviZ.
+        # This shape flows unchanged from NUTSSampler -> here -> ArviZ.
         self._samples = samples
         self._model = model
         # sampler_stats: optional dict of per-chain diagnostics from the sampler.
@@ -106,7 +106,7 @@ class MCMCPosterior:
         """
         # _samples["W"]: (n_chains, n_draws, *param_shape)
         # mean over (0, 1)  ->  (*param_shape)
-        # Kept as the plain parameter mean on purpose: the ParameterPosterior
+        # Kept as the plain parameter mean: the ParameterPosterior
         # protocol requires params to be a parameter PyTree (NUTSSampler and
         # MAPOptimizer accept it as init_params), and E[Σ] cannot be expressed
         # as any single W. The fix for covariance summaries therefore lives in

@@ -163,7 +163,7 @@ def default_data_dir() -> Path:
     """Return the directory :func:`fetch` downloads into.
 
     ``$PSYPHY_DATA_HOME`` if set, otherwise ``~/.cache/psyphy/hong2025``.
-    Deliberately outside the repository so downloaded data is never staged for
+    Outside the repository, so downloaded data is never staged for
     commit.
     """
     root = os.environ.get("PSYPHY_DATA_HOME")
@@ -638,8 +638,8 @@ def load_reference_W(path: str | Path, column: str = "W_org") -> jnp.ndarray:
 
     Returns
     -------
-    jnp.ndarray
-        Shape (5, 5, 2, 3), exactly psyphy's ``params["W"]`` layout for
+    jnp.ndarray, shape (5, 5, 2, 3)
+        Exactly psyphy's ``params["W"]`` layout for
         ``basis_degree=4, input_dim=2, extra_embedding_dims=1``, so it can be
         used directly as ``{"W": load_reference_W(...)}`` with no reshaping.
 

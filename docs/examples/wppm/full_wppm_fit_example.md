@@ -1,4 +1,4 @@
-# Full WPPM fit (end-to-end) — simulated 2D data
+# Full WPPM fit (end-to-end): simulated 2D data
 
 This tutorial explains how to use the Wishart Psychophysical Process Model (WPPM) end to end:
 > You can treat this as a ``recipe'' for using the Wishart Psychophysical Process Model (WPPM) in your own project: build a model, initialize parameters, fit the model, and visualize fitted predicted thresholds.
@@ -12,7 +12,7 @@ This tutorial explains the example that can be found and run
 
 Runtime depends heavily on your device and on a few computation-driving hyperparameters (see below).
 - GPU (A100 40GB): With the default settings below, the script runs in ~3 minutes.
-- CPU: To make the script practical on CPU, reduce `MC_SAMPLES` aggressively (e.g., to 5–20) and `NUM_TRIALS_Per_Ref` and shorten the **optimizer** run (reduce `num_steps`). These two knobs usually give the biggest speedups.
+- CPU: To make the script practical on CPU, reduce `MC_SAMPLES` aggressively (e.g., to 5-20) and `NUM_TRIALS_Per_Ref` and shorten the **optimizer** run (reduce `num_steps`). These two knobs usually give the biggest speedups.
 - Apple Silicon / MPS: With the current configuration, the script takes 1h 45 min on CPU (M5 Max, 64 GB)
 
 #### Default compute settings (GPU)
@@ -45,7 +45,7 @@ $$
 \Sigma(x) = U(x)U(x)^\top + \varepsilon I,
 $$
 
-where $U(x)$ is a smooth, basis-expanded matrix-valued function and $\varepsilon$ is a small diagonal “jitter” (`diag_term`) to avoid numerical issues. Alternatively, in Gaussian Process (GP) terms, you can think of $U(x)$ defining a GP in weight space, i.e., a "Bayesian linear model".
+where $U(x)$ is a smooth, basis-expanded matrix-valued function and $\varepsilon$ is a small diagonal "jitter" (`diag_term`) to avoid numerical issues. Alternatively, in Gaussian Process (GP) terms, you can think of $U(x)$ defining a GP in weight space, i.e., a "Bayesian linear model".
 
 A psychophysical task model (here: `OddityTask`) uses $\Sigma$ to compute probability of a correct response on each trial, and [`MAPOptimizer`](../../reference/inference.md#psyphy.inference.MAPOptimizer) fits WPPM parameters by maximizing
 
@@ -69,11 +69,11 @@ For OddityTask, we store trials as (ref, comparison) even though the task involv
 Note on data used in this script: here, we simulate data (and hence have a ground truth to compare against). To see how to conveniently simulate data yourself, check out the [script](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py)
 
 ### 2 ways of representing data in `psyphy` (important)
-`psyphy` provides two lightweight containers for trial data (defined in [`src/psyphy/data/dataset.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/data/dataset.py)):
+`psyphy` provides two containers for trial data (defined in [`src/psyphy/data/dataset.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/data/dataset.py)):
 
 **[`TrialData`](../../reference/data.md#psyphy.data.TrialData) (compute-first; used for fitting):**
 
-- The canonical, (batched) input expected by likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)).
+- The batched input likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)) expect.
 It holds JAX arrays:
 
    - stimuli: (N, K, d)
@@ -90,9 +90,9 @@ Context is an optional attribute which is intended to track task-wide features t
 #### Typical workflow:
 Avoid repeatedly converting Python lists -> JAX arrays inside tight loops.
 
-- If you’re doing online fitting with adaptive trial placement, it’s usually better to:
+- If you're doing online fitting with adaptive trial placement, it's usually better to:
 - collect trials in ResponseData (easy incremental updates).
-- then convert to `TrialData` with `to_trial_data()` when you’re ready to fit/evaluate a model once or in batches (e.g. every K trials) before running expensive optimization.
+- then convert to `TrialData` with `to_trial_data()` when you're ready to fit/evaluate a model once or in batches (e.g. every K trials) before running expensive optimization.
 
 
 Note that here, we simulate data, for details check out [`full_wppm_fit_example.py`](full_wppm_fit_example.py) directly resulting in a `TrialData` object.
@@ -100,7 +100,7 @@ Note that here, we simulate data, for details check out [`full_wppm_fit_example.
 
 ---
 
-## Step 1 — Define the prior (how weights are distributed initially)
+## Step 1: Define the prior (how weights are distributed initially)
 
 The WPPM parameters are basis weights stored as a dict:
 
@@ -129,7 +129,7 @@ where:
 - $D$ = `input_dim` (here 2)
 - $E$ = `embedding_dim = input_dim + extra_embedding_dims`
 
-The prior variance decays with basis “total degree”. In code:
+The prior variance decays with basis "total degree". In code:
 
 - `Prior._compute_basis_degree_grid()` constructs degrees $i+j$ (2D) or $i+j+k$ (3D).
 - `Prior._compute_W_prior_variances()` returns
@@ -171,7 +171,7 @@ To see how we generate the covariance field figures, check out the plotting code
 
 ---
 
-## Step 2 — Build the model (WPPM + task + noise)
+## Step 2: Build the model (WPPM + task + noise)
 
 Like good Bayesians, we build a model by combining a **prior** and a **likelihood**.
 
@@ -190,7 +190,7 @@ In `psyphy`, `model` acts as a container for both
 
 ---
 
-## Step 3 — Fit with MAP optimization
+## Step 3: Fit with MAP optimization
 
 We obtain a MAP estimate over weights $W$ by computing the negative log likelihood using
 SGD + momentum:
@@ -209,14 +209,14 @@ W_\text{MAP} = \arg\max_{W} \big[\log p(\mathcal{D}\mid W) + \log p(W)\big].
 \]
 
 - $\log p(W)$ is from `Prior.log_prob(params)` (see `prior.py`).
-- $\log p(\mathcal{D}\mid W)$ is computed by the task’s log-likelihood (here via Monte Carlo inside `OddityTask.loglik`).
+- $\log p(\mathcal{D}\mid W)$ is computed by the task's log-likelihood (here via Monte Carlo inside `OddityTask.loglik`).
 
 The result in this example is a [`MAPPosterior`](../../reference/posterior.md#psyphy.posterior.MAPPosterior) object that contains a point estimate `map_posterior.params`.
 
 
 ---
 
-## Step 4 — Visualize fit vs. truth vs. prior sample
+## Step 4: Visualize fit vs. truth vs. prior sample
 To see how we generate the covariance field figures, check out the plotting code in this [script](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py), which reproduces the figures in this tutorial.
 <div align="center">
     <picture>
@@ -247,7 +247,7 @@ For a minimal code setup that doesn't require a GPU but will run on your CPU in 
 - **CPU vs GPU:** this example can be heavy because the oddity likelihood uses Monte Carlo. A GPU can help a lot, see [`quickstart`](https://flatironinstitute.github.io/psyphy/examples/wppm/quick_start/) for a CPU friendly version.
 - **Positive definiteness:** `diag_term` is important. If you ever see a non-PD covariance, increase `diag_term` slightly.
 - **MC variance:** optimization stability depends on `MC_SAMPLES`. Too small means noisy gradients.
-- **Objective scaling:** `MAPOptimizer` defaults to `reduction="mean"`, so the reported loss is a *per-trial* negative log posterior and `learning_rate` transfers across dataset sizes. `WPPM.log_posterior_from_data` still returns the true summed log posterior — the scaling lives in the optimizer. Pass `reduction="sum"` to recover the unnormalized objective, but note that `max_grad_norm=1.0` then saturates on nearly every step (the raw gradient norm grows with the number of trials), which silently turns SGD into fixed-step normalized descent. If you are matching a reference implementation that does no clipping, pass `max_grad_norm=None`.
+- **Objective scaling:** `MAPOptimizer` defaults to `reduction="mean"`, so the reported loss is a *per-trial* negative log posterior and `learning_rate` transfers across dataset sizes. `WPPM.log_posterior_from_data` still returns the true summed log posterior: the scaling lives in the optimizer. Pass `reduction="sum"` to recover the unnormalized objective, but note that `max_grad_norm=1.0` then saturates on nearly every step (the raw gradient norm grows with the number of trials), which silently turns SGD into fixed-step normalized descent. If you are matching a reference implementation that does no clipping, pass `max_grad_norm=None`.
 
 
 ---
@@ -279,7 +279,7 @@ instead of using relative filesystem paths.
 
 If you want to "follow the call graph":
 
-1. `WPPM.init_params(...)` (defined in [`src/psyphy/model/wppm.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/wppm.py)) → delegates to the prior’s `Prior.sample_params(...)` (defined in [`src/psyphy/model/prior.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/prior.py)).
-2. `OddityTask.predict_with_kwargs(...)` / `OddityTask.loglik(...)` (defined in [`src/psyphy/model/likelihood/oddity.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/likelihood/oddity.py)) → calls into the model to get $\Sigma(x)$ and then runs the task’s decision rule (Monte Carlo in the full model).
-3. `WPPMCovarianceField(model, params)` (defined in [`src/psyphy/model/covariance_field.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/covariance_field.py)) → provides a callable `field(x)` that returns $\Sigma(x)$ for single points or batches.
-4. `MAPOptimizer.fit(...)` (defined in [`src/psyphy/inference/map_optimizer.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/inference/map_optimizer.py)) → runs gradient-based optimization of the negative log likelihood.
+1. `WPPM.init_params(...)` (defined in [`src/psyphy/model/wppm.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/wppm.py)) -> delegates to the prior's `Prior.sample_params(...)` (defined in [`src/psyphy/model/prior.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/prior.py)).
+2. `OddityTask.predict_with_kwargs(...)` / `OddityTask.loglik(...)` (defined in [`src/psyphy/model/likelihood/oddity.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/likelihood/oddity.py)) -> calls into the model to get $\Sigma(x)$ and then runs the task's decision rule (Monte Carlo in the full model).
+3. `WPPMCovarianceField(model, params)` (defined in [`src/psyphy/model/covariance_field.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/covariance_field.py)) -> provides a callable `field(x)` that returns $\Sigma(x)$ for single points or batches.
+4. `MAPOptimizer.fit(...)` (defined in [`src/psyphy/inference/map_optimizer.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/inference/map_optimizer.py)) -> runs gradient-based optimization of the negative log likelihood.

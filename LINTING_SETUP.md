@@ -28,7 +28,7 @@ This document summarizes the linting, formatting, and code quality setup we use 
 - `pyproject.toml`
     - Added Ruff, mypy, and pytest configuration
 - `docs/CONTRIBUTING.md`
-    - now also inlcudeds  linting guidelines
+    - now also inlcudeds linting guidelines
 - All Python files in `src/` and `tests/`
      - Auto-formatted and modernized
 
@@ -59,11 +59,11 @@ This document summarizes the linting, formatting, and code quality setup we use 
 ├─────────────────────────────────────────────────────────────┤
 │  You write code                                             │
 │    ↓                                                        │
-│  make format / ruff format    → Auto-formats code          │
+│  make format / ruff format    -> Auto-formats code          │
 │    ↓                                                        │
-│  make lint-fix / ruff check --fix → Auto-fixes issues      │
+│  make lint-fix / ruff check --fix -> Auto-fixes issues      │
 │    ↓                                                        │
-│  make test / pytest           → Run tests                  │
+│  make test / pytest           -> Run tests                  │
 └─────────────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -79,7 +79,7 @@ This document summarizes the linting, formatting, and code quality setup we use 
 │    • end-of-file-fixer                                      │
 │    • check-yaml, check-toml, etc.                          │
 │    ↓                                                        │
-│  If files modified: review → git add → git commit again    │
+│  If files modified: review -> git add -> git commit again    │
 └─────────────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -93,8 +93,8 @@ This document summarizes the linting, formatting, and code quality setup we use 
 │    • mypy (type check)                                      │
 │    • pytest (tests)                                         │
 │    ↓                                                        │
-│  ✓ Checks pass → PR can be merged                          │
-│  ✗ Checks fail → Fix locally and push again                │
+│  ✓ Checks pass -> PR can be merged                          │
+│  ✗ Checks fail -> Fix locally and push again                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -107,15 +107,15 @@ git add .
 git commit -m "Your changes"
 
 # Automatically runs (in order):
-# 1. ruff check --fix    → Lints and auto-fixes issues
-# 2. ruff format          → Formats code (wraps long lines, fixes spacing)
-# 3. mypy                 → Type checks your code
-# 4. trailing-whitespace  → Removes trailing spaces
-# 5. end-of-file-fixer    → Ensures files end with newline
-# 6. check-yaml           → Validates YAML files
-# 7. check-toml           → Validates TOML files
-# 8. check-merge-conflict → Checks for merge conflict markers
-# 9. debug-statements     → Finds leftover debug statements
+# 1. ruff check --fix    -> Lints and auto-fixes issues
+# 2. ruff format          -> Formats code (wraps long lines, fixes spacing)
+# 3. mypy                 -> Type checks your code
+# 4. trailing-whitespace  -> Removes trailing spaces
+# 5. end-of-file-fixer    -> Ensures files end with newline
+# 6. check-yaml           -> Validates YAML files
+# 7. check-toml           -> Validates TOML files
+# 8. check-merge-conflict -> Checks for merge conflict markers
+# 9. debug-statements     -> Finds leftover debug statements
 
 # If any hooks modify files:
 git add .               # Stage the auto-fixed files

@@ -60,7 +60,7 @@ def tiny_data():
 
 @pytest.fixture(scope="module")
 def sampler_adaptive():
-    """Minimal adaptive NUTSSampler (Mode A)."""
+    """Minimal adaptive-warmup NUTSSampler."""
     return NUTSSampler(
         num_warmup=20,
         num_samples=10,
@@ -71,7 +71,7 @@ def sampler_adaptive():
 
 @pytest.fixture(scope="module")
 def sampler_fixed():
-    """Minimal fixed-stepsize NUTSSampler (Mode B)."""
+    """Minimal fixed-stepsize NUTSSampler."""
     return NUTSSampler(
         num_warmup=20,
         num_samples=10,
@@ -108,7 +108,7 @@ class TestImportGuard:
 
 
 # -------------------------------------------------------------------
-# Tests: Mode A (adaptive)
+# Tests: adaptive warmup
 # ---------------------------------------------------------------------------
 
 
@@ -155,7 +155,7 @@ class TestNUTSSamplerAdaptive:
 
 
 # --------------------------------------------------------------
-# Tests: Mode B (fixed step_size, vmapped)
+# Tests: fixed step_size, vmapped
 # ---------------------------------------------------------------------------
 
 
@@ -189,7 +189,7 @@ class TestNUTSSamplerFixed:
 class TestNUTSDownstreamIntegration:
     """
     Verify that MCMCPosterior plugs into WPPMPredictivePosterior exactly as
-    MAPPosterior does — the predictive posterior is agnostic about which
+    MAPPosterior does: the predictive posterior is agnostic about which
     inference engine produced the parameter posterior it wraps.
 
     context:
@@ -206,7 +206,7 @@ class TestNUTSDownstreamIntegration:
     """
 
     def test_predictive_posterior_mean_shape(self, posterior_adaptive, tiny_model):
-        # refs: reference stimulus locations (x_ref) — the "anchor" stimulus
+        # refs: reference stimulus locations (x_ref), the "anchor" stimulus
         # shown to the observer in each trial (matches TrialData.refs).
         # comparisons: the paired probe stimuli (x_comp) placed nearby.
         # The model predicts p(correct | x_ref, x_comp, θ) for each pair.
@@ -227,7 +227,7 @@ class TestNUTSDownstreamIntegration:
 
     def test_predictive_posterior_variance_shape(self, posterior_adaptive, tiny_model):
         # Variance over the posterior samples quantifies uncertainty about
-        # p(correct) at each test location — high variance means the model
+        # p(correct) at each test location. High variance means the model
         # parameters disagree about discriminability there.
         refs = jnp.array([[0.0, 0.0], [0.2, 0.2]])  # reference stimuli
         comparisons = jnp.array(
@@ -245,7 +245,7 @@ class TestNUTSDownstreamIntegration:
 
     def test_map_and_nuts_interchangeable(self, posterior_adaptive, tiny_model):
         # WPPMPredictivePosterior only depends on the ParameterPosterior
-        # protocol (.sample(), .params, .model) — it never inspects whether
+        # protocol (.sample(), .params, .model). It never inspects whether
         # the posterior came from MAP or MCMC. This test confirms both work
         # identically at the call site, which is the key design invariant.
         from psyphy.posterior.posterior import MAPPosterior

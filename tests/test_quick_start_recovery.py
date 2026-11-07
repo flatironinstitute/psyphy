@@ -29,7 +29,7 @@ separately: *platform*. Holding jax and Python fixed at CI's own versions
 on the Linux x86_64 runner -- float32 arithmetic and XLA codegen differ enough
 on a chaotic Monte Carlo objective to move a shape statistic 4x. The area ratio
 was stable across the same comparison. So the two assertions below are
-deliberately calibrated to different strictness; see the bounds.
+calibrated to different strictness; see the bounds.
 
 The lesson both rounds share: any numeric bound here has to hold across jax
 version *and* OS/architecture, and checking one configuration is not evidence
@@ -68,7 +68,7 @@ REF_POINT = jnp.array([[0.0, 0.0]])
 MAHAL_RADIUS = 2.8
 NOISE_SIGMA = 0.1
 
-# The two statistics are deliberately not equally strict, because they are not
+# The two statistics are not equally strict, because they are not
 # equally well determined.
 #
 # Area ratio (sqrt-det) measures *size*, which the data pins down well. Measured
@@ -193,7 +193,7 @@ def test_tutorial_settings_do_not_trigger_gradient_clipping(fit):
     assert fit["optimizer"].clip_rate is None
 
 
-# Deliberately no "too few trials fails predictably" test. An earlier version
+# No "too few trials fails predictably" test, by choice. An earlier version
 # asserted that 100 trials reliably collapses the fit to near-zero covariance
 # and failed immediately in CI (jax==0.4.28): under that version's draw from
 # the same seeds, the same config *overshot* by 1.35x instead -- see the module

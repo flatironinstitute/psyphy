@@ -35,7 +35,7 @@ except AttributeError:  # jax < 0.6-ish
     # jax the experimental path does not exist, which is precisely what the `try`
     # above has already established at this line.
     #
-    # Imported under its own name and aliased on a separate line, deliberately.
+    # Imported under its own name and aliased on a separate line.
     # Writing `import enable_x64 as _enable_x64` here needs a second ignore for
     # `no-redef` and pushes the line past 88 characters, at which point
     # ruff-format wraps it in parentheses and the trailing `# type: ignore`
@@ -53,7 +53,7 @@ def x64():
     agreement floors around 1e-7 rather than resolving the ~1e-9 that is
     actually there.
 
-    This is deliberately a scoped context manager and *not* a module-level
+    This is a scoped context manager and *not* a module-level
     ``jax.config.update``. pytest imports every test module during collection,
     before running any test, so a module-level flag flip changes precision for
     the entire session. Other modules here assert behaviour that only holds in
@@ -272,7 +272,7 @@ class TestBuildPaperModel:
 # Colour transform: load_calibration_matrix / w2d_to_rgb
 # ----------------------------------------------------------------------
 
-#: A deliberately hand-checkable stand-in for the published matrix: doubles
+#: A hand-checkable stand-in for the published matrix: doubles
 #: w1, negates w2, and offsets every channel by 0.5.
 _FAKE_M_CSV = """2.0,0.0,0.5
 0.0,-1.0,0.5
@@ -323,7 +323,7 @@ class TestW2dToRgb:
 
 
 # ----------------------------------------------------------------------
-# External validity — requires the OSF download
+# External validity: requires the OSF download
 # ----------------------------------------------------------------------
 
 _SUB1 = hong2025.default_data_dir() / "sub1"
