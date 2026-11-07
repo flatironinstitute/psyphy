@@ -225,16 +225,15 @@ class WPPMCovarianceField:
 
         Parameters
         ----------
-        x : jnp.ndarray
-            - Single point: shape (input_dim,)
-            - Batch: shape (..., input_dim) where ... are arbitrary batch dimensions
+        x : jnp.ndarray, shape (input_dim,) or (..., input_dim)
+            The first for a single point, the second for a batch with
+            arbitrary leading batch dimensions.
 
         Returns
         -------
-        jnp.ndarray
-            Square covariance matrix/matrices. Shape adapts to stimulus dimensionality:
-            - Single point: shape (d, d) where d = model.input_dim
-            - Batch: shape (..., d, d) where d = model.input_dim
+        jnp.ndarray, shape (d, d) or (..., d, d), where d = model.input_dim
+            Square covariance matrix/matrices: the first shape for a single
+            point, the second for a batch.
 
             For input_dim=2: returns (2, 2) or (..., 2, 2)
             For input_dim=3: returns (3, 3) or (..., 3, 3)
@@ -730,13 +729,12 @@ class ContourBand(NamedTuple):
     directions : jnp.ndarray, shape (n_directions, d)
         Unit directions the radii are measured along, in order. Closed, so the
         last direction repeats the first and a filled polygon has no seam.
-    lower, median, upper : jnp.ndarray
-        Interval endpoints and the posterior median radius, shape
-        (n_points, n_directions) for a single ``ci_prob``, or
-        (n_levels, n_points, n_directions) when a sequence was requested. All
-        three carry the same shape, so a loop over levels can index all of
-        them. The median does not depend on the interval probability, so its
-        levels are identical copies.
+    lower, median, upper : jnp.ndarray, shape (n_points, n_directions) or (n_levels, n_points, n_directions)
+        Interval endpoints and the posterior median radius: the first shape
+        for a single ``ci_prob``, the second when a sequence was requested.
+        All three carry the same shape, so a loop over levels can index all
+        of them. The median does not depend on the interval probability, so
+        its levels are identical copies.
     ci_prob : float | tuple[float, ...]
         Nominal probability each interval carries. A tuple when several levels
         were requested, in the order the arrays are stacked.

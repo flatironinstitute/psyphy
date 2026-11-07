@@ -4,7 +4,7 @@ tests/test_mcmc_posterior.py
 
 Unit tests for MCMCPosterior.
 
-the tests are independent of BlackJAX — fake samples are constructed manually
+the tests are independent of BlackJAX: fake samples are constructed manually
 so this suite runs without any sampling backend installed.
 Integration with ArViz for sampler diagnostics is also tested.
 """

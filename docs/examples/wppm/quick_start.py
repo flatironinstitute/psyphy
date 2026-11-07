@@ -3,7 +3,7 @@ Quick-Start WPPM Example: Fitting a Covariance Ellipse at a Single Point
 ------------------------------------------------------------------------
 
 This is a minimal, fast version of the full WPPM example. It demonstrates
-the complete workflow — simulate data, fit a model, visualize results —
+the complete workflow (simulate data, fit a model, visualize results)
 at a **single reference point** with reduced MC samples and fewer optimizer
 steps so it runs in seconds on CPU.
 
@@ -100,7 +100,7 @@ learning_rate = 1e-4  # full example: 5e-5. The smaller the lr, the more steps
 # momentum = 0.9
 
 # ---------------------------------------------------------------------------
-# Step 1 — Ground-truth model
+# Step 1: Ground-truth model
 # ---------------------------------------------------------------------------
 
 print("[1/5] Setting up ground-truth WPPM and simulating data...")
@@ -122,12 +122,12 @@ truth_params = truth_model.init_params(jax.random.PRNGKey(123))
 # --8<-- [end:truth_model]
 
 # ---------------------------------------------------------------------------
-# Step 2 — Simulate data at a *single* reference point
+# Step 2: Simulate data at a *single* reference point
 # ---------------------------------------------------------------------------
 
 
 # Single reference point at the centre of the stimulus space.
-ref_point = jnp.array([[0.0, 0.0]])  # shape (1, 2) — kept as a batch for generality
+ref_point = jnp.array([[0.0, 0.0]])  # shape (1, 2), kept as a batch for generality
 
 seed = 3
 key = jr.PRNGKey(seed)
@@ -171,7 +171,7 @@ print(
 )
 
 # ---------------------------------------------------------------------------
-# Step 3 — Build the model to fit
+# Step 3: Build the model to fit
 # ---------------------------------------------------------------------------
 
 print("[2/5] Building model and optimizer...")
@@ -198,7 +198,7 @@ covs_prior = prior_field(ref_point)  # (1, 2, 2)
 print(f"  shape of covs_prior: {covs_prior.shape}")
 
 # ---------------------------------------------------------------------------
-# Step 4 — MAP optimization
+# Step 4: MAP optimization
 # ---------------------------------------------------------------------------
 
 print("[3/5] Fitting via MAPOptimizer ...")
@@ -220,7 +220,7 @@ map_cov_field = WPPMCovarianceField(model, map_estimate.params)
 # --8<-- [end:fit_map]
 
 # ---------------------------------------------------------------------------
-# Step 5 — Visualize covariance ellipses (truth / prior / fit)
+# Step 5: Visualize covariance ellipses (truth / prior / fit)
 # ---------------------------------------------------------------------------
 
 print("[4/5] Plotting covariance ellipses ...")
@@ -271,10 +271,10 @@ os.makedirs(PLOTS_DIR, exist_ok=True)
 fig.savefig(
     os.path.join(PLOTS_DIR, "quick_start_ellipses.png"), dpi=200, bbox_inches="tight"
 )
-print(f"  Saved → {PLOTS_DIR}/quick_start_ellipses.png")
+print(f"  Saved -> {PLOTS_DIR}/quick_start_ellipses.png")
 
 # ---------------------------------------------------------------------------
-# Step 6 — Learning curve
+# Step 6: Learning curve
 # ---------------------------------------------------------------------------
 
 print("[5/5] Plotting learning curve ...")
@@ -300,8 +300,8 @@ if steps_hist and loss_hist:
         dpi=200,
         bbox_inches="tight",
     )
-    print(f"  Saved → {PLOTS_DIR}/quick_start_learning_curve.png")
+    print(f"  Saved -> {PLOTS_DIR}/quick_start_learning_curve.png")
 else:
-    print("  No history recorded — set track_history=True in MAPOptimizer to enable.")
+    print("  No history recorded: set track_history=True in MAPOptimizer to enable.")
 
 print("Done.")

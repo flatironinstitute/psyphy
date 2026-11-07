@@ -50,7 +50,7 @@ The commands above install a **CPU-only** `jax`. For an NVIDIA/CUDA GPU (includi
 pip install "psyphy[cuda]"     # from PyPI
 pip install -e ".[cuda]"       # from a clone
 ```
-This pulls in JAX's own `cuda12` extra, which bundles a matching CUDA/cuDNN runtime as pip packages — no system CUDA module needs to be loaded alongside it.
+This pulls in JAX's own `cuda12` extra, which bundles a matching CUDA/cuDNN runtime as pip packages, so no system CUDA module needs to be loaded alongside it.
 
 **Apple Silicon (M-series) GPUs are not supported.** JAX's Metal backend cannot do `float64`, which some `psyphy` examples require for published-precision comparisons (Apple/Google's own `jax-metal` package is also no longer maintained). On a Mac, `psyphy` runs on CPU.
 

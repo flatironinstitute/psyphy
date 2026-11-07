@@ -106,8 +106,8 @@ class TaskLikelihood(ABC):
 
         Returns
         -------
-        jnp.ndarray
-            scalar sum of log-likelihoods over all trials
+        jnp.ndarray, shape ()
+            Scalar sum of log-likelihoods over all trials.
         """
         ...
 
@@ -189,7 +189,7 @@ class BernoulliTaskLikelihood(TaskLikelihood):
 
         Returns
         -------
-        jnp.ndarray
+        jnp.ndarray, shape ()
             Scalar sum of Bernoulli log-likelihoods over all trials.
         """
         stimuli = jnp.asarray(data.stimuli)
@@ -310,7 +310,7 @@ class GaussianTaskLikelihood(TaskLikelihood):
 
         Returns
         -------
-        jnp.ndarray
+        jnp.ndarray, shape ()
             Scalar sum of Gaussian log-likelihoods over all trials.
         """
         stimuli = jnp.asarray(data.stimuli)

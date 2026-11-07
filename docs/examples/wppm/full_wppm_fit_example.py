@@ -551,4 +551,4 @@ if steps_hist and loss_hist:
         bbox_inches="tight",
     )
 else:
-    print("No history recorded — set track_history=True in MAPOptimizer to enable.")
+    print("No history recorded: set track_history=True in MAPOptimizer to enable.")

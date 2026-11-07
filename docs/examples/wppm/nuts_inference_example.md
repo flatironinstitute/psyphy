@@ -78,7 +78,7 @@ MAP estimation returns the single parameter array that maximizes the posterior:
 
 $$\theta_\text{MAP} = \arg\max_\theta \left[\log p(\mathcal{D} \mid \theta) + \log p(\theta)\right]$$
 
-That locates the peak but doesn't tell us anything  about its width. What we want is the posterior
+That locates the peak but doesn't tell us anything about its width. What we want is the posterior
 $p(\theta \mid \mathcal{D})$ itself, and Bayes' rule gives it in one line containing an
 integral over all of parameter space that we cannot evaluate here.
 

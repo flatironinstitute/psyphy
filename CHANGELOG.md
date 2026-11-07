@@ -229,7 +229,7 @@ breaking changes are called out below but do not force a minor-version bump.
 - **The mypy CI job no longer carries `continue-on-error: true`.** It reported 19 errors
   on every run and failed nothing. Those are fixed and the gate is live.
 
-## [0.0.5] — 2026-10-09
+## [0.0.5] - 2026-10-09
 
  Two new subpackages
 (`psyphy.viz`, `psyphy.data.published`), a reproduction of a published figure, and two
@@ -316,7 +316,7 @@ breaking API changes in the model layer.
   `responses` of shape `(N, 1)` and probabilities of shape `(N,)`, `jnp.where` broadcast
   to `(N, N)`, so the summed objective mixed every trial's response with every trial's
   probability and the gradient was wrong. Responses are now reduced to `(N,)` first.
-- **Deprecated `jax.tree_map` replaced** with `jax.tree.map` (#71 — thanks
+- **Deprecated `jax.tree_map` replaced** with `jax.tree.map` (#71, thanks
   @rohansood10).
 
 ### Changed
@@ -326,14 +326,14 @@ breaking API changes in the model layer.
 - Documentation pages now quote code from the runnable scripts beside them via snippet
   includes, so a page and its script cannot drift apart.
 
-## [0.0.4] — 2026-03-31
+## [0.0.4] - 2026-03-31
 
 Likelihood refactor. `loglik` and `simulate` became concrete methods on
 `TaskLikelihood`, so a concrete task implements only `predict`; `OddityTask` lost its own
 `loglik` and the duplicated vectorised Monte Carlo path (`likelihood.py` net −200 lines).
 Documentation restructuring.
 
-## [0.0.2] — 2026-03-27
+## [0.0.2] - 2026-03-27
 
 First release published to PyPI. Full initial module set: `psyphy.model` (WPPM, priors,
 noise models, the oddity task), `psyphy.inference` (MAP optimizer), `psyphy.posterior`,

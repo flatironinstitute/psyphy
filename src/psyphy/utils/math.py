@@ -35,15 +35,15 @@ def chebyshev_basis(x: jnp.ndarray, degree: int) -> jnp.ndarray:
 
     Parameters
     ----------
-    x : jnp.ndarray
-        Input points of shape (N,). For best numerical properties, values should lie in [-1, 1].
+    x : jnp.ndarray, shape (N,)
+        Input points. For best numerical properties, values should lie in [-1, 1].
     degree : int
         Maximum polynomial degree (>= 0). The output includes columns for T_0 through T_degree.
 
     Returns
     -------
-    jnp.ndarray
-        Array of shape (N, degree + 1) where column j contains T_j(x).
+    jnp.ndarray, shape (N, degree + 1)
+        Array where column j contains T_j(x).
 
     Raises
     ------

@@ -519,9 +519,7 @@ else:
     # ---------------------------------------------------------------------------
     print("[4/7] Running NUTS posterior sampling (BlackJAX)...")
     print(f"  {NUM_CHAINS} chains × {NUM_WARMUP} warmup + {NUM_SAMPLES} samples")
-    print(
-        "  Note: warmup compiles once for all chains — may take ~30s+ before it runs."
-    )
+    print("  Note: warmup compiles once for all chains: may take ~30s+ before it runs.")
 
     # --8<-- [start:nuts_fit]
     sampler = NUTSSampler(
@@ -836,7 +834,7 @@ try:
 
 except ImportError:
     print(
-        "  ArviZ not installed — skipping diagnostics. "
+        "  ArviZ not installed, skipping diagnostics. "
         "Install with: pip install 'psyphy[diagnostics]'"
     )
 
