@@ -179,7 +179,7 @@ class WPPM(Model):
 
         Notes
         -----
-        This is a lightweight, eager validator (Python exceptions).
+        This is an eager validator (Python exceptions).
         If we later need fully-jittable checks, we can replace this with
         ``jax.experimental.checkify``.
         """

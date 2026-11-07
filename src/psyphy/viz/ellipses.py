@@ -165,8 +165,8 @@ def plot_ellipses(
         scale_value = auto_scale(centers, fields[0])
     else:
         # One scalar for every field, never one per field:
-        # independently magnified fields cannot be compared by eye, which is
-        # the whole point of drawing them on shared axes.
+        # independently magnified fields cannot be compared by eye on
+        # shared axes.
         try:
             scale_value = float(scale)
         except (TypeError, ValueError) as exc:

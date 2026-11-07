@@ -43,6 +43,16 @@ repos:
         pass_filenames: false
         files: ^src/psyphy/|^tests/
 
+  # Prose language rules for src/ and docs/ (see linting/check_language.py)
+  - repo: local
+    hooks:
+      - id: check-language
+        name: prose language check
+        entry: python linting/check_language.py
+        language: system
+        files: \.(py|md)$
+        verbose: true
+
   # General pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0

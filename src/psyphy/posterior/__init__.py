@@ -8,7 +8,7 @@ This subpackage provides:
 - ParameterSource: protocol for anything we can draw parameters from, including
   a Prior
 - ParameterPosterior: a source that also carries p(θ | data) and its model
-- MAPPosterior: delta distribution at θ_MAP (point estimate)
+- MAPPosterior: point estimate at θ_MAP (a delta distribution)
 
 Two-tier design
 ---------------

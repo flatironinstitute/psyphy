@@ -63,7 +63,7 @@ class MCMCPosterior:
         # For WPPM: {"W": (n_chains, n_draws, degree+1, degree+1, input_dim, embedding_dim)}
         # e.g. 4 chains × 1000 draws, degree=1, input_dim=2, extra_dims=1:
         #      {"W": (4, 1000, 2, 2, 2, 3)}
-        # This is the canonical shape that flows from NUTSSampler -> here -> ArviZ.
+        # This shape flows unchanged from NUTSSampler -> here -> ArviZ.
         self._samples = samples
         self._model = model
         # sampler_stats: optional dict of per-chain diagnostics from the sampler.

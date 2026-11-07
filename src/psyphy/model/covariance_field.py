@@ -19,9 +19,9 @@ This module provides:
 - covariance_to_arviz: per-sample Σ(x) at chosen points as an ArviZ DataTree,
   for convergence diagnostics that are not fooled by the non-identifiable
   orientation of W (see its docstring)
-- contour_radii / ContourBand: the Mahalanobis-1 contour of a covariance as a
-  radius per direction. For the oddity task that radius is the discrimination
-  threshold
+- contour_radii / ContourBand: the one-standard-deviation ellipse
+  (Mahalanobis-1 contour) of a covariance as a radius per direction. For the
+  oddity task that radius is the discrimination threshold
 
 Mathematical Background
 -----------------------
@@ -762,7 +762,7 @@ class ContourBand(NamedTuple):
 
 
 def contour_radii(covs: jnp.ndarray, directions: jnp.ndarray) -> jnp.ndarray:
-    r"""Distance from the center to the Mahalanobis-1 contour, per direction.
+    r"""Distance from the center to the one-standard-deviation ellipse, per direction.
 
     For a covariance :math:`\Sigma`, the contour
     :math:`\{v : v^\top \Sigma^{-1} v = 1\}` meets the ray along a unit
@@ -1064,7 +1064,7 @@ class WPPMCovarianceFieldSamples:
         ci_prob: float | Sequence[float] = 0.89,
         ci_kind: str = "eti",
     ) -> ContourBand:
-        r"""Pointwise credible band on the Mahalanobis-1 contour at each point.
+        r"""Pointwise credible band on the one-standard-deviation ellipse at each point.
 
         The posterior-interval counterpart to :meth:`mean` (a posterior *mean*)
         and :func:`covariance_to_arviz` (posterior *samples*, for diagnostics).
@@ -1108,8 +1108,8 @@ class WPPMCovarianceFieldSamples:
         Raises
         ------
         NotImplementedError
-            If the model is not 2-D. The direction grid is a circle, and there
-            is no canonical equivalent in higher dimensions.
+            If the model is not 2-D. The direction grid is a circle, and higher
+            dimensions have no single analogous grid.
         ValueError
             If ``ci_kind`` is unknown, or if any ``ci_prob`` is outside (0, 1).
 
