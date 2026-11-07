@@ -11,7 +11,7 @@ notices if psyphy's own API moves underneath it -- a renamed function or keyword
 would leave the page quoting code that no longer runs, and ``mkdocs build`` would
 still pass. These tests close that gap.
 
-They are deliberately **static**. The recipe executes at import: its last
+They are **static**. The recipe executes at import: its last
 statement reaches ``.mean``, which downloads the OSF data and runs the full
 49-point inversion at the paper's settings (~11 min). So we parse it instead of
 importing it, which also means these tests need no network and no cache.

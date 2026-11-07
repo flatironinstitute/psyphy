@@ -89,7 +89,7 @@ breaking changes are called out below but do not force a minor-version bump.
 
   This removed 2 hardcoded keys, at `predictive_posterior.py:414` (which carried a
   `# TODO: Make configurable via init`) and `:397`. A third, the direction grid for
-  `input_dim > 2`, stays fixed on purpose and says so in a comment.
+  `input_dim > 2`, stays fixed and says so in a comment.
 
   `cov_field` is removed from `WPPMPredictivePosterior` and from the
   `PredictivePosterior` protocol. It computed `PosteriorMeanCovarianceField`'s quantity at
@@ -189,9 +189,9 @@ breaking changes are called out below but do not force a minor-version bump.
 
 - **Credible bands on the contour radii**: `contour_radii`, `contour_band` and
   `ContourBand` in `psyphy.model`. `contour_radii` gives the radius of a covariance's
-  Mahalanobis-1 contour per direction; for the oddity task that radius is the discrimination
-  threshold. `contour_band` reduces those radii over posterior draws to a pointwise credible
-  interval.
+  one-standard-deviation ellipse (Mahalanobis-1 contour) per direction; for the oddity
+  task that radius is the discrimination threshold. `contour_band` reduces those radii
+  over posterior draws to a pointwise credible interval.
 
   These names replace `threshold_radii`, `threshold_band` and `ThresholdBand`, which were
   never released: they compute a property of any covariance matrix, so the names no longer

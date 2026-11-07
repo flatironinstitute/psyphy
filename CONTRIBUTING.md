@@ -13,7 +13,7 @@ If you’re already familiar with GitHub workflows, this is the minimal path. Fo
 # fork repo on GitHub first
 git clone https://github.com/YOUR_USERNAME/psyphy.git   # clone your fork (origin)
 cd psyphy
-git remote add upstream https://github.com/flatironinstitute/psyphy.git  # add canonical repo
+git remote add upstream https://github.com/flatironinstitute/psyphy.git  # add the upstream repo
 git checkout main
 git fetch upstream
 git merge upstream/main    # sync local main with upstream
@@ -220,7 +220,7 @@ git clone https://github.com/YOUR_USERNAME/psyphy.git
 # clones your fork -> sets origin = your GitHub repo
 cd psyphy
 git remote add upstream https://github.com/flatironinstitute/psyphy.git
-# adds upstream -> the canonical Flatiron repo
+# adds upstream -> the Flatiron repo
 ```
 Check:
 ```
@@ -234,7 +234,7 @@ git remote -v
 ```
 - GitHub:
 
-  upstream (canonical repo)
+  upstream (the Flatiron repo)
   flatironinstitute/psyphy
             │  Pull Request (PR)
             │

@@ -60,7 +60,7 @@ def tiny_data():
 
 @pytest.fixture(scope="module")
 def sampler_adaptive():
-    """Minimal adaptive NUTSSampler (Mode A)."""
+    """Minimal adaptive-warmup NUTSSampler."""
     return NUTSSampler(
         num_warmup=20,
         num_samples=10,
@@ -71,7 +71,7 @@ def sampler_adaptive():
 
 @pytest.fixture(scope="module")
 def sampler_fixed():
-    """Minimal fixed-stepsize NUTSSampler (Mode B)."""
+    """Minimal fixed-stepsize NUTSSampler."""
     return NUTSSampler(
         num_warmup=20,
         num_samples=10,
@@ -108,7 +108,7 @@ class TestImportGuard:
 
 
 # -------------------------------------------------------------------
-# Tests: Mode A (adaptive)
+# Tests: adaptive warmup
 # ---------------------------------------------------------------------------
 
 
@@ -155,7 +155,7 @@ class TestNUTSSamplerAdaptive:
 
 
 # --------------------------------------------------------------
-# Tests: Mode B (fixed step_size, vmapped)
+# Tests: fixed step_size, vmapped
 # ---------------------------------------------------------------------------
 
 

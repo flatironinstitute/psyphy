@@ -37,7 +37,7 @@ LIKELIHOOD_NAMES = [
     "OddityTaskConfig",
 ]
 
-# Names re-exported one level up, from psyphy.model. Deliberately a subset:
+# Names re-exported one level up, from psyphy.model. A subset:
 # the two intermediate ABCs are not currently exported there, and this test
 # records that rather than asserting it ought to change.
 MODEL_NAMES = ["TaskLikelihood", "OddityTask", "OddityTaskConfig"]
@@ -141,7 +141,7 @@ def test_predict_returns_a_tuple_not_a_bare_array():
 def test_loglik_uses_each_trial_separately():
     """Guards the failure a constant-probability mock cannot detect.
 
-    Two trials with deliberately different p: the result must be the sum of two
+    Two trials with different p: the result must be the sum of two
     different log terms, not twice the first one.
     """
     import types

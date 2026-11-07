@@ -51,6 +51,7 @@ repos:
         entry: python linting/check_language.py
         language: system
         files: \.(py|md)$
+        exclude: ^linting/check_language\.py$
         verbose: true
 
   # General pre-commit hooks
