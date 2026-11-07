@@ -163,7 +163,7 @@ def default_data_dir() -> Path:
     """Return the directory :func:`fetch` downloads into.
 
     ``$PSYPHY_DATA_HOME`` if set, otherwise ``~/.cache/psyphy/hong2025``.
-    Deliberately outside the repository so downloaded data is never staged for
+    Outside the repository, so downloaded data is never staged for
     commit.
     """
     root = os.environ.get("PSYPHY_DATA_HOME")

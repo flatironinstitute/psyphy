@@ -106,7 +106,7 @@ class MCMCPosterior:
         """
         # _samples["W"]: (n_chains, n_draws, *param_shape)
         # mean over (0, 1)  ->  (*param_shape)
-        # Kept as the plain parameter mean on purpose: the ParameterPosterior
+        # Kept as the plain parameter mean: the ParameterPosterior
         # protocol requires params to be a parameter PyTree (NUTSSampler and
         # MAPOptimizer accept it as init_params), and E[Σ] cannot be expressed
         # as any single W. The fix for covariance summaries therefore lives in

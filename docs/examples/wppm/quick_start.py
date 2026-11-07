@@ -53,7 +53,7 @@ PLOTS_DIR = os.path.join(os.path.dirname(__file__), "plots")
 print("DEVICE USED:", jax.devices()[0])
 
 # ---------------------------------------------------------------------------
-# Compute settings  — deliberately small for a fast CPU run
+# Compute settings: small, for a fast CPU run
 # ---------------------------------------------------------------------------
 
 # --8<-- [start:compute_settings]
