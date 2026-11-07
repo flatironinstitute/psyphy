@@ -69,11 +69,11 @@ For OddityTask, we store trials as (ref, comparison) even though the task involv
 Note on data used in this script: here, we simulate data (and hence have a ground truth to compare against). To see how to conveniently simulate data yourself, check out the [script](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/full_wppm_fit_example.py)
 
 ### 2 ways of representing data in `psyphy` (important)
-`psyphy` provides two lightweight containers for trial data (defined in [`src/psyphy/data/dataset.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/data/dataset.py)):
+`psyphy` provides two containers for trial data (defined in [`src/psyphy/data/dataset.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/data/dataset.py)):
 
 **[`TrialData`](../../reference/data.md#psyphy.data.TrialData) (compute-first; used for fitting):**
 
-- The canonical, (batched) input expected by likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)).
+- The batched input likelihood evaluation and optimizers (e.g., MAPOptimizer.fit(...)) expect.
 It holds JAX arrays:
 
    - stimuli: (N, K, d)
