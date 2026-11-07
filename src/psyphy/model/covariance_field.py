@@ -583,7 +583,7 @@ def covariance_to_arviz(posterior, points):
     Why points must be chosen
     -------------------------
     Unlike W, Σ is a function of the stimulus location x, so a diagnostic of Σ
-    is a diagnostic *at some x*. This function deliberately has no default for
+    is a diagnostic *at some x*. This function has no default for
     ``points``: which locations to check is a modeling decision. Sensible
     choices are the locations you report (e.g. the reference points of the
     plotted ellipses), optionally plus a grid covering the stimulus space,

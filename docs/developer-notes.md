@@ -103,7 +103,7 @@ Python loop and wrapped the result in an `MCMCPosterior` to get something sampla
 
 **What psyphy does.** `ParameterSource` declares `sample(n, *, key)` and nothing else.
 `ParameterPosterior` extends it with `params` and `model`, so the parameter source protocol is the
-narrower of the two. The asymmetry is intentional: a prior has no
+narrower of the two. The protocol stays asymmetric: a prior has no
 point estimate, and `WPPM` holds its `Prior`, so a prior carrying a model back would close a
 cycle. Drawing parameters is the overlap prior and posteriors share.
 

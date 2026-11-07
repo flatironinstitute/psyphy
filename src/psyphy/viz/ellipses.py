@@ -164,7 +164,7 @@ def plot_ellipses(
         # fields cannot be compared by eye.
         scale_value = auto_scale(centers, fields[0])
     else:
-        # Deliberately one scalar for every field, never one per field:
+        # One scalar for every field, never one per field:
         # independently magnified fields cannot be compared by eye, which is
         # the whole point of drawing them on shared axes.
         try:
@@ -172,7 +172,7 @@ def plot_ellipses(
         except (TypeError, ValueError) as exc:
             raise TypeError(
                 f"scale must be a single number or 'auto'; got {type(scale).__name__}. "
-                "One factor is applied to every field on purpose -- scaling them "
+                "One factor is applied to every field: scaling them "
                 "independently would make unlike fields look alike."
             ) from exc
 

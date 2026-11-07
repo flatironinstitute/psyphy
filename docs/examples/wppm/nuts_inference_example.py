@@ -163,8 +163,8 @@ print("DEVICE:", jax.devices()[0])
 print("MODE  :", MODE)
 
 # ---------------------------------------------------------------------------
-# Model. IDENTICAL IN EVERY MODE, deliberately: --mode changes how carefully
-# the posterior is explored, never what is being fit, so two modes are
+# Model, identical in every mode: --mode changes how carefully
+# the posterior is explored, never what is being fit, so two modes stay
 # comparable. Change these to change the science, not the budget.
 # ---------------------------------------------------------------------------
 INPUT_DIM = 2
@@ -796,7 +796,7 @@ try:
     # every ellipse, and diagnostics on W report a failure that does not
     # exist. Σ is a function of x, so we must choose WHERE to evaluate it: here
     # the reference points, i.e. exactly the ellipses this script plots and
-    # reports. covariance_to_arviz deliberately has no default for `points`.
+    # reports. covariance_to_arviz has no default for `points`.
     # --8<-- [start:arviz_diagnostics]
     dt_sigma = covariance_to_arviz(nuts_posterior, ref_points)
     summary = az.summary(dt_sigma, var_names=["Sigma"])
