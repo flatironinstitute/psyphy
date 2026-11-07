@@ -323,7 +323,7 @@ class TestW2dToRgb:
 
 
 # ----------------------------------------------------------------------
-# External validity — requires the OSF download
+# External validity: requires the OSF download
 # ----------------------------------------------------------------------
 
 _SUB1 = hong2025.default_data_dir() / "sub1"

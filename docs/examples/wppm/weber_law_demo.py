@@ -219,7 +219,7 @@ PSYCH_COLORS = ["#2166ac", "#d6604d", "#4dac26"]
 # All panels that share a quantity on an axis use the same label string so
 # that readers can immediately identify what is being shown.
 #
-#   LABEL_S    ; x-axis of panels 1–4: the reference stimulus level
+#   LABEL_S    ; x-axis of panels 1-4: the reference stimulus level
 #   LABEL_DELTA; x-axis of panel 5 / y-axis of panel 1: comparison offset
 #   LABEL_JND  ; y-axis of panel 2: WPPM-implied JND proxy
 #   LABEL_WF   ; y-axis of panel 3: Weber fraction (JND / s)
@@ -253,7 +253,7 @@ refs = refs_x[:, None]  # (N, 1) for WPPM / OddityTask
 
 # jnd_multiples: how many JNDs each comparison is displaced from its reference.
 # delta = jnd_multiples * JND(s) = jnd_multiples * k * s  (in physical units)
-# Ranging from 0.5–4 JNDs ensures the scatter covers both hard and easy trials.
+# Ranging from 0.5-4 JNDs ensures the scatter covers both hard and easy trials.
 # Displacements are one-sided (comp = ref + delta, delta > 0); direction does not
 # matter in 1D because only |delta|/sqrt(Sigma) enters the decision.
 jnd_multiples = jr.uniform(key_radii, (N_TRIALS,), minval=0.5, maxval=4.0)
@@ -358,7 +358,7 @@ for k, ck in enumerate(mono_in_x):
     # (b + a*s)^k as a polynomial in s (ascending coefficient order)
     term = np.polynomial.polynomial.polypow([_b, _a], k)
     phys_coeffs[: len(term)] += ck * term
-# phys_coeffs[n] = coefficient of s^n in U(s), for n = 0 … BASIS_DEGREE
+# phys_coeffs[n] = coefficient of s^n in U(s), for n = 0 ... BASIS_DEGREE
 
 print(
     "  Weight analysis; physical coefficients cn of U(s) = sum_n cn*s^n:\n"
@@ -560,7 +560,7 @@ def draw_weber_fraction(ax):
 
 
 def draw_weber_coeffs_raw(ax):
-    """Left panel: raw Chebyshev coefficients W_0 … W_degree in normalized-x space.
+    """Left panel: raw Chebyshev coefficients W_0 ... W_degree in normalized-x space.
 
     U(x) = sum_n W_n * T_n(x), x in [-1, 1].
     W_1 (linear term) should dominate; W_2, W_3, ... should be near zero,

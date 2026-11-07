@@ -113,7 +113,7 @@ class TestInputs:
 
     def test_from_arrays_2d_input(self):
         """from_arrays must accept 2D X (n_trials, d) and treat it as K=1."""
-        X = np.array([[0.1, 0.2], [0.3, 0.4]])  # shape (2, d) — no K axis
+        X = np.array([[0.1, 0.2], [0.3, 0.4]])  # shape (2, d), no K axis
         y = np.array([[1], [0]])
         data = ResponseData.from_arrays(X, y)
         assert len(data) == 2
@@ -148,7 +148,7 @@ class TestShapeValidation:
     """TrialData must reject arrays that are not exactly (N, K, d) and (N, R)."""
 
     def test_4d_stimuli_raises(self):
-        """A 4D stimuli array must be rejected — previously slipped through > 3 check."""
+        """A 4D stimuli array must be rejected. It previously slipped through the > 3 check."""
         stimuli_4d = jnp.ones((5, 2, 3, 4))  # one extra axis
         responses = jnp.ones((5, 1))
         with pytest.raises(ValueError, match="stimuli must be 3D"):
@@ -162,7 +162,7 @@ class TestShapeValidation:
             TrialData(stimuli=stimuli_2d, responses=responses)
 
     def test_3d_responses_raises(self):
-        """A 3D responses array must be rejected — previously slipped through > 2 check."""
+        """A 3D responses array must be rejected. It previously slipped through the > 2 check."""
         stimuli = jnp.ones((5, 2, 3))
         responses_3d = jnp.ones((5, 1, 1))
         with pytest.raises(ValueError, match="responses must be 2D"):

@@ -8,7 +8,7 @@ We welcome contributions from both experienced developers and researchers who ma
 
 ## Quick Start (TL;DR)
 
-If you’re already familiar with GitHub workflows, this is the minimal path. For a detailed version scroll down to "Standard Workflow (Step-by-Step)".
+If you're already familiar with GitHub workflows, this is the minimal path. For a detailed version scroll down to "Standard Workflow (Step-by-Step)".
 ```
 # fork repo on GitHub first
 git clone https://github.com/YOUR_USERNAME/psyphy.git   # clone your fork (origin)
@@ -49,11 +49,11 @@ git commit -m "Add new feature"
 # ✓ ruff check --fix     (lints and auto-fixes)
 # ✓ ruff format          (formats code, wraps long lines)
 # ✓ mypy                 (type checks)
-# ✓ trailing-whitespace  (removes trailing spaces)
+# ✓ trailing-whitespace (removes trailing spaces)
 # ✓ end-of-file-fixer    (ensures files end with newline)
 # ... and more
 ```
-If a hook modifies files, the commit aborts — review, re-stage and commit again:
+If a hook modifies files, the commit aborts. Review, re-stage and commit again:
 ```bash
 git add .
 git commit -m "Add new feature"
@@ -137,7 +137,7 @@ Build docs locally:
 pip install -e '.[docs]'
 mkdocs serve
 ```
-Build static site — `--strict` is what CI runs, so use it locally too:
+Build static site. `--strict` is what CI runs, so use it locally too:
 ```
 mkdocs build --strict
 ```
@@ -152,7 +152,7 @@ Flatiron cluster, add the `cuda` extra:
 ```
 pip install -e '.[cuda]'
 ```
-JAX bundles its own CUDA/cuDNN runtime through this extra — do **not** also
+JAX bundles its own CUDA/cuDNN runtime through this extra, so do **not** also
 `module load cuda cudnn` on the cluster, since the system libraries then take
 precedence on `LD_LIBRARY_PATH` and break GPU detection; `module load python`
 is enough. **Apple Silicon GPUs are not supported**: JAX's Metal backend
@@ -187,7 +187,7 @@ and pull it into the `.md` by path and tag:
 
 This is [`pymdownx.snippets`](https://facelessuser.github.io/pymdown-extensions/extensions/snippets/)
 from PyMdown Extensions, configured in `mkdocs.yml`. The `8<` is a pair of
-scissors — the old "cut here" convention — not something we invented.
+scissors, the old "cut here" convention, not something we invented.
 
 Two things to know:
 
@@ -200,7 +200,7 @@ Two things to know:
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the project’s [`LICENSE.md`](https://github.com/flatironinstitute/psyphy/blob/main/LICENSE.md) .
+By contributing, you agree that your contributions will be licensed under the project's [`LICENSE.md`](https://github.com/flatironinstitute/psyphy/blob/main/LICENSE.md) .
 
 ---
 
@@ -340,9 +340,9 @@ git branch -d feature/my-feature
 
 ###  Keeping Your Branch Up-to-Date
 
-If you’re working on a branch over time, upstream main will change.
+If you're working on a branch over time, upstream main will change.
 
-⚠️ It’s important to regularly update your branch to avoid large conflicts later.
+⚠️ It's important to regularly update your branch to avoid large conflicts later.
 
 #### Recommended approach: rebase
 ```
@@ -393,7 +393,7 @@ Repeat until complete.
 
 If conflicts are complex
 
-Don’t try to resolve line-by-line blindly. Instead:
+Don't try to resolve line-by-line blindly. Instead:
 
 * Understand what upstream changed
 * Understand your intended behavior

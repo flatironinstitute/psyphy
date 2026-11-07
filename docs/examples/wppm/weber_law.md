@@ -115,7 +115,7 @@ The experiment settings:
 
 Each trial is a **three-alternative forced-choice (3-AFC) oddity** trial: two identical
 references and one comparison, and the observer picks the odd one out. We place each
-comparison a random number of JNDs (0.5–4) above its reference, so the data spans easy and
+comparison a random number of JNDs (0.5-4) above its reference, so the data spans easy and
 hard trials. Then we draw a binary correct or incorrect response from the MC oddity
 likelihood.
 
@@ -276,7 +276,7 @@ and psychometric curves that shift with stimulus level.
 
 - **Your own data:** replace the simulated `TrialData` with real `stimuli` and `responses`,
   and validate via held-out psychometric curves where no ground truth exists.
-- **Beyond Weber:** the same machinery represents other regimes (e.g. de Vries–Rose
+- **Beyond Weber:** the same machinery represents other regimes (e.g. de Vries-Rose
   $\delta_\mathrm{th}\propto\sqrt{s}$) -> fit them the same way and read off the recovered law.
 - **Fewer trials:** put trials where uncertainty is highest with adaptive trial placement.
 - **API reference:** [`MAPOptimizer`](../../reference/inference.md),

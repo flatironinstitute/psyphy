@@ -279,15 +279,14 @@ class TestPredictivePosterior:
 class TestThresholdPredictionExternalValidity:
     """Threshold inversion recovers Hong et al. (2025)'s published thresholds.
 
-    Requires the real OSF download; skips otherwise. This is rung 3 of the
-    validation ladder in psyphy-study/elife_data/docs.md -- the first check
-    that exercises the oddity likelihood itself (rung 1 only checks the
-    deterministic covariance-field construction; see
+    Requires the real OSF download; skips otherwise. This is the first check
+    that exercises the oddity likelihood itself, rather than only the
+    deterministic covariance-field construction (see
     tests/test_data_published_hong2025.py for that sibling test).
 
     Runtime: a handful of grid points at reduced-from-paper MC settings,
     budgeted to stay under a minute; not the full 49-point, paper-precision
-    sweep (that's docs.md's `threshold_inversion.py` prototype, ~11 CPU min).
+    sweep, which takes about 11 CPU minutes.
     """
 
     @staticmethod
@@ -342,7 +341,7 @@ class TestIntegration:
     """Integration tests for the two-tier design."""
 
     def test_full_workflow(self):
-        """Test complete workflow: fit → parameter posterior → predictive posterior."""
+        """Test complete workflow: fit -> parameter posterior -> predictive posterior."""
         # 1. Create model
         model = WPPM(
             prior=Prior(input_dim=2, basis_degree=3),
