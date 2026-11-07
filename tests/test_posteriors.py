@@ -100,7 +100,7 @@ class TestPredictivePosterior:
     def data(self):
         """Create dummy response data."""
         # Build a small batched dataset.
-        # Note: this fixture intentionally reuses fixed keys; it's a test.
+        # Note: this fixture reuses fixed keys; it's a test.
         refs = jr.normal(jr.PRNGKey(0), (10, 2))
         comparisons = refs + jr.normal(jr.PRNGKey(1), (10, 2)) * 0.3
         responses = jnp.ones((10,), dtype=jnp.int32)
@@ -214,7 +214,7 @@ class TestPredictivePosterior:
     def test_threshold_mean_is_psd(self):
         """Recovered threshold covariances are positive semi-definite.
 
-        Deliberately *not* using the tiny ``threshold_predictive_posterior``
+        Not using the tiny ``threshold_predictive_posterior``
         fixture, and building its own model with a realistic ``num_samples``.
 
         The inversion fits Sigma^-1 by least squares through one boundary point

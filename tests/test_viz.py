@@ -184,10 +184,10 @@ class TestPlotEllipses:
 
     @pytest.mark.parametrize("bad", [[1.0, 2.0], (1.0, 2.0), np.array([1.0, 2.0])])
     def test_per_field_scale_is_refused(self, field, bad):
-        """One scale for every field is a deliberate constraint, not an oversight.
+        """One scale for every field is a constraint, not an oversight.
 
-        Fields magnified independently cannot be compared by eye, which is the
-        only reason to draw them on shared axes. Passing one scale per field is
+        Fields magnified independently cannot be compared by eye on shared
+        axes. Passing one scale per field is
         the natural mistake, so it has to fail loudly rather than silently take
         the first value or broadcast.
         """
