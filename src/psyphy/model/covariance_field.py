@@ -166,13 +166,12 @@ class WPPMCovarianceField:
         Model providing evaluation logic (local_covariance, _compute_sqrt)
     params : dict
         Model parameters:
-        - MVP: {"log_diag": (input_dim,)}
         - Wishart: {"W": (degree+1, degree+1, input_dim, embedding_dim)}
           where embedding_dim = input_dim + extra_embedding_dims
 
-          Note: The 3rd dimension is input_dim (output/stimulus space), not
-          embedding_dim. This matches the einsum in _compute_sqrt where U(x) has
-          shape (input_dim, embedding_dim).
+          Note: The 3rd dimension is input_dim (output/stimulus space) and not
+          embedding_dim. This is analogous to the einsum in
+          _compute_sqrt where U(x) has shape (input_dim, embedding_dim).
 
     Attributes
     ----------
@@ -489,13 +488,9 @@ class WPPMCovarianceField:
             Rectangular square root matrix U(x).
             embedding_dim = input_dim + extra_embedding_dims
 
-
         Notes
         -----
-        Only available in Wishart mode. MVP mode uses diagonal parameterization
-        without explicit U matrices.
-
-        In the rectangular design (Hong et al.), U is (input_dim, embedding_dim).
+        U is of shape (input_dim, embedding_dim).
 
         Examples
         --------
@@ -533,11 +528,6 @@ class WPPMCovarianceField:
         jnp.ndarray, shape (n_points, input_dim, embedding_dim)
             Rectangular square root matrices at each location.
             embedding_dim = input_dim + extra_embedding_dims
-
-        Raises
-        ------
-        ValueError
-            If in MVP mode.
 
         Notes
         -----
