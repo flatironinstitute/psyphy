@@ -71,7 +71,7 @@ class Model(ABC):
 
         Returns
         -------
-        jnp.ndarray
+        jnp.ndarray, shape ()
             Log-likelihood (scalar)
         """
         ...

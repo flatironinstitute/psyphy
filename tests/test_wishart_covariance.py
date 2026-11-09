@@ -90,7 +90,7 @@ class TestWishartParameters:
         var_11 = jnp.var(W_samples[:, 1, 1, 0, 0])  # degree = 1 + 1 = 2
         var_22 = jnp.var(W_samples[:, 2, 2, 0, 0])  # degree = 2 + 2 = 4
 
-        # Higher degree → lower variance
+        # Higher degree -> lower variance
         assert var_00 > var_11 > var_22
 
 

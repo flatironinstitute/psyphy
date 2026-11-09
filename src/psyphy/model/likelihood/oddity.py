@@ -209,7 +209,7 @@ class OddityTask(BernoulliTaskLikelihood):
 
         """
         # Get input dimension and require Wishart mode.
-        # OddityTask is intentionally MC-only and currently only supports the
+        # OddityTask is MC-only and currently only supports the
         # WPPM/Wishart covariance parameterization.
         input_dim = ref.shape[0]
         if model.basis_degree is None:

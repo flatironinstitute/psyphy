@@ -116,9 +116,8 @@ class PredictivePosterior(Protocol):
 
         Returns
         -------
-        jnp.ndarray
-            Shape (n_test,) for scalar outputs
-            Shape (n_test, output_dim) for vector outputs (future)
+        jnp.ndarray, shape (n_test,) or (n_test, output_dim)
+            The first for scalar outputs, the second for vector outputs (future).
 
         Notes
         -----
@@ -139,9 +138,8 @@ class PredictivePosterior(Protocol):
 
         Returns
         -------
-        jnp.ndarray
-            Shape (n_test,) for scalar outputs
-            Shape (n_test, output_dim) for vector outputs (future)
+        jnp.ndarray, shape (n_test,) or (n_test, output_dim)
+            The first for scalar outputs, the second for vector outputs (future).
 
         Notes
         -----
@@ -164,9 +162,8 @@ class PredictivePosterior(Protocol):
 
         Returns
         -------
-        jnp.ndarray
-            Shape (*sample_shape, n_test) for scalar outputs
-            Shape (*sample_shape, n_test, output_dim) for vector outputs
+        jnp.ndarray, shape (*sample_shape, n_test) or (*sample_shape, n_test, output_dim)
+            The first for scalar outputs, the second for vector outputs.
 
         Notes
         -----
@@ -186,7 +183,7 @@ class WPPMPredictivePosterior:
     ----------
     param_posterior : ParameterPosterior
         Posterior over model parameters
-    X : jnp.ndarray
+    X : jnp.ndarray, shape (n_test, k_stimuli, input_dim) or (n_test, input_dim)
         Test stimuli. Shape depends on ``threshold_pred``:
 
         - ``threshold_pred=False``: ``(n_test, k_stimuli, input_dim)``:
@@ -217,7 +214,7 @@ class WPPMPredictivePosterior:
     ----------
     param_posterior : ParameterPosterior
         Wrapped parameter posterior
-    X : jnp.ndarray
+    X : jnp.ndarray, shape (n_test, k_stimuli, input_dim) or (n_test, input_dim)
         Test stimuli
     n_samples : int
         MC sample count
@@ -480,11 +477,10 @@ class WPPMPredictivePosterior:
 
         Returns
         -------
-        jnp.ndarray
-            Shape (*sample_shape, n_test); or, when ``threshold_pred=True``,
-            (*sample_shape, n_test, input_dim, input_dim): one recovered
-            threshold covariance per draw. Cost scales linearly in the number
-            of draws requested; see :class:`ThresholdConfig`.
+        jnp.ndarray, shape (*sample_shape, n_test) or (*sample_shape, n_test, input_dim, input_dim)
+            The first unless ``threshold_pred=True``, in which case the second:
+            one recovered threshold covariance per draw. Cost scales linearly
+            in the number of draws requested; see :class:`ThresholdConfig`.
         """
         n = int(jnp.prod(jnp.array(sample_shape))) if sample_shape else 1
         param_samples = self.param_posterior.sample(n, key=key)

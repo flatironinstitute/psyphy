@@ -43,6 +43,28 @@ repos:
         pass_filenames: false
         files: ^src/psyphy/|^tests/
 
+  # Prose language rules for src/ and docs/ (see linting/check_language.py)
+  - repo: local
+    hooks:
+      - id: check-language
+        name: prose language check
+        entry: python linting/check_language.py
+        language: system
+        files: \.(py|md)$
+        exclude: ^linting/check_language\.py$
+        verbose: true
+      - id: check-punctuation
+        name: typographic punctuation check
+        entry: python linting/check_punctuation.py
+        language: system
+        files: \.(py|md)$
+        exclude: ^linting/check_punctuation\.py$
+      - id: check-docstring-shapes
+        name: docstring array-shape check
+        entry: python linting/check_docstring_shapes.py
+        language: system
+        files: ^src/.*\.py$
+
   # General pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0

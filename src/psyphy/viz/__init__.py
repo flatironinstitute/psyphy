@@ -23,7 +23,7 @@ so it is usable and testable without matplotlib; ``ellipses`` imports
 matplotlib lazily, inside the functions, so ``import psyphy`` stays free of it.
 Install the backend with ``pip install 'psyphy[viz]'``.
 
-Naming is deliberately geometric: a *covariance* field and a *threshold* field
+Naming is geometric: a *covariance* field and a *threshold* field
 are different quantities that happen to share a drawing routine, so the
 function is named for the shape it draws, not for either model concept.
 

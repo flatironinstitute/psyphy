@@ -135,7 +135,7 @@ def test_mean_over_a_subsample(posterior, X, model):
 
 
 def test_band_over_every_stored_draw(posterior, X):
-    """The 89% band on the Mahalanobis-1 contour, over all stored draws."""
+    """The 89% band on the one-standard-deviation ellipse (Mahalanobis-1 contour), over all stored draws."""
     band = WPPMCovarianceFieldSamples.from_posterior(posterior).band(X, ci_prob=0.89)
     assert band.lower.shape == (2, 181)  # (n_points, n_directions)
     assert band.directions.shape == (181, 2)

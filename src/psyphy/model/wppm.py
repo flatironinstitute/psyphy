@@ -179,7 +179,7 @@ class WPPM(Model):
 
         Notes
         -----
-        This is intentionally a lightweight, eager validator (Python exceptions).
+        This is an eager validator (Python exceptions).
         If we later need fully-jittable checks, we can replace this with
         ``jax.experimental.checkify``.
         """
@@ -225,7 +225,8 @@ class WPPM(Model):
 
         Returns
         -------
-        params : dict[str, jnp.ndarray]
+        params : dict[str, jnp.ndarray], a parameter pytree
+            For WPPM, ``{"W": array of shape (degree+1, ..., input_dim, embedding_dim)}``.
         """
         return self.prior.sample_params(key)
 
@@ -249,9 +250,10 @@ class WPPM(Model):
 
         Returns
         -------
-        phi : jnp.ndarray
-            Basis function values with structured shape for efficient einsum.
-            Shape is (degree+1, degree+1) for 2D or (degree+1, degree+1, degree+1) for 3D.
+        phi : jnp.ndarray, shape (degree+1,) * input_dim
+            Basis function values with structured shape for efficient einsum:
+            (degree+1,) for 1D, (degree+1, degree+1) for 2D, and
+            (degree+1, degree+1, degree+1) for 3D.
         """
 
         if self.basis_degree is None:
@@ -412,12 +414,13 @@ class WPPM(Model):
         Parameters
         ----------
         params : dict
-        stimulus : tuple[jnp.ndarray, jnp.ndarray]
+        stimulus : tuple[jnp.ndarray, jnp.ndarray], each shape (input_dim,)
              (reference, comparison) pair in model space.
 
         Returns
         -------
-        p_correct : jnp.ndarray
+        p_correct : jnp.ndarray, shape ()
+            Scalar probability of a correct response.
         """
         # Strict task-owned configuration:
         # - MC control knobs (e.g. num_samples/bandwidth) live in the task config.
@@ -467,7 +470,7 @@ class WPPM(Model):
 
         Returns
         -------
-        loglik : jnp.ndarray
+        loglik : jnp.ndarray, shape ()
             Scalar log-likelihood (task-only; add prior outside if needed).
         """
         return self.likelihood.loglik(params, data, self, key=key)
@@ -496,7 +499,7 @@ class WPPM(Model):
 
         Returns
         -------
-        jnp.ndarray
+        jnp.ndarray, shape ()
             Scalar log posterior = loglik(params | data) + log_prior(params).
         """
         return self.log_likelihood_from_data(

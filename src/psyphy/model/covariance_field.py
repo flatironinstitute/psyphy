@@ -19,9 +19,9 @@ This module provides:
 - covariance_to_arviz: per-sample Σ(x) at chosen points as an ArviZ DataTree,
   for convergence diagnostics that are not fooled by the non-identifiable
   orientation of W (see its docstring)
-- contour_radii / ContourBand: the Mahalanobis-1 contour of a covariance as a
-  radius per direction. For the oddity task that radius is the discrimination
-  threshold
+- contour_radii / ContourBand: the one-standard-deviation ellipse
+  (Mahalanobis-1 contour) of a covariance as a radius per direction. For the
+  oddity task that radius is the discrimination threshold
 
 Mathematical Background
 -----------------------
@@ -225,16 +225,15 @@ class WPPMCovarianceField:
 
         Parameters
         ----------
-        x : jnp.ndarray
-            - Single point: shape (input_dim,)
-            - Batch: shape (..., input_dim) where ... are arbitrary batch dimensions
+        x : jnp.ndarray, shape (input_dim,) or (..., input_dim)
+            The first for a single point, the second for a batch with
+            arbitrary leading batch dimensions.
 
         Returns
         -------
-        jnp.ndarray
-            Square covariance matrix/matrices. Shape adapts to stimulus dimensionality:
-            - Single point: shape (d, d) where d = model.input_dim
-            - Batch: shape (..., d, d) where d = model.input_dim
+        jnp.ndarray, shape (d, d) or (..., d, d), where d = model.input_dim
+            Square covariance matrix/matrices: the first shape for a single
+            point, the second for a batch.
 
             For input_dim=2: returns (2, 2) or (..., 2, 2)
             For input_dim=3: returns (3, 3) or (..., 3, 3)
@@ -583,7 +582,7 @@ def covariance_to_arviz(posterior, points):
     Why points must be chosen
     -------------------------
     Unlike W, Σ is a function of the stimulus location x, so a diagnostic of Σ
-    is a diagnostic *at some x*. This function deliberately has no default for
+    is a diagnostic *at some x*. This function has no default for
     ``points``: which locations to check is a modeling decision. Sensible
     choices are the locations you report (e.g. the reference points of the
     plotted ellipses), optionally plus a grid covering the stimulus space,
@@ -730,13 +729,12 @@ class ContourBand(NamedTuple):
     directions : jnp.ndarray, shape (n_directions, d)
         Unit directions the radii are measured along, in order. Closed, so the
         last direction repeats the first and a filled polygon has no seam.
-    lower, median, upper : jnp.ndarray
-        Interval endpoints and the posterior median radius, shape
-        (n_points, n_directions) for a single ``ci_prob``, or
-        (n_levels, n_points, n_directions) when a sequence was requested. All
-        three carry the same shape, so a loop over levels can index all of
-        them. The median does not depend on the interval probability, so its
-        levels are identical copies.
+    lower, median, upper : jnp.ndarray, shape (n_points, n_directions) or (n_levels, n_points, n_directions)
+        Interval endpoints and the posterior median radius: the first shape
+        for a single ``ci_prob``, the second when a sequence was requested.
+        All three carry the same shape, so a loop over levels can index all
+        of them. The median does not depend on the interval probability, so
+        its levels are identical copies.
     ci_prob : float | tuple[float, ...]
         Nominal probability each interval carries. A tuple when several levels
         were requested, in the order the arrays are stacked.
@@ -762,7 +760,7 @@ class ContourBand(NamedTuple):
 
 
 def contour_radii(covs: jnp.ndarray, directions: jnp.ndarray) -> jnp.ndarray:
-    r"""Distance from the center to the Mahalanobis-1 contour, per direction.
+    r"""Distance from the center to the one-standard-deviation ellipse, per direction.
 
     For a covariance :math:`\Sigma`, the contour
     :math:`\{v : v^\top \Sigma^{-1} v = 1\}` meets the ray along a unit
@@ -1064,7 +1062,7 @@ class WPPMCovarianceFieldSamples:
         ci_prob: float | Sequence[float] = 0.89,
         ci_kind: str = "eti",
     ) -> ContourBand:
-        r"""Pointwise credible band on the Mahalanobis-1 contour at each point.
+        r"""Pointwise credible band on the one-standard-deviation ellipse at each point.
 
         The posterior-interval counterpart to :meth:`mean` (a posterior *mean*)
         and :func:`covariance_to_arviz` (posterior *samples*, for diagnostics).
@@ -1108,8 +1106,8 @@ class WPPMCovarianceFieldSamples:
         Raises
         ------
         NotImplementedError
-            If the model is not 2-D. The direction grid is a circle, and there
-            is no canonical equivalent in higher dimensions.
+            If the model is not 2-D. The direction grid is a circle, and higher
+            dimensions have no single analogous grid.
         ValueError
             If ``ci_kind`` is unknown, or if any ``ci_prob`` is outside (0, 1).
 

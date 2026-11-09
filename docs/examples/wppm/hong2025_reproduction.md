@@ -112,7 +112,7 @@ observer picks it out as the odd one 66.7% of the time. Some color changes are e
 see than others of the same magnitude, so the contour is an ellipse, and its orientation
 and elongation are what the WPPM estimates. In the plot below the ellipses grow away from
 the origin, which corresponds to a gray stimulus. This is consistent with the
-[Weber–Fechner law](https://en.wikipedia.org/wiki/Weber%E2%80%93Fechner_law).
+[Weber-Fechner law](https://en.wikipedia.org/wiki/Weber%E2%80%93Fechner_law).
 
 See [Recovering Weber's Law](weber_law.md) for a worked example reproducing the
 classic Weber's Law result on simulated one-dimensional data.
