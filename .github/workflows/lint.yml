@@ -140,3 +140,7 @@ jobs:
       - name: Run tests
         run: |
           pytest tests/ -ra
+
+      - name: Run docstring examples
+        run: |
+          pytest --doctest-modules src/psyphy -ra
