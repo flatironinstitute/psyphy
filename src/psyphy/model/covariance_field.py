@@ -98,7 +98,7 @@ def _draws_from(posterior, n_samples: int | None, key) -> tuple[dict, int]:
         or if ``n_samples`` is given without a key.
     """
     if n_samples is None:
-        #  get stored posterrior values  if available, else raise set to None
+        #  get stored posterior values  if available, else raise set to None
         samples = getattr(posterior, "samples", None)
         n_chains = getattr(posterior, "n_chains", None)
         n_draws = getattr(posterior, "n_draws", None)
