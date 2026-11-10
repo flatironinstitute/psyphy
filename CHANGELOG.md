@@ -10,6 +10,18 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Breaking
 
+- **`Prior(basis_degree=None)` raises `ValueError`.** `basis_degree` must be an int of 0 or
+  more. The old `None` was accepted. Instead, we now reject it
+  at construction.
+
+  ```python
+  # before
+  Prior(basis_degree=None)  # built, then raised in sample_params
+
+  # now
+  Prior(basis_degree=4)  # None raises ValueError
+  ```
+
 - **`WPPM` no longer takes `input_dim`, `extra_dims`, `variance_scale` or `decay_rate`.**
   They were duplicated on `Prior`, and nothing read 2 of the 4 copies on `WPPM`:
   `variance_scale` and `decay_rate` were stored and never used, and `extra_dims` fed only
