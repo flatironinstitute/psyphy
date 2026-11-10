@@ -106,7 +106,7 @@ class WPPM(Model):
         self.diag_term = float(diag_term)
 
     @property
-    def basis_degree(self) -> int | None:
+    def basis_degree(self) -> int:
         """
         Chebyshev polynomial degree for Wishart process basis expansion.
 
@@ -115,7 +115,7 @@ class WPPM(Model):
 
         Returns
         -------
-        int | None
+        int
             Degree of Chebyshev polynomial basis (0 = constant, 1 = linear, etc.)
 
         Notes
@@ -152,9 +152,6 @@ class WPPM(Model):
         int
             input_dim + extra_embedding_dims
         """
-        if self.basis_degree is None:
-            raise ValueError("Basis degree must be set for embedding.")
-        # Wishart mode: full perceptual space
         return self.prior.input_dim + self.prior.extra_embedding_dims
 
     @property
@@ -256,12 +253,6 @@ class WPPM(Model):
             (degree+1, degree+1, degree+1) for 3D.
         """
 
-        if self.basis_degree is None:
-            raise ValueError(
-                "Cannot evaluate basis: basis_degree is None. "
-                "Set basis_degree to a valid integer."
-            )
-
         self._validate_basis_input(x)
         x_norm = x
 
@@ -309,7 +300,7 @@ class WPPM(Model):
         Parameters
         ----------
         params : dict
-            Model parameters. Must contain "W" for Wishart mode.
+            Model parameters. Must contain "W".
         x : jnp.ndarray, shape (input_dim,)
             Stimulus location
 
@@ -322,7 +313,7 @@ class WPPM(Model):
         Raises
         ------
         ValueError
-            If params doesn't contain "W" (not in Wishart mode)
+            If params doesn't contain "W"
 
         Notes
         -----
@@ -367,8 +358,7 @@ class WPPM(Model):
         Return local covariance Σ(x) at stimulus location x.
 
 
-        Wishart mode (basis_degree set):
-            Σ(x) = U(x) @ U(x)^T + diag_term * I
+        Σ(x) = U(x) @ U(x)^T + diag_term * I
             where U(x) is rectangular (input_dim, embedding_dim) if extra_embedding_dims > 0.
             - Varies smoothly with x
             - Guaranteed positive-definite

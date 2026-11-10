@@ -509,8 +509,8 @@ class WPPMCovarianceField:
         """
         if "W" not in self.params:
             raise ValueError(
-                "sqrt_cov only available in Wishart mode. "
-                "Set basis_degree when creating WPPM to use Wishart process."
+                "params has no 'W', so sqrt_cov cannot evaluate U(x). "
+                "Pass params with a 'W' entry, e.g. from WPPM.init_params."
             )
         return self.model._compute_sqrt(self.params, x)
 
@@ -545,7 +545,9 @@ class WPPMCovarianceField:
         (3, 2, 3)
         """
         if "W" not in self.params:
-            raise ValueError("sqrt_cov_batch only available in Wishart mode")
+            raise ValueError(
+                "params has no 'W', so sqrt_cov_batch cannot evaluate U(x)."
+            )
         return jax.vmap(self.sqrt_cov)(X)
 
 

@@ -39,11 +39,11 @@ class Prior:
     ----------
     input_dim : int, default=2
         Dimensionality of the model space. WPPM.input_dim reads this.
-    basis_degree : int | None, default=4
-        Degree of Chebyshev basis for Wishart process.
-        If set, uses Wishart mode with W coefficients.
+    basis_degree : int, default=4
+        Degree of the Chebyshev basis. U(x) is a weighted sum of basis functions
+        up to this degree, with weights W. Must be 0 or more.
     variance_scale : float, default=4e-3
-        Prior variance for degree-0 (constant) coefficient in Wishart mode.
+        Prior variance for degree-0 (constant) coefficient.
         Controls overall scale of covariances. WPPM.variance_scale reads this.
     decay_rate : float, default=0.4
         Geometric decay rate for prior variance over higher-degree coefficients.
@@ -51,19 +51,26 @@ class Prior:
         Smaller decay_rate -> stronger smoothness prior. WPPM.decay_rate reads this.
     extra_embedding_dims : int, default=1
         Additional latent dimensions in U matrices beyond input dimensions.
-        Allows richer ellipsoid shapes in Wishart mode. WPPM.embedding_dim reads this.
+        Allows richer ellipsoid shapes. WPPM.embedding_dim reads this.
     """
 
     input_dim: int = 2
-    basis_degree: int = 4  # | None = None
+    basis_degree: int = 4
     variance_scale: float = 4e-3
     decay_rate: float = 0.4
     extra_embedding_dims: int = 1
 
     def __post_init__(self):
         """Validate and normalize parameters."""
-        if self.basis_degree is not None and self.basis_degree < 0:
-            raise ValueError("basis_degree must be non-negative or None")
+        if (
+            not isinstance(self.basis_degree, int)
+            or isinstance(self.basis_degree, bool)
+            or self.basis_degree < 0
+        ):
+            raise ValueError(
+                f"basis_degree must be an int of 0 or more, got {self.basis_degree!r}. "
+                "Pass e.g. Prior(basis_degree=4)."
+            )
 
     def _compute_basis_degree_grid(self) -> jnp.ndarray:
         """
@@ -80,9 +87,6 @@ class Prior:
         basis_degrees : jnp.ndarray, shape (degree+1,) * input_dim
             Array of total degrees.
         """
-        if self.basis_degree is None:
-            return jnp.array([])
-
         if self.input_dim == 2:
             # 2D: degree[i,j] = i + j for i,j in 0..basis_degree
             basis_degrees = (
@@ -167,12 +171,6 @@ class Prior:
         params : dict
             Parameter dictionary
         """
-        if self.basis_degree is None:
-            raise ValueError(
-                "'basis_degree' is None; please set "
-                "`Prior.basis_degree` to an integer >0."
-            )
-
         # Basis function coefficients W
         variances = self._compute_W_prior_variances()
         embedding_dim = self.input_dim + self.extra_embedding_dims
@@ -268,7 +266,6 @@ class Prior:
         """
 
         if "W" in params:
-            # Wishart mode
             W = params["W"]
             variances = self._compute_W_prior_variances()
 

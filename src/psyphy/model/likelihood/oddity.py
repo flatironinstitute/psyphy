@@ -207,20 +207,13 @@ class OddityTask(BernoulliTaskLikelihood):
            - P(correct) \approx mean over num_samples
 
         """
-        # Get input dimension and require Wishart mode.
-        # OddityTask is MC-only and currently only supports the
-        # WPPM/Wishart covariance parameterization.
         input_dim = ref.shape[0]
-        if model.basis_degree is None:
-            raise ValueError(
-                "(Expected a basis degree, got None. model.basis_degree must not be None)."
-            )
 
         # ========================================================================
         # STEP 1: Compute covariance structures at ref and comparison locations
         # ========================================================================
 
-        # Wishart mode: Spatially-varying covariance
+        # Spatially-varying covariance
         # Compute U matrices that define covariances at each location
         # These U matrices define the two distributions:
 
@@ -309,7 +302,7 @@ class OddityTask(BernoulliTaskLikelihood):
         # Weight by frequency: we sampled 2 times from N(ref, Σ_ref) and 1 time from N(comparison, Σ_comparison)
         # -> so we use weights (2/3) for reference distribution and (1/3) for comparison distribution
 
-        # For Wishart mode, explicitly construct full covariances from U matrices
+        # Construct full covariances from U matrices
         # Σ_ref = U_ref @ U_ref.T + diag_term * I  (covariance of DISTRIBUTION 1)
         Sigma_ref_full = U_ref @ U_ref.T + diag_term * jnp.eye(input_dim)  # type: ignore
 
