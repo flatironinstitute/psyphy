@@ -92,7 +92,7 @@ class ParameterPosterior(ParameterSource, Protocol):
         Returns
         -------
         dict
-            Parameter PyTree (e.g., {"log_diag": jnp.ndarray, ...})
+            Parameter PyTree (e.g., {"W": jnp.ndarray})
 
         Notes
         -----
