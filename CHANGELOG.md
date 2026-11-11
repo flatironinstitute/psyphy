@@ -123,6 +123,20 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Changed
 
+- **`key` can be passed positionally** to `Prior.sample`, `ParameterSource.sample`,
+  `MAPPosterior.sample`, `MCMCPosterior.sample`, `WPPM.log_likelihood_from_data`,
+  `WPPM.log_posterior_from_data`, and `loglik`, `simulate` and `predict` on the task
+  likelihoods. Calls that name it still work.
+
+  ```python
+  posterior.sample(100, key=key)  # unchanged
+  posterior.sample(100, key)      # now also accepted
+  ```
+
+  `key` stays keyword-only in `WPPMCovarianceFieldSamples.from_prior` and `.from_posterior`,
+  `WPPMPredictivePosterior(...)` and both `rsample` methods. Pass `n_samples` and `key`
+  by name to the samples factories.
+
 - **The every-stored-sample path no longer subsamples.** `PosteriorMeanCovarianceField(posterior)`
   and `contour_band(posterior, points)` pool the stored samples in order instead of asking
   `posterior.sample` for a full-size draw. Both keep their current call shape and need no
