@@ -118,7 +118,7 @@ class MCMCPosterior:
         """The WPPM instance used during inference."""
         return self._model
 
-    def sample(self, n: int, *, key) -> dict:
+    def sample(self, n: int, key) -> dict:
         """Draw n parameter vectors from the pooled chain samples.
 
         Pools all chains and draws into a flat collection of

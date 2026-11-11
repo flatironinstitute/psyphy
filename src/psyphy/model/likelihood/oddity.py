@@ -110,7 +110,6 @@ class OddityTask(BernoulliTaskLikelihood):
         params: Any,
         stimuli: jnp.ndarray,  # (k_stimuli, dimensions)
         model: Any,
-        *,
         key: Any = None,
     ) -> tuple[jnp.ndarray, ...]:
         """Return p(correct) for a single (ref, comparison) trial via MC simulation.

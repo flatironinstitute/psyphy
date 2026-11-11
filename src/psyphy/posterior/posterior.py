@@ -49,7 +49,7 @@ class MAPPosterior:
         """Return the associated model."""
         return self._model
 
-    def sample(self, n: int, *, key):
+    def sample(self, n: int, key):
         """
         Return n copies of the point estimate θ_MAP.
 

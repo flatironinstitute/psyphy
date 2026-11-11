@@ -436,7 +436,7 @@ class WPPM(Model):
     # ----------------------------------------------------------------------
     # TODO: add random key
     def log_likelihood_from_data(
-        self, params: Params, data: Any, *, key: jax.Array | None = None
+        self, params: Params, data: Any, key: jax.Array | None = None
     ) -> jnp.ndarray:
         """Compute log-likelihood directly from a batched data object.
 
@@ -469,7 +469,7 @@ class WPPM(Model):
     # POSTERIOR-STYLE CONVENIENCE (OPTIONAL)
     # ----------------------------------------------------------------------
     def log_posterior_from_data(
-        self, params: Params, data: Any, *, key: jax.Array | None = None
+        self, params: Params, data: Any, key: jax.Array | None = None
     ) -> jnp.ndarray:
         """Compute log posterior from data.
 

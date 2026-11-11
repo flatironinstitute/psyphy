@@ -46,7 +46,6 @@ class TaskLikelihood(ABC):
         params: Any,
         stimuli: jnp.ndarray,
         model: Any,
-        *,
         key: Any = None,
     ) -> tuple[jnp.ndarray, ...]:
         """Return parameters sufficient to determine probability of any given
@@ -84,7 +83,6 @@ class TaskLikelihood(ABC):
         params: Any,
         data: jnp.ndarray,
         model: Any,
-        *,
         key: Any = None,
     ) -> jnp.ndarray:
         """
@@ -117,7 +115,6 @@ class TaskLikelihood(ABC):
         params: Any,
         stimuli: jnp.ndarray,
         model: Any,
-        *,
         key: Any,
     ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
         """Simulate responses for a batch of trials.
@@ -166,7 +163,6 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         params: Any,
         data: Any,
         model: Any,
-        *,
         key: Any = None,
     ) -> jnp.ndarray:
         """Compute Bernoulli log-likelihood over a batch of trials.
@@ -228,7 +224,6 @@ class BernoulliTaskLikelihood(TaskLikelihood):
         params: Any,
         stimuli: jnp.ndarray,
         model: Any,
-        *,
         key: Any,
     ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
         """Simulate observed binary responses for a batch of trials.
@@ -287,7 +282,6 @@ class GaussianTaskLikelihood(TaskLikelihood):
         params: Any,
         data: Any,
         model: Any,
-        *,
         key: Any = None,
     ) -> jnp.ndarray:
         """Compute Gaussian log-likelihood over a batch of trials.
@@ -352,7 +346,6 @@ class GaussianTaskLikelihood(TaskLikelihood):
         params: Any,
         stimuli: jnp.ndarray,
         model: Any,
-        *,
         key: Any,
     ) -> tuple[jnp.ndarray, tuple[jnp.ndarray, ...]]:
         """Simulate observed responses for a batch of trials.
