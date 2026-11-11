@@ -42,7 +42,7 @@ class ParameterSource(Protocol):
     A source draws parameters and cannot score them: there is no `log_prob` here.
     """
 
-    def sample(self, n: int, *, key: jax.Array) -> dict:
+    def sample(self, n: int, key: jax.Array) -> dict:
         """
         Draw n parameter vectors.
 

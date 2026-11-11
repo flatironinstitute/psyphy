@@ -213,7 +213,7 @@ class Prior:
 
         return {"W": W}
 
-    def sample(self, n: int, *, key: Any) -> Params:
+    def sample(self, n: int, key: Any) -> Params:
         """
         Sample n independent parameter draws from the prior.
 
