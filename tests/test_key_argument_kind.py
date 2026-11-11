@@ -46,8 +46,8 @@ POSITIONAL = [
 ]
 
 KEYWORD_ONLY = [
-    WPPMCovarianceFieldSamples.from_prior,  # same kind as from_posterior
-    WPPMCovarianceFieldSamples.from_posterior,  # (post, k) would bind k to n_samples
+    WPPMCovarianceFieldSamples.from_prior,  # same kind as __init__
+    WPPMCovarianceFieldSamples.__init__,  # (post, k) would bind k to n_samples
     WPPMPredictivePosterior.__init__,  # required key after optional arguments
     PredictivePosterior.rsample,
     WPPMPredictivePosterior.rsample,
