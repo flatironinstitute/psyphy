@@ -260,13 +260,11 @@ class TestMinimalPosteriorThroughConsumers:
         b = WPPMCovarianceField.from_posterior(map_posterior)(points)
         assert jnp.array_equal(a, b)
 
-    def test_covariance_field_samples_from_posterior(self, pair, points):
+    def test_covariance_field_samples_constructor(self, pair, points):
         minimal, map_posterior = pair
         key = jr.PRNGKey(0)
-        a = WPPMCovarianceFieldSamples.from_posterior(minimal, n_samples=3, key=key)
-        b = WPPMCovarianceFieldSamples.from_posterior(
-            map_posterior, n_samples=3, key=key
-        )
+        a = WPPMCovarianceFieldSamples(minimal, n_samples=3, key=key)
+        b = WPPMCovarianceFieldSamples(map_posterior, n_samples=3, key=key)
         assert jnp.array_equal(a.mean(points), b.mean(points))
 
     def test_predictive_posterior(self, pair, points):
