@@ -133,9 +133,9 @@ breaking changes are called out below but do not force a minor-version bump.
   posterior.sample(100, key)      # now also accepted
   ```
 
-  `key` stays keyword-only in `WPPMCovarianceFieldSamples.from_prior` and `.from_posterior`,
+  `key` stays keyword-only in `WPPMCovarianceFieldSamples(...)` and `.from_prior`,
   `WPPMPredictivePosterior(...)` and both `rsample` methods. Pass `n_samples` and `key`
-  by name to the samples factories.
+  by name to `WPPMCovarianceFieldSamples`.
 
 - **The every-stored-sample path no longer subsamples.** `PosteriorMeanCovarianceField(posterior)`
   and `contour_band(posterior, points)` pool the stored samples in order instead of asking
