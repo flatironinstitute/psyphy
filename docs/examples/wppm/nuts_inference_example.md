@@ -188,7 +188,7 @@ What comes back is an `MCMCPosterior`. We use 2 things on it:
 
 | call | returns | used in |
 |---|---|---|
-| [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`.from_posterior(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.band(x)` for a credible band. Pass `n_samples` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
+| [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.band(x)` for a credible band. Pass `n_samples` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
 | `covariance_to_arviz(nuts_posterior, points)` | $\Sigma$ at chosen points for every sample, in ArviZ's format | [the diagnostics page](mcmc_diagnostics.md) |
 
 One sample is one complete covariance field, so one threshold contour at every reference
@@ -209,7 +209,7 @@ fit, [`WPPMPredictivePosterior`](../../reference/posterior.md#psyphy.posterior.W
 ### Step 5: Plotting posterior samples and credible intervals
 
 Every sample is a complete covariance field, so the ensemble of samples is an ensemble of
-threshold contours. `from_posterior` holds every stored sample. Called at the reference
+threshold contours. Built from `nuts_posterior` alone, the object holds every stored sample. Called at the reference
 points, it gives one $\Sigma$ per sample and point. We draw every k-th of them, so the
 plot shows `n_ensemble` contours from all chains.
 
@@ -257,8 +257,8 @@ mean and the band all come from the same samples.
     | `ci_kind` | `"eti"` for equal-tailed, `"hdi"` for the narrowest interval of that mass |
     | `n_directions` | how many directions each contour is measured along. `181` by default, one every two degrees |
 
-    The samples the band uses are the ones the object was built with. `from_posterior` takes
-    `n` and `key` to build it from a random subset.
+    The samples the band uses are the ones the object was built with. Pass `n_samples` and
+    `key` when building it for a random subset.
 
     What we get back is a
     [`ContourBand`](../../reference/model.md#psyphy.model.ContourBand): `lower`,
