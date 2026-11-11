@@ -107,7 +107,7 @@ def X():
 
 def test_mean_over_every_stored_draw(posterior, X):
     """E[Σ(x)] over all 50 stored draws, in stored order."""
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     got = fields.mean(X)  # (n_points=2, d=2, d=2)
     assert got.shape == (2, 2, 2)
     assert jnp.allclose(got, jnp.array(MEAN_ALL), rtol=0.0, atol=ATOL)
@@ -120,9 +120,7 @@ def test_mean_over_a_subsample(posterior, X, model):
     business and moves with the JAX version. What has to hold is that the mean
     uses the draws the object kept, whichever they are.
     """
-    fields = WPPMCovarianceFieldSamples.from_posterior(
-        posterior, n_samples=10, key=jr.PRNGKey(3)
-    )
+    fields = WPPMCovarianceFieldSamples(posterior, n_samples=10, key=jr.PRNGKey(3))
     assert fields.n_samples == 10
 
     by_hand = jnp.mean(
@@ -136,7 +134,7 @@ def test_mean_over_a_subsample(posterior, X, model):
 
 def test_band_over_every_stored_draw(posterior, X):
     """The 89% band on the one-standard-deviation ellipse (Mahalanobis-1 contour), over all stored draws."""
-    band = WPPMCovarianceFieldSamples.from_posterior(posterior).band(X, ci_prob=0.89)
+    band = WPPMCovarianceFieldSamples(posterior).band(X, ci_prob=0.89)
     assert band.lower.shape == (2, 181)  # (n_points, n_directions)
     assert band.directions.shape == (181, 2)
     assert (band.ci_prob, band.ci_kind) == (0.89, "eti")
@@ -158,7 +156,7 @@ def test_band_over_every_stored_draw(posterior, X):
 
 def test_call_gives_one_matrix_per_draw(posterior, X, model):
     """fields(x) is the ensemble: draw i equals the field built from draw i."""
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     ensemble = fields(X)  # (n_samples, n_points, d, d)
     assert ensemble.shape == (50, 2, 2, 2)
 
@@ -170,13 +168,13 @@ def test_call_gives_one_matrix_per_draw(posterior, X, model):
 
 def test_mean_is_the_mean_of_the_draws(posterior, X):
     """mean() and the ensemble average are the same reduction."""
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     assert jnp.allclose(fields.mean(X), fields(X).mean(axis=0), rtol=0.0, atol=ATOL)
 
 
 def test_single_point_matches_the_batch_row(posterior, X):
     """Shape (d,) input gives the same matrices as the matching batch row."""
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     assert fields(X[0]).shape == (50, 2, 2)
     assert fields.mean(X[0]).shape == (2, 2)
     assert jnp.allclose(fields(X[0]), fields(X)[:, 0], rtol=0.0, atol=ATOL)
@@ -185,7 +183,7 @@ def test_single_point_matches_the_batch_row(posterior, X):
 
 def test_samples_carries_the_draws(posterior):
     """samples is public, so a per-draw quantity psyphy does not ship is reachable."""
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     assert fields.samples["W"].shape[0] == fields.n_samples == 50
     # any per-draw function, mapped by the caller
     traces = jax.vmap(lambda W: jnp.sum(W**2))(fields.samples["W"])
@@ -195,9 +193,7 @@ def test_samples_carries_the_draws(posterior):
 def test_arbitrary_batch_dimensions(posterior, model):
     """A grid of points keeps its shape, with the draws on the leading axis."""
     grid = jnp.zeros((4, 3, 2))  # (4, 3, d=2)
-    fields = WPPMCovarianceFieldSamples.from_posterior(
-        posterior, n_samples=5, key=jr.PRNGKey(0)
-    )
+    fields = WPPMCovarianceFieldSamples(posterior, n_samples=5, key=jr.PRNGKey(0))
     assert fields(grid).shape == (5, 4, 3, 2, 2)
     assert fields.mean(grid).shape == (4, 3, 2, 2)
 
@@ -219,55 +215,57 @@ def test_from_prior_takes_n_samples_and_key(model):
 
 
 def test_constructors_take_the_count_by_the_same_keyword(model, posterior):
-    """from_prior and from_posterior both spell it n_samples, keyword-only."""
+    """from_prior and the constructor both spell it n_samples, keyword-only."""
     key = jr.PRNGKey(0)
     assert (
         WPPMCovarianceFieldSamples.from_prior(model, n_samples=4, key=key).n_samples
         == 4
     )
-    assert (
-        WPPMCovarianceFieldSamples.from_posterior(
-            posterior, n_samples=4, key=key
-        ).n_samples
-        == 4
-    )
+    assert WPPMCovarianceFieldSamples(posterior, n_samples=4, key=key).n_samples == 4
     with pytest.raises(TypeError):
         WPPMCovarianceFieldSamples.from_prior(model, 4, key=key)
     with pytest.raises(TypeError):
-        WPPMCovarianceFieldSamples.from_posterior(posterior, 4, key=key)
+        WPPMCovarianceFieldSamples(posterior, 4, key=key)
 
 
-def test_from_posterior_subsample_requires_a_key(posterior):
+def test_subsample_requires_a_key(posterior):
     """Picking 10 of 50 draws depends on a key, so we require one."""
     with pytest.raises(ValueError, match="key"):
-        WPPMCovarianceFieldSamples.from_posterior(posterior, n_samples=10)
+        WPPMCovarianceFieldSamples(posterior, n_samples=10)
 
 
-def test_from_posterior_needs_n_samples_without_a_draw_count(model):
+def test_needs_n_samples_without_a_sample_count(model):
     """MAP (or any posterior without n_chains/n_draws) must be told how many."""
     point_mass = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
     with pytest.raises(ValueError, match="n_samples"):
-        WPPMCovarianceFieldSamples.from_posterior(point_mass)
+        WPPMCovarianceFieldSamples(point_mass)
 
 
 def test_map_posterior_gives_sigma_of_theta_map(model, X):
     """For a MAP posterior every draw is θ_MAP, so the mean is Σ(θ_MAP)."""
     params = model.init_params(jr.PRNGKey(3))
     point_mass = MAPPosterior(params, model)
-    fields = WPPMCovarianceFieldSamples.from_posterior(
-        point_mass, n_samples=3, key=jr.PRNGKey(0)
-    )
+    fields = WPPMCovarianceFieldSamples(point_mass, n_samples=3, key=jr.PRNGKey(0))
     expected = WPPMCovarianceField(model, {"W": params["W"]})(X)
     assert jnp.allclose(fields.mean(X), expected, rtol=1e-5, atol=1e-9)
 
 
 def test_rejects_samples_without_parameters(model):
+    """A posterior whose sample() returns an empty PyTree gives no field."""
+
+    class Empty:
+        def __init__(self, model):
+            self.model = model
+
+        def sample(self, n, *, key):
+            return {}
+
     with pytest.raises(ValueError, match="no parameter arrays"):
-        WPPMCovarianceFieldSamples(model, {})
+        WPPMCovarianceFieldSamples(Empty(model), n_samples=3, key=jr.PRNGKey(0))
 
 
 def test_rejects_wrong_input_dim(posterior):
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     with pytest.raises(ValueError, match="input_dim"):
         fields(jnp.ones((4, 3)))
     with pytest.raises(ValueError, match="input_dim"):
@@ -308,7 +306,7 @@ def test_jensen_gap_mean_sigma_dominates_sigma_of_mean_W(model, X):
     samples = _prior_draws(model, n_chains=2, n_draws=10)
     posterior = MCMCPosterior(samples, model)
 
-    mean_sigma = WPPMCovarianceFieldSamples.from_posterior(posterior).mean(X)
+    mean_sigma = WPPMCovarianceFieldSamples(posterior).mean(X)
     sigma_of_mean_W = _sigma(model, posterior.params["W"], X)
 
     gap_eigs = jnp.linalg.eigvalsh(mean_sigma - sigma_of_mean_W)
@@ -326,7 +324,7 @@ def test_sign_flipped_draws_do_not_cancel(model, X):
     lam_I = model.diag_term * jnp.eye(2)
     assert jnp.allclose(_sigma(model, posterior.params["W"], X), lam_I)
 
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     assert jnp.allclose(fields.mean(X), _sigma(model, W, X), rtol=1e-5, atol=1e-9)
 
 
@@ -343,7 +341,7 @@ def test_invariant_to_embedding_rotations(model, X):
     rotated = jnp.stack([W @ R for R in Rs]).reshape(2, 3, *W.shape)
     posterior = MCMCPosterior({"W": rotated}, model)
 
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     assert jnp.allclose(fields.mean(X), _sigma(model, W, X), rtol=1e-4, atol=1e-8)
 
 
@@ -354,13 +352,13 @@ def test_invariant_to_embedding_rotations(model, X):
 
 def test_no_square_root(posterior, X):
     """An average of U U^T has no single U behind it, so sqrt_cov is absent."""
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     assert not hasattr(fields, "sqrt_cov")
 
 
 def test_is_not_a_covariance_field(posterior):
     """fields(x) carries a draws axis and there is no U(x), so the protocol fails."""
-    fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+    fields = WPPMCovarianceFieldSamples(posterior)
     assert not isinstance(fields, CovarianceField)
 
 
