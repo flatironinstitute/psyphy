@@ -74,9 +74,7 @@ def points():
 
 def _fields(posterior, n_samples=None, key=None):
     """The draws object, which is where band() lives."""
-    return WPPMCovarianceFieldSamples.from_posterior(
-        posterior, n_samples=n_samples, key=key
-    )
+    return WPPMCovarianceFieldSamples(posterior, n_samples=n_samples, key=key)
 
 
 def _reference_band(posterior, model, points, n_samples, ci_prob, key):

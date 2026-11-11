@@ -144,7 +144,7 @@ maximum a posteriori (MAP) fit that is $W_\text{MAP}$, which is what you want. F
 sample-based posterior, for example from
 [`NUTSSampler`](../../reference/inference.md#psyphy.inference.NUTSSampler), `params` is the
 mean parameter $\mathbb{E}[W]$. The field built from it is too small, so `from_posterior`
-warns. Use `WPPMCovarianceFieldSamples.from_posterior(posterior).mean(x)` instead. It
+warns. Use `WPPMCovarianceFieldSamples(posterior).mean(x)` instead. It
 evaluates $\Sigma$ for every posterior draw and averages the matrices, giving
 $\mathbb{E}[\Sigma(x)]$. See
 [Step 5 of the NUTS tutorial](../wppm/nuts_inference_example.md#step-5-plotting-posterior-samples-and-credible-intervals).

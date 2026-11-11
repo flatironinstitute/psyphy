@@ -48,6 +48,11 @@ construction, so a figure built from all three shows one sample of the posterior
 is separate from `WPPMCovarianceField` rather than a flag on it, because the two take
 different inputs: one takes a parameter set, the other takes draws.
 
+The constructor takes the posterior, because a fitted posterior is what a scientist holds
+after a fit: `WPPMCovarianceFieldSamples(post)`. `from_prior(model, n_samples=, key=)` is the
+one factory, for a source with no posterior. There is no public way in from a dict of
+samples. A source psyphy doesn't ship needs only `.model` and `.sample(n, *, key)`.
+
 **What it costs.** Two names to learn instead of one, and a caller who wants the mean over
 a different subsample builds a second object.
 `WPPMCovarianceField.from_posterior` warns rather than raises when handed a sample-based
