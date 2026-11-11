@@ -584,9 +584,7 @@ ELLIPSE_SCALE = 1.2  # magnification; ellipses are not drawn at true size
 
 # Posterior samples as covariance fields
 # --8<-- [start:posterior_samples]
-fields = WPPMCovarianceFieldSamples.from_posterior(
-    nuts_posterior
-)  # every stored sample
+fields = WPPMCovarianceFieldSamples(nuts_posterior)  # every stored sample
 # (n_samples, n_ref, 2, 2): one field per sample
 covs_samples = fields(ref_points)
 # every k-th sample, so the plot shows n_ensemble contours from all chains
