@@ -120,6 +120,16 @@ def _draws_from(posterior, n_samples: int | None, key) -> tuple[dict, int]:
     return posterior.sample(int(n_samples), key=key), int(n_samples)
 
 
+class _PriorSource:
+    """A model's prior with the 2 members WPPMCovarianceFieldSamples reads."""
+
+    def __init__(self, model):
+        self.model = model
+
+    def sample(self, n: int, *, key) -> dict:
+        return self.model.prior.sample(n, key=key)
+
+
 @runtime_checkable
 class CovarianceField(Protocol):
     """
@@ -404,7 +414,7 @@ class WPPMCovarianceField:
           is systematically too small and can collapse toward λI (see
           ``WPPMCovarianceFieldSamples`` for why). A ``UserWarning`` is
           raised in that case. Use
-          ``WPPMCovarianceFieldSamples.from_posterior(posterior).mean(x)``
+          ``WPPMCovarianceFieldSamples(posterior).mean(x)``
           for E[Σ], or ``posterior.sample(n, key=...)`` for individual samples.
 
         Examples
@@ -431,7 +441,7 @@ class WPPMCovarianceField:
                 f"from_posterior() on a {type(posterior).__name__} builds Σ from the "
                 "mean parameter E[W]. Σ is nonlinear in W, so Σ(E[W]) is not the "
                 "posterior mean of Σ and comes out systematically too small. Use "
-                "WPPMCovarianceFieldSamples.from_posterior(posterior).mean(x) "
+                "WPPMCovarianceFieldSamples(posterior).mean(x) "
                 "for E[Σ].",
                 UserWarning,
                 stacklevel=2,
@@ -842,12 +852,23 @@ class WPPMCovarianceFieldSamples:
 
     Parameters
     ----------
-    model : WPPM
-        Model providing the evaluation logic.
-    samples : dict
-        Parameter draws with a leading axis, ``{"W": (n_samples, *W_shape)}``.
-        Build this with :meth:`from_posterior` or :meth:`from_prior` rather
-        than by hand.
+    posterior : ParameterPosterior
+        A fitted posterior, typically an ``MCMCPosterior``. Its ``model``
+        evaluates the samples. For samples from the prior, use
+        :meth:`from_prior`.
+    n_samples : int, optional
+        How many samples to take. Omit it for every stored sample, which needs
+        the posterior to expose ``samples``, ``n_chains`` and ``n_draws``. A
+        point-mass posterior such as ``MAPPosterior`` has to pass this.
+    key : jax.Array, optional
+        PRNG key for the subsample. Required when ``n_samples`` is given, and
+        unread otherwise, since every stored sample is taken in order.
+
+    Raises
+    ------
+    ValueError
+        If ``n_samples`` is None and the posterior stores no fixed set of
+        samples, or if ``n_samples`` is given without a key.
 
     Attributes
     ----------
@@ -869,11 +890,15 @@ class WPPMCovarianceFieldSamples:
     >>> import jax.numpy as jnp
     >>> import jax.random as jr
     >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+    >>> from psyphy.posterior import MCMCPosterior
     >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
+    >>> keys = jr.split(jr.PRNGKey(1), 100)
+    >>> W = jnp.stack([model.init_params(k)["W"] for k in keys])  # (100, 3, 3, 2, 3)
+    >>> posterior = MCMCPosterior({"W": W.reshape(2, 50, *W.shape[1:])}, model)
+    >>> WPPMCovarianceFieldSamples(posterior).n_samples
+    100
+    >>> fields = WPPMCovarianceFieldSamples(posterior, n_samples=50, key=jr.PRNGKey(0))
     >>> ref_points = jnp.array([[-0.5, -0.5], [0.5, 0.5]])  # (n_points=2, d=2)
-    >>> fields = WPPMCovarianceFieldSamples.from_prior(
-    ...     model, n_samples=50, key=jr.PRNGKey(0)
-    ... )
     >>> fields(ref_points).shape  # (n_samples, n_points, d, d)
     (50, 2, 2, 2)
     >>> fields.mean(ref_points).shape  # (n_points, d, d)
@@ -882,78 +907,27 @@ class WPPMCovarianceFieldSamples:
     (2, 181)
     """
 
-    def __init__(self, model, samples: dict):
-        self.model = model
-        self.samples = samples
+    def __init__(self, posterior, *, n_samples: int | None = None, key=None):
+        samples, _ = _draws_from(posterior, n_samples, key)
         leaves = jax.tree.leaves(samples)
         if not leaves:
             raise ValueError(
-                "samples holds no parameter arrays. Pass draws with a leading "
-                'axis, for example {"W": (n_samples, *W_shape)}.'
+                f"{type(posterior).__name__} returned no parameter arrays. "
+                'Its samples need a leading axis, for example {"W": (n_samples, *W_shape)}.'
             )
+        self.model = posterior.model
+        self.samples = samples
         self.n_samples = int(leaves[0].shape[0])
         # Pre-compile the batch paths, as in WPPMCovarianceField
         self._eval_batch_jitted = jax.jit(self._eval_batch_impl)
         self._mean_batch_jitted = jax.jit(self._mean_batch_impl)
 
     @classmethod
-    def from_posterior(
-        cls, posterior, *, n_samples: int | None = None, key=None
-    ) -> WPPMCovarianceFieldSamples:
-        """
-        Draws from a fitted posterior.
-
-        Parameters
-        ----------
-        posterior : ParameterPosterior
-            A fitted posterior, typically an ``MCMCPosterior``.
-        n_samples : int, optional
-            Draws to take. Omit it for every stored draw, which needs the
-            posterior to expose ``samples``, ``n_chains`` and ``n_draws``. A
-            point-mass posterior such as ``MAPPosterior`` has to pass this.
-        key : jax.Array, optional
-            PRNG key for the subsample. Required when ``n_samples`` is given,
-            unread otherwise, since every stored draw is taken in order.
-
-        Returns
-        -------
-        WPPMCovarianceFieldSamples
-
-        Raises
-        ------
-        ValueError
-            If ``n_samples`` is None and the posterior stores no fixed set of
-            draws, or if ``n_samples`` is given without a key.
-
-        Examples
-        --------
-        >>> import jax.numpy as jnp
-        >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
-        >>> from psyphy.posterior import MCMCPosterior
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> keys = jr.split(jr.PRNGKey(1), 100)
-        >>> W = jnp.stack(
-        ...     [model.init_params(k)["W"] for k in keys]
-        ... )  # (100, 3, 3, 2, 3)
-        >>> posterior = MCMCPosterior({"W": W.reshape(2, 50, *W.shape[1:])}, model)
-        >>> WPPMCovarianceFieldSamples.from_posterior(posterior).n_samples
-        100
-        >>> fields = WPPMCovarianceFieldSamples.from_posterior(
-        ...     posterior, n_samples=20, key=jr.PRNGKey(0)
-        ... )
-        >>> fields.n_samples
-        20
-        """
-        draws, _ = _draws_from(posterior, n_samples, key)
-        return cls(posterior.model, draws)
-
-    @classmethod
     def from_prior(cls, model, *, n_samples: int, key) -> WPPMCovarianceFieldSamples:
         """
-        Draws from the model's prior.
+        Samples from the model's prior.
 
-        A prior stores no draws, so ``n_samples`` and ``key`` are both required.
+        A prior stores no samples, so ``n_samples`` and ``key`` are both required.
 
         Parameters
         ----------
@@ -979,7 +953,7 @@ class WPPMCovarianceFieldSamples:
         >>> fields.samples["W"].shape  # (n_samples, degree+1, degree+1, d, m)
         (8, 3, 3, 2, 3)
         """
-        return cls(model, model.prior.sample(n_samples, key=key))
+        return cls(_PriorSource(model), n_samples=n_samples, key=key)
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
@@ -1001,7 +975,7 @@ class WPPMCovarianceFieldSamples:
         -----
         The result holds ``n_samples * n_points * d * d`` floats, so a dense
         grid with many draws is large: 4000 draws on a 50 x 50 grid of 2x2
-        matrices is 160 MB. Subsample at :meth:`from_posterior` for a grid.
+        matrices is 160 MB. For a grid, pass ``n_samples`` when building the object.
         """
         self._check_input_dim(x)
         if x.ndim == 1:
