@@ -100,7 +100,7 @@ class MCMCPosterior:
           orientations partly cancel in E[W], pulling Σ(E[W]) toward λI.
 
         For the posterior mean covariance field use
-        ``WPPMCovarianceFieldSamples.from_posterior(posterior).mean(x)``; for
+        ``WPPMCovarianceFieldSamples(posterior).mean(x)``; for
         individual covariance draws use ``sample(n)``. E[W] remains a valid parameter set, e.g. as
         ``init_params`` for another fit.
         """

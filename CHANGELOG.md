@@ -67,18 +67,18 @@ breaking changes are called out below but do not force a minor-version bump.
   band = contour_band(posterior, ref_points, ci_prob=0.89, n_samples=400, key=key)
 
   # now
-  fields = WPPMCovarianceFieldSamples.from_posterior(posterior)
+  fields = WPPMCovarianceFieldSamples(posterior)
   covs = fields.mean(ref_points)
-  band = WPPMCovarianceFieldSamples.from_posterior(
-      posterior, n_samples=400, key=key
-  ).band(ref_points, ci_prob=0.89)
+  band = WPPMCovarianceFieldSamples(posterior, n_samples=400, key=key).band(
+      ref_points, ci_prob=0.89
+  )
   ```
 
   `fields(ref_points)` gives Σ for every draw, `(n_samples, n_points, d, d)`, which
   replaces a Python loop over `posterior.sample`. `fields.samples` is the draws pytree, for
   a per-draw quantity psyphy does not ship. `WPPMCovarianceFieldSamples.from_prior(model,
-  n_samples=..., key=...)` is the same object from a prior. Both constructors take
-  `n_samples` and `key` as keywords.
+  n_samples=..., key=...)` is the same object from a prior. Both take `n_samples` and `key`
+  as keywords.
 
   `n_samples` and `key` move from the call to the construction, so one check covers every
   reduction. There is no `sqrt_cov`: an average of U Uᵀ is not U Uᵀ for any single U. Instad, use
@@ -99,23 +99,12 @@ breaking changes are called out below but do not force a minor-version bump.
   WPPMPredictivePosterior(posterior, X, n_samples=100, key=key)
   ```
 
-  This removed 2 hardcoded keys, at `predictive_posterior.py:414` (which carried a
-  `# TODO: Make configurable via init`) and `:397`. A third, the direction grid for
-  `input_dim > 2`, stays fixed and says so in a comment.
-
-  `cov_field` is removed from `WPPMPredictivePosterior` and from the
-  `PredictivePosterior` protocol. It computed `PosteriorMeanCovarianceField`'s quantity at
+  This removed 2 hardcoded keys, at `predictive_posterior.py:414` It computed `PosteriorMeanCovarianceField`'s quantity at
   a different default under its own key, so there were 2 public paths to
   E[Σ(X) | data] returning numbers up to a few percent apart. Use
-  `WPPMCovarianceFieldSamples.from_posterior(posterior).mean(x)`. A model with no
+  `WPPMCovarianceFieldSamples(posterior).mean(x)`. A model with no
   covariance field can now satisfy `PredictivePosterior`.
 
-  **Threshold predictions shift.** The sweep key was `jax.random.PRNGKey(1)` and is now
-  derived from the key you pass, so `threshold_pred=True` results move. At the settings
-  the Hong et al. reproduction uses (`n_theta=16`, `n_length=1000`, `mc=2000`), 4 keys
-  spread the recovered threshold trace by 4.3%, so this is the inversion's own Monte Carlo
-  noise rather than a change of method. Record the key alongside any figure built from the
-  sweep.
 
 - **Drawing parameters now names its key** `MCMCPosterior.sample` and `MAPPosterior.sample`
   require both `n` and `key`! `MCMCPosterior.sample` used to fall back to
@@ -195,7 +184,7 @@ breaking changes are called out below but do not force a minor-version bump.
   The removal covers `WPPMCovarianceField`, `PosteriorMeanCovarianceField` and the
   `CovarianceField` `Protocol`, which now states `__call__` and `sqrt_cov`. The numbers are
   unchanged: `cov()` forwarded to the same evaluation `field(x)` uses. `sqrt_cov` and
-  `sqrt_cov_batch` are untouched.
+  `sqrt_cov_batch` are untouched
 
 ### Added
 
