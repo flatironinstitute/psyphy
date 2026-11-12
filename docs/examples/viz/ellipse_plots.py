@@ -73,7 +73,7 @@ def main() -> int:
     # One field. The default scale=1.0 draws true size. ellipses are small
     # relative to the grid.
     fig, ax = plt.subplots(figsize=(5, 5), dpi=150)
-    plot_ellipses(centers, covs, ax=ax, colors="C0", show_centers=True)
+    plot_ellipses(centers=centers, covs=covs, ax=ax, colors="C0", show_centers=True)
     # --8<-- [end:single]
     ax.set_title("One field, true size (scale=1.0)", fontsize=9)
     ax.grid(True, alpha=0.2)

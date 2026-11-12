@@ -216,7 +216,7 @@ model = WPPM(
 
 # Sample covariance field from prior
 key = jr.PRNGKey(42)
-field = WPPMCovarianceField.from_prior(model, key)
+field = WPPMCovarianceField.from_prior(model=model, key=key)
 
 # Evaluate at a single reference point
 x_ref = jnp.array([0.5, 0.5])
