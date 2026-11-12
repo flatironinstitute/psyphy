@@ -136,7 +136,7 @@ key = jr.PRNGKey(seed)
 refs = jnp.repeat(ref_point, repeats=NUM_TRIALS, axis=0)  # (NUM_TRIALS, 2)
 
 # Evaluate Σ at the reference point.
-truth_field = WPPMCovarianceField(truth_model, truth_params)
+truth_field = WPPMCovarianceField(model=truth_model, params=truth_params)
 Sigmas_ref = truth_field(refs)  # (NUM_TRIALS, 2, 2)
 
 # Sample unit directions and build covariance-scaled probe displacements.
@@ -211,7 +211,7 @@ inference = MAPOptimizer(
     log_every=1,
 )
 
-map_estimate = inference.fit(model, data, init_params=init_params, seed=4)
+map_estimate = inference.fit(model=model, data=data, init_params=init_params, seed=4)
 # Protocol: ParameterPosterior, here point estimate
 
 # optional: for visualization:
@@ -241,8 +241,8 @@ fig, ax = plt.subplots(figsize=(6, 6))
 # and there is only one here. At this model's scale the ellipses are readable
 # unmagnified anyway, which also means the figure can be read for absolute size.
 plot_ellipses(
-    ref_point,
-    [covs_truth, covs_prior, covs_map],
+    centers=ref_point,
+    covs=[covs_truth, covs_prior, covs_map],
     ax=ax,
     scale=1.0,
     colors=["k", "C0", "C3"],

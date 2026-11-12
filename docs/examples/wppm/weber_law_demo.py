@@ -307,7 +307,7 @@ optimizer = MAPOptimizer(
     log_every=1,
 )
 
-map_posterior = optimizer.fit(model, data, init_params=init_params, seed=2)
+map_posterior = optimizer.fit(model=model, data=data, init_params=init_params, seed=2)
 # --8<-- [end:fit]
 print("  Fitting done.")
 
@@ -325,7 +325,7 @@ s_grid = jnp.linspace(S_MIN, S_MAX_REF, 300)  # physical, reference range
 x_grid = to_norm(s_grid)[:, None]  # normalized, shape (300, 1)
 
 # Bind fitted parameters to the model: creates a callable x -> Sigma(x).
-fitted_cov_fn = WPPMCovarianceField(model, map_posterior.params)
+fitted_cov_fn = WPPMCovarianceField(model=model, params=map_posterior.params)
 variances = fitted_cov_fn(x_grid)  # (300, 1, 1); 1x1 "matrix" per grid point;
 # [:, 0, 0] extracts the scalar Sigma(s)
 # sqrt(Sigma) from WPPM; proxy for implied JND in physical units
@@ -420,7 +420,7 @@ for s_ref in PSYCH_LEVELS_PHYS:
     # p_fit: psychometric curve from the *fitted* WPPM; p_gt: from the ground truth.
     p_fit = jax.vmap(
         lambda stim: task_smooth.predict(
-            map_posterior.params, stim, model, key=key_psych
+            params=map_posterior.params, stimuli=stim, model=model, key=key_psych
         )
     )(stims_psych)[0]
 

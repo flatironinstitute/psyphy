@@ -285,7 +285,7 @@ def _stimulus_colors(coords, M):
     cannot be mistaken for a correctly colored one.
     """
     if M is not None:
-        return hong2025.w2d_to_rgb(coords, M), ""
+        return hong2025.w2d_to_rgb(coords=coords, M=M), ""
     return (
         np.full((len(coords), 3), 0.45),
         "\nneutral gray \u2014 calibration matrix not downloaded",
@@ -295,7 +295,9 @@ def _stimulus_colors(coords, M):
 def _load_calibration():
     """Monitor calibration matrix, or None if it cannot be fetched."""
     try:
-        return hong2025.load_calibration_matrix(hong2025.fetch_calibration_matrix())
+        return hong2025.load_calibration_matrix(
+            path=hong2025.fetch_calibration_matrix()
+        )
     except Exception as exc:  # network, or OSF layout change
         print(f"  color calibration unavailable ({exc}); plotting in grey")
         return None
@@ -311,8 +313,8 @@ def plot_comparison(coords, Sigma_fit, Sigma_ref, out_path, title, scale, subjec
     """
     fig, ax = plt.subplots(figsize=(6, 6), dpi=150)
     plot_ellipses(
-        coords,
-        [Sigma_ref, Sigma_fit],
+        centers=coords,
+        covs=[Sigma_ref, Sigma_fit],
         ax=ax,
         scale=scale,
         colors=["black", "crimson"],
@@ -428,11 +430,11 @@ def stage1_exact_check(paths: dict[str, Path]) -> None:
         return
 
     # --8<-- [start:stage1]
-    W_org = hong2025.load_reference_W(paths["weights"])  # (5, 5, 2, 3)
-    coords, sigma_published = hong2025.load_sigma_table(paths["noise_ellipses"])
+    W_org = hong2025.load_reference_W(path=paths["weights"])  # (5, 5, 2, 3)
+    coords, sigma_published = hong2025.load_sigma_table(path=paths["noise_ellipses"])
 
     model = hong2025.build_paper_model(mc_samples=1)  # MC unused: no likelihood here
-    field = WPPMCovarianceField(model, {"W": W_org})
+    field = WPPMCovarianceField(model=model, params={"W": W_org})
     sigma_psyphy = np.asarray(field(jnp.asarray(coords)))
 
     max_abs = float(np.abs(sigma_psyphy - sigma_published).max())
@@ -456,7 +458,7 @@ def stage2_thresholds(paths: dict[str, Path], thr: dict, subject: int) -> None:
     W_org = hong2025.load_reference_W(paths["weights"])
     coords, thres_published = hong2025.load_sigma_table(paths["thres_ellipses"])
     model = hong2025.build_paper_model(mc_samples=mc_samples)
-    posterior = MAPPosterior({"W": W_org}, model)
+    posterior = MAPPosterior(params={"W": W_org}, model=model)
 
     # --8<-- [start:thresholds]
     # Posterior Predictive: given what we believe about W, what do we predict
@@ -500,7 +502,7 @@ def stage2_thresholds(paths: dict[str, Path], thr: dict, subject: int) -> None:
         thres_psyphy,
         thres_published,
         PLOTS_DIR / "hong2025_thresholds.png",
-        scale=auto_scale(coords, thres_published),
+        scale=auto_scale(centers=coords, covs=thres_published),
         M=M,
         subject=subject,
     )
@@ -576,7 +578,7 @@ def stage3_refit(
     # Only the AEPsych trials were used for the published fit; the MOCS trials
     # in the same file are held-out validation. This is the default.
     data = hong2025.load_trials(
-        paths["trials"], max_trials=cfg["max_trials"], seed=seed
+        path=paths["trials"], max_trials=cfg["max_trials"], seed=seed
     )
     # --8<-- [end:load]
     print(f"  trials: {data.num_trials} (p_correct={float(data.responses.mean()):.4f})")
@@ -598,7 +600,7 @@ def stage3_refit(
     for r in range(cfg["restarts"]):
         t0 = time.time()
         init = model.init_params(jax.random.PRNGKey(seed + 1000 * r))
-        posterior = optimizer.fit(model, data, init_params=init)
+        posterior = optimizer.fit(model=model, data=data, init_params=init)
         _, losses = optimizer.get_history()
         print(
             f"  restart {r}: loss {losses[0]:.5f} -> {losses[-1]:.5f}"

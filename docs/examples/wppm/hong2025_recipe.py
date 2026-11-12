@@ -33,15 +33,15 @@ from psyphy.posterior import (  # noqa: E402
 )
 
 paths = hong2025.fetch(subject=1)  # download from OSF
-W = hong2025.load_reference_W(paths["weights"])  # the paper's fitted weights
+W = hong2025.load_reference_W(path=paths["weights"])  # the paper's fitted weights
 # W = jnp.asarray(np.load("fits/hong2025_full_fit.npz")["W"]) # for full refit
-coords, published = hong2025.load_sigma_table(paths["thres_ellipses"])
+coords, published = hong2025.load_sigma_table(path=paths["thres_ellipses"])
 
 # Model: given weights W, how noisy is perception at each color?
 model = hong2025.build_paper_model(mc_samples=2000)
 
 # Parameter posterior: which W do we believe?
-posterior = MAPPosterior({"W": W}, model)
+posterior = MAPPosterior(params={"W": W}, model=model)
 
 # Search settings: how carefully to look for each threshold
 # These are the paper's own: 16 directions, 1000 distances along each

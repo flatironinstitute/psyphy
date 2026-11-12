@@ -365,8 +365,12 @@ def load_fit(model, ref_points, truth_params):
         if k.startswith("stat_")
     }
     return (
-        MAPPosterior({"W": jnp.asarray(blob["map_W"])}, model),
-        MCMCPosterior({"W": jnp.asarray(blob["draws_W"])}, model, sampler_stats=stats),
+        MAPPosterior(params={"W": jnp.asarray(blob["map_W"])}, model=model),
+        MCMCPosterior(
+            samples={"W": jnp.asarray(blob["draws_W"])},
+            model=model,
+            sampler_stats=stats,
+        ),
     )
 
 
@@ -392,7 +396,7 @@ truth_model = WPPM(
     diag_term=DIAG_TERM,
 )
 truth_params = truth_model.init_params(jr.PRNGKey(123))
-truth_field = WPPMCovarianceField(truth_model, truth_params)
+truth_field = WPPMCovarianceField(model=truth_model, params=truth_params)
 
 # Build reference grid
 ref_grid = jnp.linspace(-0.8, 0.8, N_REF_GRID)
@@ -468,7 +472,7 @@ else:
         track_history=True,
         show_progress=True,
     )
-    map_posterior = map_optimizer.fit(model, data, seed=SEED)
+    map_posterior = map_optimizer.fit(model=model, data=data, seed=SEED)
     # --8<-- [end:map_warmstart]
 
     print(f"  MAP done. Final loss: {map_optimizer.loss_history[-1]:.4f}")
@@ -535,8 +539,8 @@ else:
         show_progress=True,
     )
     nuts_posterior = sampler.fit(
-        model,
-        data,
+        model=model,
+        data=data,
         init_params=map_posterior.params,  # warm-start from MAP
         seed=NUTS_SEED,
     )
@@ -584,7 +588,7 @@ ELLIPSE_SCALE = 1.2  # magnification; ellipses are not drawn at true size
 
 # Posterior samples as covariance fields
 # --8<-- [start:posterior_samples]
-fields = WPPMCovarianceFieldSamples(nuts_posterior)  # every stored sample
+fields = WPPMCovarianceFieldSamples(posterior=nuts_posterior)  # every stored sample
 # (n_samples, n_ref, 2, 2): one field per sample
 covs_samples = fields(ref_points)
 # every k-th sample, so the plot shows n_ensemble contours from all chains
@@ -608,8 +612,8 @@ fig, ax = plt.subplots(figsize=(7, 7))
 # We first draw the posterior spread, so it's behind the two lines. 1 call:
 # (n_ensemble, n_ref, 2, 2) is the "several fields" shape plot_ellipses takes
 plot_ellipses(
-    jax.device_get(ref_points),
-    jax.device_get(covs_ensemble),
+    centers=jax.device_get(ref_points),
+    covs=jax.device_get(covs_ensemble),
     ax=ax,
     scale=ELLIPSE_SCALE,
     colors="C0",

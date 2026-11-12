@@ -228,7 +228,7 @@ refs = jnp.repeat(ref_points, repeats=num_trials_per_ref, axis=0)  # (N, 2)
 num_trials_total = int(refs.shape[0])
 
 # Evaluate Σ(ref) in batch using the psyphy covariance-field wrapper.
-truth_field = WPPMCovarianceField(truth_model, truth_params)
+truth_field = WPPMCovarianceField(model=truth_model, params=truth_params)
 Sigmas_ref = truth_field(refs)  # (N, 2, 2)
 
 # Sample unit directions on the circle.
