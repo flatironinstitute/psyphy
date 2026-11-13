@@ -318,3 +318,17 @@ def test_field_params_read_back(wishart_model):
     assert field.model is wishart_model
     assert set(field.params) == set(params)
     assert jnp.array_equal(field.params["W"], params["W"])
+
+
+def test_field_ignores_changes_to_the_dict_it_was_built_from(wishart_model):
+    """Replacing an item of the dict passed to the constructor changes no later result."""
+    from psyphy.model import WPPMCovarianceField
+
+    params = wishart_model.init_params(jr.PRNGKey(0))
+    field = WPPMCovarianceField(wishart_model, params)
+    X = jnp.array([[0.1, 0.2], [0.5, 0.4]])  # (n_points=2, d=2)
+    before = field(X)  # (n_points, d, d)
+    params["W"] = jnp.zeros_like(params["W"])
+    assert jnp.array_equal(field(X), before)
+    # compiled and uncompiled paths differ by about 1e-8 here, so atol=1e-6 has 100x headroom
+    assert jnp.allclose(field(X[0]), before[0], rtol=0.0, atol=1e-6)
