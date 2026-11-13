@@ -283,3 +283,43 @@ def test_consistency_with_model_compute_sqrt(wishart_model):
     U_model = wishart_model._compute_sqrt(params, x)
 
     assert jnp.allclose(U_field, U_model)
+
+
+# ==============================================================================
+# Read-only attributes (backlog C24, decision 0012)
+# ==============================================================================
+
+
+@pytest.mark.parametrize("name", ["params", "model"])
+def test_field_attributes_refuse_assignment(wishart_model, name):
+    """Assigning to a fixed attribute raises, so a batch call can't go stale silently."""
+    from psyphy.model import WPPMCovarianceField
+
+    field = WPPMCovarianceField.from_prior(wishart_model, jr.PRNGKey(0))
+    with pytest.raises(AttributeError, match="Build a new one"):
+        setattr(field, name, getattr(field, name))
+
+
+def test_field_params_item_assignment_changes_nothing(wishart_model):
+    """Replacing an item of the returned dict can't reach the stored parameters."""
+    from psyphy.model import WPPMCovarianceField
+
+    field = WPPMCovarianceField.from_prior(wishart_model, jr.PRNGKey(0))
+    X = jnp.array([[0.1, 0.2], [0.5, 0.4]])  # (n_points=2, d=2)
+    before = field(X)  # (n_points, d, d)
+    field.params["W"] = jnp.zeros_like(field.params["W"])
+    assert jnp.array_equal(field(X), before)
+    # compiled and uncompiled paths differ by about 1e-8 here, so atol=1e-6 has 100x headroom
+    assert jnp.allclose(field(X[0]), before[0], rtol=0.0, atol=1e-6)
+    assert field.params["W"].any()
+
+
+def test_field_params_read_back(wishart_model):
+    """Reading params returns the dict the field was built with."""
+    from psyphy.model import WPPMCovarianceField
+
+    params = wishart_model.init_params(jr.PRNGKey(0))
+    field = WPPMCovarianceField(wishart_model, params)
+    assert field.model is wishart_model
+    assert set(field.params) == set(params)
+    assert jnp.array_equal(field.params["W"], params["W"])
