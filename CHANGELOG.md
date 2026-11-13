@@ -147,6 +147,20 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Changed
 
+- **The model comes first in `MAPPosterior` and `MCMCPosterior`.** Both now match
+  `WPPMCovarianceField(model, params)`, `from_prior(model, key)` and `fit(model, data)`.
+  Calls that name the arguments still work.
+
+  ```python
+  MAPPosterior(model, params)      # was MAPPosterior(params, model)
+  MCMCPosterior(model, samples)    # was MCMCPosterior(samples, model)
+  MAPPosterior(params=params, model=model)  # unchanged
+  ```
+
+  The old order, and the swapped order in `WPPMCovarianceField(params, model)`, raises a
+  `TypeError` when the object is built. Before, it built and failed at the first
+  evaluation with `AttributeError: 'dict' object has no attribute 'input_dim'`.
+
 - **`key` can be passed positionally** to `Prior.sample`, `ParameterSource.sample`,
   `MAPPosterior.sample`, `MCMCPosterior.sample`, `WPPM.log_likelihood_from_data`,
   `WPPM.log_posterior_from_data`, and `loglik`, `simulate` and `predict` on the task
