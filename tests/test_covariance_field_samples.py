@@ -388,3 +388,38 @@ def test_from_posterior_silent_for_map_posterior(model, recwarn):
     point_mass = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
     WPPMCovarianceField.from_posterior(point_mass)
     assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
+
+
+# ==============================================================================
+# Read-only attributes (backlog C24, decision 0012)
+# ==============================================================================
+
+
+@pytest.mark.parametrize("name", ["samples", "n_samples", "model"])
+def test_samples_attributes_refuse_assignment(posterior, model, name):
+    """Assigning to a fixed attribute raises, so a refit loop can't be silently ignored."""
+    fields = WPPMCovarianceFieldSamples(posterior)
+    with pytest.raises(AttributeError, match="Build a new one"):
+        setattr(fields, name, getattr(fields, name))
+
+
+def test_samples_attributes_still_read(posterior, model):
+    """Reading each attribute returns the values the object was built with."""
+    fields = WPPMCovarianceFieldSamples(posterior)
+    assert fields.n_samples == 50
+    assert fields.model is model
+    assert fields.samples["W"].shape == (50, 2, 2, 2, 3)  # (n_samples, *W_shape)
+    assert jnp.array_equal(
+        fields.samples["W"], posterior.samples["W"].reshape(50, 2, 2, 2, 3)
+    )
+
+
+def test_samples_item_assignment_changes_nothing(posterior, X):
+    """Replacing an item of the returned dict can't reach the stored samples."""
+    fields = WPPMCovarianceFieldSamples(posterior)
+    before = fields(X)  # (n_samples, n_points, d, d)
+    mean_before = fields.mean(X)  # (n_points, d, d)
+    fields.samples["W"] = jnp.zeros_like(fields.samples["W"])
+    assert jnp.array_equal(fields(X), before)
+    assert jnp.array_equal(fields.mean(X), mean_before)
+    assert fields.samples["W"].any()
