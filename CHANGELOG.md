@@ -10,6 +10,28 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Breaking
 
+- **The attributes of the covariance field classes are read-only.** These are `params` and
+  `model` on `WPPMCovarianceField`, and `samples`, `n_samples` and `model` on
+  `WPPMCovarianceFieldSamples`.
+
+  Before, assigning to one was accepted without an error. After a batch call, `field(X)`,
+  `fields(X)` and `fields.mean(X)` kept returning the old values, while `field(x)` and
+  `fields.band` used the new ones. One object gave 2 different answers, and
+  `fields.n_samples` stayed at the old count. A loop that refits and assigns new samples
+  got stale results from every batch call.
+
+  Now, assigning to one raises an `AttributeError`. `params` and `samples` return a copy,
+  so `fields.samples["W"] = ...` changes nothing either.
+
+  ```python
+  # before
+  fields.samples = new_samples  # accepted, then batch calls returned the old values
+
+  # now
+  fields.samples = new_samples  # raises AttributeError
+  fields = WPPMCovarianceFieldSamples(new_posterior)  # build a new object instead
+  ```
+
 - **`Prior(basis_degree=None)` raises `ValueError`.** `basis_degree` must be an int of 0 or
   more. The old `None` was accepted. Instead, we now reject it
   at construction.
