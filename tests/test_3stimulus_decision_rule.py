@@ -66,7 +66,7 @@ class TestThreeStimulusDecisionRule:
         This tests that the decision rule correctly identifies the comparison
         as the odd one out when discrimination is easy.
         """
-        # Create a simple MVP model with small noise
+        # Create a simple model with small noise
         model = WPPM(
             prior=Prior(input_dim=2, basis_degree=2),
             likelihood=OddityTask(
@@ -135,11 +135,11 @@ class TestThreeStimulusDecisionRule:
 
     def test_wishart_mode_same_behavior(self):
         """
-        Test that Wishart mode produces similar qualitative behavior as MVP mode.
+        Test the decision rule on a model with extra embedding dims.
 
-        This verifies that the decision rule works correctly in both modes.
+        P(identical) should be near chance and P(distant) near 1.
         """
-        # Create Wishart model
+        # Create model with extra embedding dims
         model = WPPM(
             prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
             likelihood=OddityTask(),
@@ -178,11 +178,9 @@ class TestThreeStimulusDecisionRule:
 
         # Qualitative checks
         assert 0.2 < p_identical < 0.5, (
-            f"Wishart mode: P(identical) = {p_identical:.3f}, expected ≈ 1/3"
+            f"P(identical) = {p_identical:.3f}, expected ≈ 1/3"
         )
-        assert p_distant > 0.90, (
-            f"Wishart mode: P(distant) = {p_distant:.3f}, expected > 0.9"
-        )
+        assert p_distant > 0.90, f"P(distant) = {p_distant:.3f}, expected > 0.9"
         assert p_distant > p_identical, (
             "Distant stimuli should be easier than identical"
         )

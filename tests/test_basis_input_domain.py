@@ -3,7 +3,7 @@
 Tests for basis-domain validation in WPPM.
 
 Contract (current):
-- In Wishart mode, WPPM expects stimuli in the Chebyshev domain [-1, 1].
+- WPPM expects stimuli in the Chebyshev domain [-1, 1].
 - The model does not normalize inputs; it validates and raises.
 
 This keeps the library honest and makes it easier to swap in other basis

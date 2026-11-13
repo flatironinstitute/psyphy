@@ -113,7 +113,7 @@ class TestSpatiallyVaryingCovariance:
         Sigma1 = model.local_covariance(params, x1)
         Sigma2 = model.local_covariance(params, x2)
 
-        # Should be different (not constant like MVP)
+        # Should be different (covariance varies with x)
         assert not jnp.allclose(Sigma1, Sigma2, atol=1e-6)
 
     def test_covariance_smooth_variation(self):

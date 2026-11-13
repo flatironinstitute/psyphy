@@ -7,8 +7,8 @@ Tests for CovarianceField abstraction
 1. Protocol conformance
 2. Construction methods (from_prior, from_posterior, from_params)
 3. Evaluation methods (field(x), sqrt_cov)
-4. MVP mode behavior
-5. Wishart mode behavior
+4. Covariance varies with x and is positive definite
+5. Rectangular U (extra embedding dims)
 6. Integration with posteriors
 
 """
@@ -30,7 +30,7 @@ from psyphy.model.noise import GaussianNoise
 
 @pytest.fixture
 def wishart_model():
-    """Create Wishart model (with basis expansion)."""
+    """Create a model with basis_degree=3."""
     return WPPM(
         prior=Prior(
             input_dim=2,
@@ -81,7 +81,7 @@ def test_covariance_field_protocol_exists():
 
 
 def test_from_prior_wishart(wishart_model):
-    """Test from_prior construction in Wishart mode."""
+    """Test from_prior construction."""
     from psyphy.model.covariance_field import WPPMCovarianceField
 
     key = jr.PRNGKey(456)
@@ -95,11 +95,6 @@ def test_from_prior_wishart(wishart_model):
     #   degree+1 = 4, input_dim = 2, embedding_dim = 3
     # Shape: (4, 4, 2, 3)
     assert field.params["W"].shape == (4, 4, 2, 3)
-
-
-# ==============================================================================
-# Test  Evaluation methods - MVP mode
-# ==============================================================================
 
 
 # ==============================================================================
@@ -130,7 +125,7 @@ def test_cov_wishart_varies(wishart_model):
 
 
 def test_sqrt_cov_wishart(wishart_model):
-    """Test sqrt_cov in Wishart mode (rectangular U)."""
+    """Test sqrt_cov with rectangular U."""
     from psyphy.model.covariance_field import WPPMCovarianceField
 
     key = jr.PRNGKey(555)
@@ -151,7 +146,7 @@ def test_sqrt_cov_wishart(wishart_model):
 
 
 def test_batch_eval_wishart(wishart_model):
-    """Test vectorized evaluation in Wishart mode (rectangular U)."""
+    """Test vectorized evaluation with rectangular U."""
     from psyphy.model.covariance_field import WPPMCovarianceField
 
     key = jr.PRNGKey(666)
@@ -182,7 +177,7 @@ def test_batch_eval_wishart(wishart_model):
 
 
 def test_sqrt_cov_batch_wishart(wishart_model):
-    """Test vectorized sqrt_cov in Wishart mode (rectangular U)."""
+    """Test vectorized sqrt_cov with rectangular U."""
     from psyphy.model.covariance_field import WPPMCovarianceField
 
     key = jr.PRNGKey(777)
@@ -215,7 +210,7 @@ def test_sqrt_cov_batch_wishart(wishart_model):
 
 
 def test_posterior_get_covariance_field_wishart(wishart_model, sample_data):
-    """Test posterior.get_covariance_field() in Wishart mode (rectangular U).
+    """Test posterior.get_covariance_field() with rectangular U.
 
     API Design Note
     ---------------
@@ -253,7 +248,7 @@ def test_posterior_get_covariance_field_wishart(wishart_model, sample_data):
 
 
 def test_protocol_conformance_wishart(wishart_model):
-    """Test protocol conformance in Wishart mode."""
+    """Test protocol conformance."""
     from psyphy.model.covariance_field import CovarianceField, WPPMCovarianceField
 
     key = jr.PRNGKey(999)
