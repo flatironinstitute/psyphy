@@ -82,7 +82,7 @@ def _random_orthogonal(key, m):
 
 
 def test_returns_sigma_with_chain_draw_point_quantity_dims(model, points):
-    posterior = MCMCPosterior(_prior_draws(model, 2, 5), model)
+    posterior = MCMCPosterior(model, _prior_draws(model, 2, 5))
     dt = covariance_to_arviz(posterior, points)
 
     sigma = dt["posterior"]["Sigma"]
@@ -94,7 +94,7 @@ def test_returns_sigma_with_chain_draw_point_quantity_dims(model, points):
 def test_values_match_per_draw_sigma(model, points):
     """Each entry is computed from that one draw's Σ at that one point."""
     samples = _prior_draws(model, 2, 3)
-    posterior = MCMCPosterior(samples, model)
+    posterior = MCMCPosterior(model, samples)
     sigma = covariance_to_arviz(posterior, points)["posterior"]["Sigma"].values
 
     c, s = 1, 2
@@ -112,7 +112,7 @@ def test_values_match_per_draw_sigma(model, points):
 
 def test_evaluation_points_are_recorded(model, points):
     """The chosen points travel with the data, so results can be traced back."""
-    posterior = MCMCPosterior(_prior_draws(model, 1, 2), model)
+    posterior = MCMCPosterior(model, _prior_draws(model, 1, 2))
     sigma = covariance_to_arviz(posterior, points)["posterior"]["Sigma"]
     # One 1-D coordinate per stimulus axis along `point` (xarray cannot attach
     # a (point, axis) coordinate to a variable that has no `axis` dimension).
@@ -123,7 +123,7 @@ def test_evaluation_points_are_recorded(model, points):
 def test_sample_stats_are_carried_over(model, points):
     """Divergences etc. stay available, e.g. for the ticks on az.plot_trace."""
     stats = {"diverging": np.zeros((2, 3), dtype=bool)}
-    posterior = MCMCPosterior(_prior_draws(model, 2, 3), model, sampler_stats=stats)
+    posterior = MCMCPosterior(model, _prior_draws(model, 2, 3), sampler_stats=stats)
     dt = covariance_to_arviz(posterior, points)
     assert "diverging" in dt["sample_stats"]
 
@@ -148,7 +148,7 @@ def test_rhat_on_sigma_ignores_embedding_rotation(model, points):
     R = _random_orthogonal(jr.PRNGKey(6), W0.shape[-1])
     chain0 = W0 + noise[0]
     chain1 = (W0 + noise[1]) @ R
-    posterior = MCMCPosterior({"W": jnp.stack([chain0, chain1])}, model)
+    posterior = MCMCPosterior(model, {"W": jnp.stack([chain0, chain1])})
 
     rhat_W = az.rhat(posterior.to_arviz())["W"].values
     rhat_sigma = az.rhat(covariance_to_arviz(posterior, points))["Sigma"].values
@@ -163,21 +163,21 @@ def test_rhat_on_sigma_ignores_embedding_rotation(model, points):
 
 
 def test_points_must_match_input_dim(model):
-    posterior = MCMCPosterior(_prior_draws(model, 1, 2), model)
+    posterior = MCMCPosterior(model, _prior_draws(model, 1, 2))
     with pytest.raises(ValueError, match="input_dim"):
         covariance_to_arviz(posterior, jnp.ones((4, 3)))
 
 
 def test_points_must_be_a_batch(model):
     """A single point (d,) is rejected: always pass shape (n_points, d)."""
-    posterior = MCMCPosterior(_prior_draws(model, 1, 2), model)
+    posterior = MCMCPosterior(model, _prior_draws(model, 1, 2))
     with pytest.raises(ValueError, match="n_points"):
         covariance_to_arviz(posterior, jnp.array([0.0, 0.0]))
 
 
 def test_rejects_posterior_without_chains(model, points):
     """MAP has no chains, so there is nothing to diagnose."""
-    posterior = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
+    posterior = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
     with pytest.raises(TypeError, match="to_arviz"):
         covariance_to_arviz(posterior, points)
 

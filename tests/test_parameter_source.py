@@ -53,7 +53,7 @@ def mcmc_posterior(model):
     """Prior draws reshaped as 4 chains of 5 draws, standing in for a fit."""
     keys = jr.split(jr.PRNGKey(1), 20)
     W = jnp.stack([model.init_params(k)["W"] for k in keys])  # (20, 3, 3, 2, 3)
-    return MCMCPosterior({"W": W.reshape(4, 5, *W.shape[1:])}, model)
+    return MCMCPosterior(model, {"W": W.reshape(4, 5, *W.shape[1:])})
 
 
 # ==============================================================================
@@ -220,9 +220,9 @@ class TestDrawSemantics:
 class MinimalPosterior:
     """params, model and sample, and nothing else."""
 
-    def __init__(self, params, model):
-        self.params = params
+    def __init__(self, model, params):
         self.model = model
+        self.params = params
 
     def sample(self, n, *, key):
         return jax.tree.map(lambda x: jnp.broadcast_to(x, (n, *x.shape)), self.params)
@@ -244,7 +244,7 @@ class TestMinimalPosteriorThroughConsumers:
             GaussianNoise(),
         )
         params = model.init_params(jr.PRNGKey(0))
-        return MinimalPosterior(params, model), MAPPosterior(params, model)
+        return MinimalPosterior(model, params), MAPPosterior(model, params)
 
     @pytest.fixture
     def points(self):

@@ -96,7 +96,7 @@ def posterior(model):
     n = 2 * 25 * 2 * 2 * 2 * 3
     idx = jnp.arange(n, dtype=jnp.float32)
     W = (((idx * 37.0) % 19.0) / 19.0 - 0.5).reshape(2, 25, 2, 2, 2, 3) * 0.6
-    return MCMCPosterior({"W": W}, model)
+    return MCMCPosterior(model, {"W": W})
 
 
 @pytest.fixture
@@ -236,7 +236,7 @@ def test_subsample_requires_a_key(posterior):
 
 def test_needs_n_samples_without_a_sample_count(model):
     """MAP (or any posterior without n_chains/n_draws) must be told how many."""
-    point_mass = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
+    point_mass = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
     with pytest.raises(ValueError, match="n_samples"):
         WPPMCovarianceFieldSamples(point_mass)
 
@@ -244,7 +244,7 @@ def test_needs_n_samples_without_a_sample_count(model):
 def test_map_posterior_gives_sigma_of_theta_map(model, X):
     """For a MAP posterior every draw is θ_MAP, so the mean is Σ(θ_MAP)."""
     params = model.init_params(jr.PRNGKey(3))
-    point_mass = MAPPosterior(params, model)
+    point_mass = MAPPosterior(model, params)
     fields = WPPMCovarianceFieldSamples(point_mass, n_samples=3, key=jr.PRNGKey(0))
     expected = WPPMCovarianceField(model, {"W": params["W"]})(X)
     assert jnp.allclose(fields.mean(X), expected, rtol=1e-5, atol=1e-9)
@@ -304,7 +304,7 @@ def _sigma(model, W, X):
 def test_jensen_gap_mean_sigma_dominates_sigma_of_mean_W(model, X):
     """E[Σ] - Σ(E[W]) = Cov(U) is positive semidefinite at every point."""
     samples = _prior_draws(model, n_chains=2, n_draws=10)
-    posterior = MCMCPosterior(samples, model)
+    posterior = MCMCPosterior(model, samples)
 
     mean_sigma = WPPMCovarianceFieldSamples(posterior).mean(X)
     sigma_of_mean_W = _sigma(model, posterior.params["W"], X)
@@ -317,7 +317,7 @@ def test_sign_flipped_draws_do_not_cancel(model, X):
     """W and -W give the same Σ. Averaging W gives 0 -> λI; averaging Σ must not."""
     W = model.init_params(jr.PRNGKey(1))["W"]
     samples = {"W": jnp.stack([W, -W])[None]}  # (1 chain, 2 draws, *W)
-    posterior = MCMCPosterior(samples, model)
+    posterior = MCMCPosterior(model, samples)
 
     # The trap this class replaces: E[W] = 0, so Σ(E[W]) is just λI.
     assert jnp.allclose(posterior.params["W"], 0.0)
@@ -339,7 +339,7 @@ def test_invariant_to_embedding_rotations(model, X):
     Rs = [_random_orthogonal(k, m) for k in jr.split(jr.PRNGKey(9), 6)]
     # W @ R acts on the last (embedding) axis: U(x) -> U(x) R
     rotated = jnp.stack([W @ R for R in Rs]).reshape(2, 3, *W.shape)
-    posterior = MCMCPosterior({"W": rotated}, model)
+    posterior = MCMCPosterior(model, {"W": rotated})
 
     fields = WPPMCovarianceFieldSamples(posterior)
     assert jnp.allclose(fields.mean(X), _sigma(model, W, X), rtol=1e-4, atol=1e-8)
@@ -369,14 +369,14 @@ def test_is_not_a_covariance_field(posterior):
 
 def test_from_posterior_warns_for_sample_based_posterior(model):
     """from_posterior builds Σ(E[W]); for MCMC that is the shrunken field."""
-    posterior = MCMCPosterior(_prior_draws(model, 2, 3), model)
+    posterior = MCMCPosterior(model, _prior_draws(model, 2, 3))
     with pytest.warns(UserWarning, match="WPPMCovarianceFieldSamples"):
         WPPMCovarianceField.from_posterior(posterior)
 
 
 def test_from_posterior_behavior_unchanged_for_sample_based_posterior(model, X):
     """The warning is the only change: the returned field is still Σ(E[W])."""
-    posterior = MCMCPosterior(_prior_draws(model, 2, 3), model)
+    posterior = MCMCPosterior(model, _prior_draws(model, 2, 3))
     with pytest.warns(UserWarning):
         field = WPPMCovarianceField.from_posterior(posterior)
     assert isinstance(field, WPPMCovarianceField)
@@ -385,7 +385,7 @@ def test_from_posterior_behavior_unchanged_for_sample_based_posterior(model, X):
 
 def test_from_posterior_silent_for_map_posterior(model, recwarn):
     """For MAP, θ_MAP is a single point, so Σ(θ_MAP) is the right field."""
-    point_mass = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
+    point_mass = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
     WPPMCovarianceField.from_posterior(point_mass)
     assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
 

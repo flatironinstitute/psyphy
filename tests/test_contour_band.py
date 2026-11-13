@@ -63,7 +63,7 @@ def tiny_model():
 def posterior(tiny_model):
     """MCMCPosterior with hand-made draws: 2 chains x 25 draws."""
     W = jr.normal(jr.PRNGKey(0), (2, 25, 2, 2, 2, 3)) * 0.3
-    return MCMCPosterior({"W": W}, tiny_model)
+    return MCMCPosterior(tiny_model, {"W": W})
 
 
 @pytest.fixture
@@ -233,7 +233,7 @@ def test_directions_are_closed_and_unit(posterior, points):
 def test_map_posterior_band_has_zero_width(tiny_model):
     """A point mass has no spread, so its band collapses onto the median."""
     params = tiny_model.init_params(jr.PRNGKey(0))
-    post = MAPPosterior(params, tiny_model)
+    post = MAPPosterior(tiny_model, params)
     pts = jnp.array([[0.0, 0.0], [0.2, 0.2]])
 
     band = _fields(post, 8, jr.PRNGKey(0)).band(pts, n_directions=19)
@@ -327,7 +327,7 @@ def test_non_2d_models_are_rejected():
         likelihood=OddityTask(config=OddityTaskConfig(num_samples=5)),
         noise=GaussianNoise(),
     )
-    post = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
+    post = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
 
     with pytest.raises(NotImplementedError, match="2-D"):
         _fields(post, 4, jr.PRNGKey(0)).band(jnp.array([[0.0]]))
@@ -338,7 +338,7 @@ def test_map_posterior_needs_explicit_n_samples(tiny_model):
 
     The draws are taken at construction, so this is where the count is needed.
     """
-    post = MAPPosterior(tiny_model.init_params(jr.PRNGKey(0)), tiny_model)
+    post = MAPPosterior(tiny_model, tiny_model.init_params(jr.PRNGKey(0)))
 
     with pytest.raises(ValueError, match="n_samples"):
         _fields(post)
