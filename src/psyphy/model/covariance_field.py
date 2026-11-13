@@ -219,7 +219,9 @@ class WPPMCovarianceField:
 
     Both attributes are fixed when the object is built. Assigning to one
     raises ``AttributeError``. After changing an attribute of the model in
-    place, such as ``model.diag_term``, build a new field.
+    place, such as ``model.diag_term``, build a new field. The field copies
+    ``params`` at construction, so changing the dict you passed in afterwards
+    changes nothing.
 
     Examples
     --------
@@ -253,7 +255,7 @@ class WPPMCovarianceField:
             Parameter dictionary
         """
         self._model = model
-        self._params = params
+        self._params = dict(params)
         # Pre-compile JIT batch evaluation path for performance
         self._eval_batch_jitted = jax.jit(self._eval_batch_impl)
 
