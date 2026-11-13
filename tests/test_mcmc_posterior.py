@@ -63,7 +63,7 @@ def fake_samples():
 @pytest.fixture
 def posterior(tiny_model, fake_samples):
     stats = {"acceptance_rate": jnp.ones((2, 10)) * 0.8}
-    return MCMCPosterior(fake_samples, tiny_model, sampler_stats=stats)
+    return MCMCPosterior(tiny_model, fake_samples, sampler_stats=stats)
 
 
 # ---------------------------------------------------------------------------

@@ -190,7 +190,7 @@ class TestPredictivePosterior:
             noise=GaussianNoise(),
         )
         params = model.init_params(jr.PRNGKey(0))
-        return MAPPosterior(params, model)
+        return MAPPosterior(model, params)
 
     @pytest.fixture
     def threshold_predictive_posterior(self, threshold_param_posterior):
@@ -234,7 +234,7 @@ class TestPredictivePosterior:
             likelihood=OddityTask(config=OddityTaskConfig(num_samples=500)),
             noise=GaussianNoise(),
         )
-        posterior = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
+        posterior = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
         X_test = jnp.array([[0.0, 0.0], [0.3, 0.3]])
         predictive = WPPMPredictivePosterior(
             posterior,
@@ -310,7 +310,7 @@ class TestThresholdPredictionExternalValidity:
         W_org = hong2025.load_reference_W(weights_path)
         coords, published = hong2025.load_sigma_table(thres_path)
         model = hong2025.build_paper_model(mc_samples=500)
-        posterior = MAPPosterior({"W": W_org}, model)
+        posterior = MAPPosterior(model, {"W": W_org})
 
         # A handful of grid points, not all 49 -- keeps this test fast.
         idx = jnp.linspace(0, len(coords) - 1, 4).astype(int)

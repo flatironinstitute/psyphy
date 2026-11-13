@@ -36,7 +36,7 @@ def posterior(model):
     """
     keys = jr.split(jr.PRNGKey(1), 200)
     W = jnp.stack([model.init_params(k)["W"] for k in keys])  # (200, 3, 3, 2, 3)
-    return MCMCPosterior({"W": W.reshape(4, 50, *W.shape[1:])}, model)
+    return MCMCPosterior(model, {"W": W.reshape(4, 50, *W.shape[1:])})
 
 
 @pytest.fixture

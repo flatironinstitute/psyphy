@@ -47,7 +47,7 @@ def posterior(model):
     """Prior draws reshaped as 4 chains of 10 draws, standing in for a fit."""
     keys = jr.split(jr.PRNGKey(1), 40)
     W = jnp.stack([model.init_params(k)["W"] for k in keys])  # (40, 3, 3, 2, 3)
-    return MCMCPosterior({"W": W.reshape(4, 10, *W.shape[1:])}, model)
+    return MCMCPosterior(model, {"W": W.reshape(4, 10, *W.shape[1:])})
 
 
 @pytest.fixture
@@ -122,7 +122,7 @@ class TestTheKeyIsActuallyRead:
 
 class TestThresholdSweepUsesTheKey:
     def test_same_key_reproduces_the_sweep(self, model):
-        post = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
+        post = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
         coords = jnp.array([[0.0, 0.0]])
         cfg = ThresholdConfig(n_theta=8, n_length=20, chunk=500)
 
@@ -149,7 +149,7 @@ class TestThresholdSweepUsesTheKey:
         """Measured at the reproduction's own settings (n_length=1000, mc=2000),
         4 keys spread the recovered trace by 4.3%. A figure built from the sweep
         is only reproducible when its key is recorded with it."""
-        post = MAPPosterior(model.init_params(jr.PRNGKey(0)), model)
+        post = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
         coords = jnp.array([[0.0, 0.0]])
         cfg = ThresholdConfig(n_theta=8, n_length=20, chunk=500)
 
