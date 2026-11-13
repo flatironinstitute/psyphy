@@ -367,8 +367,8 @@ def load_fit(model, ref_points, truth_params):
     return (
         MAPPosterior(params={"W": jnp.asarray(blob["map_W"])}, model=model),
         MCMCPosterior(
-            samples={"W": jnp.asarray(blob["draws_W"])},
             model=model,
+            samples={"W": jnp.asarray(blob["draws_W"])},
             sampler_stats=stats,
         ),
     )
