@@ -120,6 +120,9 @@ def _draws_from(posterior, n_samples: int | None, key) -> tuple[dict, int]:
     return posterior.sample(int(n_samples), key=key), int(n_samples)
 
 
+_READ_ONLY = "{name} is fixed when the object is built. Build a new one: {build}"
+
+
 class _PriorSource:
     """A model's prior with the 2 members WPPMCovarianceFieldSamples reads."""
 
@@ -190,6 +193,10 @@ class WPPMCovarianceField:
     params : dict
         Parameter dictionary
 
+    Both attributes are fixed when the object is built. Assigning to one
+    raises ``AttributeError``. After changing an attribute of the model in
+    place, such as ``model.diag_term``, build a new field.
+
     Examples
     --------
     >>> import jax.numpy as jnp
@@ -221,10 +228,32 @@ class WPPMCovarianceField:
         params : dict
             Parameter dictionary
         """
-        self.model = model
-        self.params = params
+        self._model = model
+        self._params = params
         # Pre-compile JIT batch evaluation path for performance
         self._eval_batch_jitted = jax.jit(self._eval_batch_impl)
+
+    @property
+    def model(self):
+        """The model that evaluates the field. Fixed when the object is built."""
+        return self._model
+
+    @model.setter
+    def model(self, value):
+        raise AttributeError(
+            _READ_ONLY.format(name="model", build="WPPMCovarianceField(model, params)")
+        )
+
+    @property
+    def params(self) -> dict:
+        """A shallow copy of the parameter dict. Fixed when the object is built."""
+        return dict(self._params)
+
+    @params.setter
+    def params(self, value):
+        raise AttributeError(
+            _READ_ONLY.format(name="params", build="WPPMCovarianceField(model, params)")
+        )
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
@@ -880,6 +909,10 @@ class WPPMCovarianceFieldSamples:
     n_samples : int
         Draws held.
 
+    All three are fixed when the object is built. Assigning to one raises
+    ``AttributeError``. After changing an attribute of the model in place, such
+    as ``model.diag_term``, build a new object.
+
     See Also
     --------
     WPPMCovarianceField : one parameter set, so one field and its square root.
@@ -915,12 +948,51 @@ class WPPMCovarianceFieldSamples:
                 f"{type(posterior).__name__} returned no parameter arrays. "
                 'Its samples need a leading axis, for example {"W": (n_samples, *W_shape)}.'
             )
-        self.model = posterior.model
-        self.samples = samples
-        self.n_samples = int(leaves[0].shape[0])
+        self._model = posterior.model
+        self._samples = samples
+        self._n_samples = int(leaves[0].shape[0])
         # Pre-compile the batch paths, as in WPPMCovarianceField
         self._eval_batch_jitted = jax.jit(self._eval_batch_impl)
         self._mean_batch_jitted = jax.jit(self._mean_batch_impl)
+
+    @property
+    def model(self):
+        """The model the draws belong to. Fixed when the object is built."""
+        return self._model
+
+    @model.setter
+    def model(self, value):
+        raise AttributeError(
+            _READ_ONLY.format(
+                name="model", build="WPPMCovarianceFieldSamples(posterior)"
+            )
+        )
+
+    @property
+    def samples(self) -> dict:
+        """A shallow copy of the draws dict. Fixed when the object is built."""
+        return dict(self._samples)
+
+    @samples.setter
+    def samples(self, value):
+        raise AttributeError(
+            _READ_ONLY.format(
+                name="samples", build="WPPMCovarianceFieldSamples(posterior)"
+            )
+        )
+
+    @property
+    def n_samples(self) -> int:
+        """Draws held. Fixed when the object is built."""
+        return self._n_samples
+
+    @n_samples.setter
+    def n_samples(self, value):
+        raise AttributeError(
+            _READ_ONLY.format(
+                name="n_samples", build="WPPMCovarianceFieldSamples(posterior)"
+            )
+        )
 
     @classmethod
     def from_prior(cls, model, *, n_samples: int, key) -> WPPMCovarianceFieldSamples:
