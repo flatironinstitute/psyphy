@@ -18,6 +18,7 @@ to MAPPosterior by all downstream code.
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 
 import jax
 import jax.numpy as jnp
@@ -37,15 +38,21 @@ class MCMCPosterior:
 
     Parameters
     ----------
+    model : WPPM
+        The model instance used during inference.
     samples : dict
         Parameter samples. Each value has shape ``(n_chains, n_draws, *param_shape)``.
         For WPPM this is ``{"W": ndarray of shape (n_chains, n_draws, d0, d1, d2, d3)}``.
-    model : WPPM
-        The model instance used during inference.
     sampler_stats : dict | None, optional
         Per-chain diagnostics returned by the sampler, each of shape
         ``(n_chains, n_draws)``. NUTSSampler supplies ArviZ's ``sample_stats``
         names: ``acceptance_rate``, ``diverging``, ``energy``, ``n_steps``.
+
+    Raises
+    ------
+    TypeError
+        If ``model`` is a dict or ``samples`` is not one, as when the two
+        arguments are swapped. Pass ``MCMCPosterior(model, samples)``.
 
     Notes
     -----
@@ -54,11 +61,15 @@ class MCMCPosterior:
 
     def __init__(
         self,
-        samples: dict,
         model,
+        samples: dict,
         *,
         sampler_stats: dict | None = None,
     ):
+        if isinstance(model, Mapping) or not isinstance(samples, Mapping):
+            raise TypeError(
+                "MCMCPosterior takes the model first: MCMCPosterior(model, samples)"
+            )
         # samples: dict of JAX arrays, each shaped (n_chains, n_draws, *param_shape)
         # For WPPM: {"W": (n_chains, n_draws, degree+1, degree+1, input_dim, embedding_dim)}
         # e.g. 4 chains × 1000 draws, degree=1, input_dim=2, extra_dims=1:
@@ -243,7 +254,7 @@ class MCMCPosterior:
         >>> W = jnp.stack(
         ...     [model.init_params(k)["W"] for k in keys]
         ... )  # (100, 3, 3, 2, 3)
-        >>> nuts_posterior = MCMCPosterior({"W": W.reshape(2, 50, *W.shape[1:])}, model)
+        >>> nuts_posterior = MCMCPosterior(model, {"W": W.reshape(2, 50, *W.shape[1:])})
         >>> idata = nuts_posterior.to_arviz()
         >>> print(az.summary(idata))  # doctest: +SKIP
         """

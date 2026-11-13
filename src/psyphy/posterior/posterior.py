@@ -10,6 +10,8 @@ This module provides:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import jax
 import jax.numpy as jnp
 
@@ -22,17 +24,27 @@ class MAPPosterior:
 
     Parameters
     ----------
-    params : dict
-        MAP parameter dictionary (θ_MAP)
     model : WPPM
         Model instance used for predictions
+    params : dict
+        MAP parameter dictionary (θ_MAP)
+
+    Raises
+    ------
+    TypeError
+        If ``model`` is a dict or ``params`` is not one, as when the two
+        arguments are swapped. Pass ``MAPPosterior(model, params)``.
 
     Notes
     -----
     This implements the ParameterPosterior protocol.
     """
 
-    def __init__(self, params, model):
+    def __init__(self, model, params):
+        if isinstance(model, Mapping) or not isinstance(params, Mapping):
+            raise TypeError(
+                "MAPPosterior takes the model first: MAPPosterior(model, params)"
+            )
         self._params = params
         self._model = model
 

@@ -53,7 +53,7 @@ Usage Examples
 from __future__ import annotations
 
 import warnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, NamedTuple, Protocol, runtime_checkable
 
 import jax
@@ -253,7 +253,18 @@ class WPPMCovarianceField:
             Model providing evaluation logic
         params : dict
             Parameter dictionary
+
+        Raises
+        ------
+        TypeError
+            If ``model`` is a dict or ``params`` is not one, as when the two
+            arguments are swapped.
         """
+        if isinstance(model, Mapping) or not isinstance(params, Mapping):
+            raise TypeError(
+                "WPPMCovarianceField takes the model first: "
+                "WPPMCovarianceField(model, params)"
+            )
         self._model = model
         self._params = dict(params)
         # Pre-compile JIT batch evaluation path for performance
@@ -678,7 +689,7 @@ def covariance_to_arviz(posterior, points):
     >>> # stand-in for NUTSSampler().fit(model, data): 2 chains of 50 prior samples
     >>> keys = jr.split(jr.PRNGKey(1), 100)
     >>> W = jnp.stack([model.init_params(k)["W"] for k in keys])  # (100, 3, 3, 2, 3)
-    >>> nuts_posterior = MCMCPosterior({"W": W.reshape(2, 50, *W.shape[1:])}, model)
+    >>> nuts_posterior = MCMCPosterior(model, {"W": W.reshape(2, 50, *W.shape[1:])})
     >>> ref_points = jnp.array([[-0.5, -0.5], [0.5, 0.5]])  # (n_points, 2)
     >>> import arviz as az
     >>> from psyphy.model import covariance_to_arviz
@@ -937,7 +948,7 @@ class WPPMCovarianceFieldSamples:
     >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
     >>> keys = jr.split(jr.PRNGKey(1), 100)
     >>> W = jnp.stack([model.init_params(k)["W"] for k in keys])  # (100, 3, 3, 2, 3)
-    >>> posterior = MCMCPosterior({"W": W.reshape(2, 50, *W.shape[1:])}, model)
+    >>> posterior = MCMCPosterior(model, {"W": W.reshape(2, 50, *W.shape[1:])})
     >>> WPPMCovarianceFieldSamples(posterior).n_samples
     100
     >>> fields = WPPMCovarianceFieldSamples(posterior, n_samples=50, key=jr.PRNGKey(0))

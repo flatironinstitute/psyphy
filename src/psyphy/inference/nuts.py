@@ -297,7 +297,7 @@ class NUTSSampler(InferenceEngine):
         #   e.g. {"W": (num_chains, num_samples, 2, 2, 2, 3)}
         # sampler_stats: each value shaped (num_chains, num_samples), one scalar
         # per draw per chain. Keys follow ArviZ's sample_stats convention.
-        return MCMCPosterior(positions, model, sampler_stats=sampler_stats)
+        return MCMCPosterior(model, positions, sampler_stats=sampler_stats)
 
     # ------------------------------------------------------------------
     # Prior preconditioning helper
