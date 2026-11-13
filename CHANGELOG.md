@@ -22,6 +22,8 @@ breaking changes are called out below but do not force a minor-version bump.
 
   Now, assigning to one raises an `AttributeError`. `params` and `samples` return a copy,
   so `fields.samples["W"] = ...` changes nothing either.
+  `WPPMCovarianceField(model, params)` copies `params` too, so `params["W"] = ...` on the dict
+  you passed in changes nothing.
 
   ```python
   # before
