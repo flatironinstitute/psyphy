@@ -4,7 +4,7 @@ sobol.py
 
 Sobol quasi-random placement.
 
-MVP:
+What it does:
 - Uses a Sobol engine to generate low-discrepancy points.
 - Ignores the posterior (pure exploration).
 
@@ -47,7 +47,7 @@ class SobolPlacement:
         Parameters
         ----------
         posterior : Posterior
-            Ignored in MVP.
+            Ignored.
         batch_size : int
             Number of trials to return.
 
@@ -63,7 +63,7 @@ class SobolPlacement:
         ]
         # Convert column-wise scaled arrays into list of probe vectors
         comparisons = [tuple(vals) for vals in zip(*scaled)]
-        # MVP: use a zero reference vector of matching dimension
+        # reference is always a zero vector of matching dimension
         dim = len(self.bounds)
         zero_ref = 0.0 if dim == 1 else tuple(0.0 for _ in range(dim))
         trials = [(zero_ref, p) for p in comparisons]

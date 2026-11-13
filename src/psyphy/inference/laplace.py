@@ -12,9 +12,7 @@ Provides posterior.sample(n, key=...) cheaply.
 Useful for InfoGainPlacement when only MAP fit is available.
 
 
-MVP implementation:
-- Stub that just returns the MAP posterior.
-- Future: compute covariance from Hessian at MAP params.
+Currently a stub: `from_map` returns the MAP posterior and computes no Hessian.
 """
 
 # import jax.scipy.linalg as jl
