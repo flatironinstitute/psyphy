@@ -120,6 +120,30 @@ def _draws_from(posterior, n_samples: int | None, key) -> tuple[dict, int]:
     return posterior.sample(int(n_samples), key=key), int(n_samples)
 
 
+def _sigma(model, params: dict, X: jnp.ndarray) -> jnp.ndarray:
+    """Σ at every location for one parameter set.
+
+    Parameters
+    ----------
+    model : WPPM
+        Model providing ``local_covariance``.
+    params : dict
+        One parameter set, with no leading draws axis.
+    X : jnp.ndarray, shape (..., d)
+        Stimulus locations, any number of batch dimensions.
+
+    Returns
+    -------
+    jnp.ndarray, shape (..., d, d)
+        One covariance matrix per location.
+    """
+    d = model.input_dim
+    X_flat = X.reshape(-1, d)  # (n_flat, d)
+    # (n_flat, d, d)
+    Sigmas_flat = jax.vmap(lambda x: model.local_covariance(params, x))(X_flat)
+    return Sigmas_flat.reshape(X.shape[:-1] + (d, d))
+
+
 _READ_ONLY = "{name} is fixed when the object is built. Build a new one: {build}"
 
 
@@ -344,9 +368,6 @@ class WPPMCovarianceField:
         """
         Evaluate covariance at a single stimulus location.
 
-        This is the base evaluation method that all other methods build upon.
-        Called directly for single points, vmapped for batches.
-
         Parameters
         ----------
         x : jnp.ndarray, shape (input_dim,)
@@ -361,10 +382,7 @@ class WPPMCovarianceField:
 
     def _eval_batch_impl(self, X: jnp.ndarray) -> jnp.ndarray:
         """
-        Batch evaluation implementation (vmapped single evaluation).
-
-        Strategy: Flatten -> vmap -> reshape
-        This handles arbitrary batch dimensions with a single vmap.
+        Batch evaluation, compiled in ``__init__``.
 
         Parameters
         ----------
@@ -376,17 +394,7 @@ class WPPMCovarianceField:
         jnp.ndarray, shape (..., input_dim, input_dim)
             Batch of covariance matrices
         """
-        input_dim = self.model.input_dim
-        batch_shape = X.shape[:-1]  # Store original batch structure
-
-        # Flatten all batch dimensions: (..., input_dim) -> (n_total, input_dim)
-        X_flat = X.reshape(-1, input_dim)
-
-        # Vectorized evaluation: (n_total, input_dim) -> (n_total, input_dim, input_dim)
-        Sigmas_flat = jax.vmap(self._eval_single)(X_flat)
-
-        # Restore batch structure: (n_total, input_dim, input_dim) -> (..., input_dim, input_dim)
-        return Sigmas_flat.reshape(batch_shape + (input_dim, input_dim))
+        return _sigma(self.model, self.params, X)
 
     @classmethod
     def from_prior(cls, model, key: jax.Array) -> WPPMCovarianceField:
@@ -1051,7 +1059,7 @@ class WPPMCovarianceFieldSamples:
         """
         self._check_input_dim(x)
         if x.ndim == 1:
-            return self._eval_draws(self.samples, x[None, :])[:, 0, :, :]
+            return self._eval_batch_impl(x)
         return self._eval_batch_jitted(x)
 
     def mean(self, x: jnp.ndarray) -> jnp.ndarray:
@@ -1191,12 +1199,11 @@ class WPPMCovarianceFieldSamples:
         phi = jnp.linspace(0.0, 2 * jnp.pi, n_directions)  # radians
         directions = jnp.stack([jnp.cos(phi), jnp.sin(phi)], axis=-1)  # (n_dir, 2)
 
-        def radii_one_draw(params):
-            covs = WPPMCovarianceField(self.model, params)(points)  # (n_points, 2, 2)
-            return contour_radii(covs, directions)  # (n_points, n_directions)
-
+        self._check_input_dim(points)
+        # (n_samples, n_points, 2, 2)
+        covs = self._eval_batch_impl(points)
         # (n_samples, n_points, n_directions)
-        radii = jax.vmap(radii_one_draw)(self.samples)
+        radii = jax.vmap(lambda c: contour_radii(c, directions))(covs)
 
         reduce = _CI_KINDS[ci_kind]
         bounds = [reduce(radii, p) for p in probs]
@@ -1226,29 +1233,14 @@ class WPPMCovarianceFieldSamples:
                 f"Last axis must be input_dim={self.model.input_dim}, got {x.shape[-1]}"
             )
 
-    def _eval_draws(self, samples: dict, X_flat: jnp.ndarray) -> jnp.ndarray:
-        """Σ at every location for every draw: (n_samples, n_flat, d, d)."""
-
-        def one_draw(params):
-            return jax.vmap(lambda x: self.model.local_covariance(params, x))(X_flat)
-
-        return jax.vmap(one_draw)(samples)
-
     def _eval_batch_impl(self, X: jnp.ndarray) -> jnp.ndarray:
-        """Flatten -> vmap -> reshape, keeping the draws on the leading axis."""
-        input_dim = self.model.input_dim
-        batch_shape = X.shape[:-1]
-        X_flat = X.reshape(-1, input_dim)
-        Sigmas = self._eval_draws(self.samples, X_flat)  # (n_samples, n_flat, d, d)
-        return Sigmas.reshape((self.n_samples,) + batch_shape + (input_dim, input_dim))
+        """Σ at every location for every draw: (n_samples, ..., d, d)."""
+        # vmap over the leading draw axis of every leaf of self.samples
+        return jax.vmap(lambda params: _sigma(self.model, params, X))(self.samples)
 
     def _mean_single(self, x: jnp.ndarray) -> jnp.ndarray:
         """E[Σ(x)] at one location: Σ for every draw, THEN the mean."""
-        # vmap over the leading draw axis of every leaf of self.samples:
-        # (n_samples, d, d) -- one covariance matrix per draw
-        per_draw = jax.vmap(lambda params: self.model.local_covariance(params, x))(
-            self.samples
-        )
+        per_draw = self._eval_batch_impl(x)  # (n_samples, d, d)
         return jnp.mean(per_draw, axis=0)  # (d, d)
 
     def _mean_batch_impl(self, X: jnp.ndarray) -> jnp.ndarray:
