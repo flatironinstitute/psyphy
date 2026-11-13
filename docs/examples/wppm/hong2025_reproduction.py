@@ -699,7 +699,7 @@ def stage4_end_to_end(
     W_fit = jnp.asarray(np.load(fit_path)["W"])
 
     predictive = WPPMPredictivePosterior(
-        MAPPosterior({"W": W_fit}, model),  # <- before we passed W_org here
+        MAPPosterior(model, {"W": W_fit}),  # <- before we passed W_org here
         jnp.asarray(coords),
         n_samples=1,
         threshold_pred=True,
@@ -824,7 +824,7 @@ def stage5_bootstrap_envelope(
     model = hong2025.build_paper_model(mc_samples=thr["mc_samples"])
     thres_fit = np.asarray(
         WPPMPredictivePosterior(
-            MAPPosterior({"W": W_fit}, model),
+            MAPPosterior(model, {"W": W_fit}),
             jnp.asarray(coords),
             n_samples=1,
             threshold_pred=True,
