@@ -29,10 +29,7 @@ class TestMCLikelihood:
 
     @pytest.fixture
     def model(self):
-        """Create a simple WPPM model for testing.
-
-        MC likelihood works in both modes (MVP and full WPPM).
-        """
+        """Create a simple WPPM model for testing."""
         return WPPM(
             prior=Prior(input_dim=2, basis_degree=3),
             likelihood=OddityTask(),
@@ -345,8 +342,8 @@ class TestMCLikelihoodEdgeCases:
         )
 
     def test_mc_likelihood_wishart_mode(self):
-        """Test that MC likelihood works in Wishart mode (basis expansion)."""
-        # Create model in Wishart mode
+        """Test that MC likelihood works with a basis expansion."""
+        # Create model with basis_degree=3
         model = WPPM(
             prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=0),
             likelihood=OddityTask(
@@ -355,8 +352,7 @@ class TestMCLikelihoodEdgeCases:
             noise=GaussianNoise(sigma=0.03),
         )
 
-        # Verify it's actually in Wishart mode
-        assert model.basis_degree is not None
+        # Verify the basis degree is set
         assert model.basis_degree == 3
 
         # Init params
@@ -786,9 +782,9 @@ class TestNumericalStability:
 
     def test_stability_with_wishart_mode(self):
         """
-        Test numerical stability in Wishart mode (low-rank + diagonal).
+        Test numerical stability of the low-rank + diagonal sampling.
 
-        Wishart mode uses manual sampling: z = n @ U.T + mean + sqrt(σ^2) * n_diag.
+        The likelihood uses manual sampling: z = n @ U.T + mean + sqrt(σ^2) * n_diag.
         This is slightly different from multivariate_normal and could have
         different numerical properties. Test that it's also stable.
         """
@@ -816,7 +812,7 @@ class TestNumericalStability:
         )
 
         assert jnp.isfinite(ll), (
-            f"Log-likelihood is {ll} (NaN or inf) in Wishart mode with small noise!"
+            f"Log-likelihood is {ll} (NaN or inf) with small noise!"
         )
 
 

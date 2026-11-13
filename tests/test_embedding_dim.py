@@ -21,7 +21,9 @@ def test_wppm_no_embedding_dim_parameter():
     """WPPM should not have embedding_dim as constructor parameter."""
     # This should work WITHOUT embedding_dim
     model = WPPM(
-        prior=Prior(input_dim=2, basis_degree=3),  # Need Wishart mode for extra_dims
+        prior=Prior(
+            input_dim=2, basis_degree=3
+        ),  # basis_degree is required for extra_dims
         likelihood=OddityTask(),
         noise=GaussianNoise(),
     )
@@ -62,7 +64,7 @@ def test_embedding_dim_computed_correctly(
     model = WPPM(
         prior=Prior(
             input_dim=input_dim,
-            basis_degree=3,  # Need Wishart mode for extra_embedding_dims
+            basis_degree=3,  # basis_degree is required for extra_embedding_dims
             extra_embedding_dims=extra_dims,
         ),
         likelihood=OddityTask(),
@@ -73,7 +75,7 @@ def test_embedding_dim_computed_correctly(
 
 
 # ==============================================================================
-# Test Wishart model W parameter shape should use full embedding space
+# Test W parameter shape should use full embedding space
 # ==============================================================================
 
 

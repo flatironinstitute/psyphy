@@ -24,7 +24,7 @@ from psyphy.model.covariance_field import WPPMCovarianceField
 
 @pytest.fixture
 def wishart_field():
-    """Create Wishart mode covariance field for testing."""
+    """Create covariance field for testing."""
     model = WPPM(
         prior=Prior(input_dim=2, basis_degree=3, extra_embedding_dims=1),
         likelihood=OddityTask(),
@@ -53,7 +53,7 @@ class TestSinglePointDispatch:
     """Test that field(x) works for single points."""
 
     def test_single_point_wishart(self, wishart_field):
-        """field(x) evaluates single point in Wishart mode."""
+        """field(x) evaluates single point."""
         x = jnp.array([0.7, 0.2])
 
         Sigma = wishart_field(x)
@@ -82,7 +82,7 @@ class TestOneDimensionalBatch:
     """Test field(X) for 1D batches (n_points, input_dim)."""
 
     def test_1d_batch_wishart(self, wishart_field):
-        """field(X) handles 1D batch in Wishart mode."""
+        """field(X) handles 1D batch."""
         X = jnp.array([[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]])
 
         Sigmas = wishart_field(X)
