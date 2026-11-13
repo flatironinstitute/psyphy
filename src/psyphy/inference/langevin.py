@@ -11,9 +11,7 @@ Will lkely implement:
 Used for posterior-aware trial placement (InfoGain).
 
 
-MVP implementation:
-- Stub that returns an initial Posterior.
-- Future: implement underdamped Langevin dynamics (e.g. BAOAB integrator).
+Currently a stub: `fit` returns an initial posterior and runs no Langevin dynamics.
 """
 
 from psyphy.inference.base import InferenceEngine

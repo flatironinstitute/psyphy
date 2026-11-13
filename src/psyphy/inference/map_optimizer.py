@@ -4,7 +4,7 @@ map_optimizer.py
 
 MAP (Maximum A Posteriori) optimizer using Optax.
 
-MVP implementation:
+What it does:
 - Uses gradient ascent on log posterior.
 - Defaults to SGD with momentum, but any Optax optimizer can be passed in.
 
