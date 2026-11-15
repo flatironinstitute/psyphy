@@ -16,7 +16,7 @@ breaking changes are called out below but do not force a minor-version bump.
 
   Before, assigning to one was accepted without an error. After a batch call, `field(X)`,
   `fields(X)` and `fields.mean(X)` kept returning the old values, while `field(x)` and
-  `fields.band` used the new ones. One object gave 2 different answers, and
+  `fields.credible_band` used the new ones. One object gave 2 different answers, and
   `fields.n_samples` stayed at the old count. A loop that refits and assigns new samples
   got stale results from every batch call.
 
@@ -93,7 +93,7 @@ breaking changes are called out below but do not force a minor-version bump.
   # now
   fields = WPPMCovarianceFieldSamples(posterior)
   covs = fields.mean(ref_points)
-  band = WPPMCovarianceFieldSamples(posterior, n_samples=400, key=key).band(
+  band = WPPMCovarianceFieldSamples(posterior, n_samples=400, key=key).credible_band(
       ref_points, ci_prob=0.89
   )
   ```
@@ -240,11 +240,12 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Added
 
-- **Credible bands on the contour radii**: `contour_radii`, `contour_band` and
-  `ContourBand` in `psyphy.model`. `contour_radii` gives the radius of a covariance's
+- **Credible bands on the contour radii**: `contour_radii`,
+  `WPPMCovarianceFieldSamples.credible_band` and `CredibleBand` in `psyphy.model`.
+  `contour_radii` gives the radius of a covariance's
   one-standard-deviation ellipse (Mahalanobis-1 contour) per direction; for the oddity
-  task that radius is the discrimination threshold. `contour_band` reduces those radii
-  over posterior draws to a pointwise credible interval.
+  task that radius is the discrimination threshold. `credible_band` reduces those radii
+  over the stored posterior samples to a pointwise credible interval.
 
   These names replace `threshold_radii`, `threshold_band` and `ThresholdBand`, which were
   never released: they compute a property of any covariance matrix, so the names no longer
