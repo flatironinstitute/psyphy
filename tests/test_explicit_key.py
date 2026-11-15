@@ -119,10 +119,12 @@ class TestAllDrawsPathIsUnchanged:
 
     def test_band_matches_the_subsample_path(self, posterior, ref_points):
         """Quantiles sort their input, so the band is exactly order-invariant."""
-        pooled = WPPMCovarianceFieldSamples(posterior).band(ref_points, ci_prob=0.89)
+        pooled = WPPMCovarianceFieldSamples(posterior).credible_band(
+            ref_points, ci_prob=0.89
+        )
         subsampled = WPPMCovarianceFieldSamples(
             posterior, n_samples=200, key=jr.PRNGKey(0)
-        ).band(ref_points, ci_prob=0.89)
+        ).credible_band(ref_points, ci_prob=0.89)
 
         assert jnp.array_equal(pooled.lower, subsampled.lower)
         assert jnp.array_equal(pooled.median, subsampled.median)
@@ -141,7 +143,7 @@ class TestAllDrawsPathIsUnchanged:
 
     def test_band_needs_no_key(self, posterior, ref_points):
         fields = WPPMCovarianceFieldSamples(posterior)
-        band = fields.band(ref_points, ci_prob=0.89)
+        band = fields.credible_band(ref_points, ci_prob=0.89)
 
         assert band.lower.shape == (3, 181)
 
