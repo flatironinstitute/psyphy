@@ -43,7 +43,7 @@ summary and without each one drawing its own samples.
 
 **What psyphy does.** `WPPMCovarianceFieldSamples` holds N parameter draws and offers the
 reductions over them as methods: the ensemble from `fields(x)`, $\mathbb{E}[\Sigma(x)]$
-from `mean`, a credible band on the contour from `band`. The draws are taken once, at
+from `mean`, a credible band on the contour from `credible_band`. The draws are taken once, at
 construction, so a figure built from all three shows one sample of the posterior. The class
 is separate from `WPPMCovarianceField` rather than a flag on it, because the two take
 different inputs: one takes a parameter set, the other takes draws.

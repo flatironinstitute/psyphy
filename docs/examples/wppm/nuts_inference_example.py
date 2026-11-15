@@ -671,7 +671,7 @@ print("[5b/7] Pointwise credible band on the threshold contours...")
 # --8<-- [start:credible_band]
 CI_PROB = 0.89  # ArviZ's default, so the band and az.summary match
 
-band = fields.band(ref_points, ci_prob=CI_PROB)
+band = fields.credible_band(ref_points, ci_prob=CI_PROB)
 # band.lower / .median / .upper  (n_ref, n_directions): contour radius per direction
 # band.directions  (n_directions, 2): closed, so a filled polygon has no seam
 # --8<-- [end:credible_band]
@@ -731,7 +731,7 @@ print("[5c/7] Nested credible bands at one reference point...")
 # --8<-- [start:nested_bands]
 # A sequence of probabilities gives one interval per level in a single call,
 # over the same samples the band above used:
-nested = fields.band(ref_points, ci_prob=[0.5, 0.8, 0.95])
+nested = fields.credible_band(ref_points, ci_prob=[0.5, 0.8, 0.95])
 # nested.lower / .median / .upper  (n_levels, n_ref, n_directions)
 # nested.ci_prob                    (0.5, 0.8, 0.95), the order of that axis
 # One shape for all three, so nested.lower[i] and nested.median[i] line up and
