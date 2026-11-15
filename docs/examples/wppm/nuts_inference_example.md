@@ -188,7 +188,7 @@ What comes back is an `MCMCPosterior`. We use 2 things on it:
 
 | call | returns | used in |
 |---|---|---|
-| [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.band(x)` for a credible band. Pass `n_samples` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
+| [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.credible_band(x)` for a credible band. Pass `n_samples` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
 | `covariance_to_arviz(nuts_posterior, points)` | $\Sigma$ at chosen points for every sample, in ArviZ's format | [the diagnostics page](mcmc_diagnostics.md) |
 
 One sample is one complete covariance field, so one threshold contour at every reference
@@ -245,7 +245,7 @@ data constrain the threshold, wide spread means they do not. This is the figure 
 of the page, repeated here because it is what the snippet above produces.
 
 A cloud of contours is the full answer, but a paper reports an interval. psyphy computes
-one with `.band`, a method on the same class, at the points we pass. The ensemble, the
+one with `.credible_band`, a method on the same class, at the points we pass. The ensemble, the
 mean and the band all come from the same samples.
 
 ??? note "What to pass, and what we get back"
@@ -261,7 +261,7 @@ mean and the band all come from the same samples.
     `key` when building it for a random subset.
 
     What we get back is a
-    [`ContourBand`](../../reference/model.md#psyphy.model.ContourBand): `lower`,
+    [`CredibleBand`](../../reference/model.md#psyphy.model.CredibleBand): `lower`,
     `median` and `upper` radii, each `(n_points, n_directions)`, plus the `directions` they
     were measured along and the `ci_prob` and `ci_kind` that produced them, so a figure
     caption can state which interval it draws.
