@@ -19,7 +19,7 @@ This module provides:
 - covariance_to_arviz: per-sample Σ(x) at chosen points as an ArviZ DataTree,
   for convergence diagnostics that are not fooled by the non-identifiable
   orientation of W (see its docstring)
-- contour_radii / ContourBand: the one-standard-deviation ellipse
+- contour_radii / CredibleBand: the one-standard-deviation ellipse
   (Mahalanobis-1 contour) of a covariance as a radius per direction. For the
   oddity task that radius is the discrimination threshold
 
@@ -768,7 +768,7 @@ def covariance_to_arviz(posterior, points):
     return dt
 
 
-class ContourBand(NamedTuple):
+class CredibleBand(NamedTuple):
     """A pointwise credible band on the contour radii, with its provenance.
 
     Attributes
@@ -886,7 +886,7 @@ class WPPMCovarianceFieldSamples:
 
     A fit gives many parameter draws, so it gives many covariance fields. This
     class holds the draws and evaluates them: ``fields(x)`` for every draw,
-    :meth:`mean` for :math:`\mathbb{E}[\Sigma(x)]`, :meth:`band` for a credible
+    :meth:`mean` for :math:`\mathbb{E}[\Sigma(x)]`, :meth:`credible_band` for a credible
     band on the contour. The draws are taken when the object is built, so the
     three reductions are three views of one sample.
 
@@ -957,7 +957,7 @@ class WPPMCovarianceFieldSamples:
     (50, 2, 2, 2)
     >>> fields.mean(ref_points).shape  # (n_points, d, d)
     (2, 2, 2)
-    >>> fields.band(ref_points).lower.shape  # (n_points, n_directions)
+    >>> fields.credible_band(ref_points).lower.shape  # (n_points, n_directions)
     (2, 181)
     """
 
@@ -1110,14 +1110,14 @@ class WPPMCovarianceFieldSamples:
             return self._mean_single(x)
         return self._mean_batch_jitted(x)
 
-    def band(
+    def credible_band(
         self,
         points: jnp.ndarray,
         *,
         n_directions: int = 181,
         ci_prob: float | Sequence[float] = 0.89,
         ci_kind: str = "eti",
-    ) -> ContourBand:
+    ) -> CredibleBand:
         r"""Pointwise credible band on the one-standard-deviation ellipse at each point.
 
         The posterior-interval counterpart to :meth:`mean` (a posterior *mean*)
@@ -1157,7 +1157,7 @@ class WPPMCovarianceFieldSamples:
 
         Returns
         -------
-        ContourBand
+        CredibleBand
 
         Raises
         ------
@@ -1177,9 +1177,9 @@ class WPPMCovarianceFieldSamples:
         >>> fields = WPPMCovarianceFieldSamples.from_prior(
         ...     model, n_samples=50, key=jr.PRNGKey(1)
         ... )
-        >>> fields.band(ref_points).lower.shape  # (n_points, n_directions)
+        >>> fields.credible_band(ref_points).lower.shape  # (n_points, n_directions)
         (2, 181)
-        >>> nested = fields.band(ref_points, ci_prob=[0.5, 0.8, 0.95])
+        >>> nested = fields.credible_band(ref_points, ci_prob=[0.5, 0.8, 0.95])
         >>> nested.upper.shape  # (n_levels, n_points, n_directions)
         (3, 2, 181)
         """
@@ -1202,7 +1202,7 @@ class WPPMCovarianceFieldSamples:
 
         if self.model.input_dim != 2:
             raise NotImplementedError(
-                "band supports 2-D stimulus spaces only, got "
+                "credible_band supports 2-D stimulus spaces only, got "
                 f"input_dim={self.model.input_dim}. contour_radii is "
                 "d-dimensional, so call it with explicit directions instead."
             )
@@ -1227,7 +1227,7 @@ class WPPMCovarianceFieldSamples:
         median = jnp.median(radii, axis=0)  # (n_points, n_directions)
         median = jnp.broadcast_to(median, lower.shape)  # (n_levels, n_pts, n_dir)
 
-        return ContourBand(
+        return CredibleBand(
             points=points,
             directions=directions,
             lower=lower[0] if scalar_level else lower,
