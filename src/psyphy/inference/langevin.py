@@ -39,7 +39,13 @@ class LangevinSampler(InferenceEngine):
         self.step_size = step_size
         self.temperature = temperature
 
-    def fit(self, model, data) -> MAPPosterior:
+    def fit(
+        self,
+        model,
+        data,
+        init_params: dict | None = None,
+        seed: int | None = None,
+    ) -> MAPPosterior:
         """
         Fit model parameters with Langevin dynamics (stub).
 
@@ -47,41 +53,17 @@ class LangevinSampler(InferenceEngine):
         ----------
         model : WPPM
             Model instance.
-        data : ResponseData
+        data : TrialData
             Observed trials.
+        init_params : dict | None, optional
+            Starting parameter PyTree.
+        seed : int | None, optional
+            PRNG seed for this fit. None means 0.
 
+        Raises
+        ------
+        NotImplementedError
+            Always. Use MAPOptimizer or NUTSSampler instead.
         """
 
         raise NotImplementedError("Langevin Sampler not implemented yet.")
-
-
-class NumpyroSampler(InferenceEngine):
-    """
-    Numpyro-based sampler (stub).
-
-    Parameters
-    ----------
-    steps : int, default=1000
-        Number of sampling steps.
-    """
-
-    def __init__(self, steps: int = 1000):
-        self.steps = steps
-
-    def fit(self, model, data) -> MAPPosterior:
-        """
-        Fit model parameters using Numpyro (stub).
-
-        Parameters
-        ----------
-        model : WPPM
-            Model instance.
-        data : ResponseData
-            Observed trials.
-
-        Returns
-        -------
-        MAPPosterior
-            Posterior distribution containing sample history.
-        """
-        raise NotImplementedError("NumpyroSampler.fit not implemented yet.")
