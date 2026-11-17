@@ -10,6 +10,29 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Breaking
 
+- **A Bernoulli task's `predict` returns `(log_p, log_1mp)`, not `(p_correct,)`.** These
+  are log p(correct) and log p(incorrect) for one trial. `loglik` takes one of the 2 by the
+  response and holds it in [1e-6, 1 - 1e-6], the bound `OddityTask.predict` applied to
+  p(correct) before. So the log-likelihood is the same, up to float32 rounding. `predict`
+  itself no longer clips, and `WPPM.predict_prob` and `simulate` return `exp(log_p)`, which
+  can be exactly 1.0.
+
+  A task with a logit `z` returns `log_probs_from_logit(z)`, new in
+  `psyphy.model.likelihood`:
+
+  ```python
+  # before
+  def predict(self, params, stimuli, model, key=None):
+      return (jnp.clip(jax.nn.sigmoid(z), 1e-6, 1 - 1e-6),)
+
+  # now
+  def predict(self, params, stimuli, model, key=None):
+      return log_probs_from_logit(z)
+  ```
+
+  `predict` returns log-probabilities, not probabilities. For p(correct), take
+  `jnp.exp(predict(...)[0])` or call `model.predict_prob`.
+
 - **The attributes of the covariance field classes are read-only.** These are `params` and
   `model` on `WPPMCovarianceField`, and `samples`, `n_samples` and `model` on
   `WPPMCovarianceFieldSamples`.
