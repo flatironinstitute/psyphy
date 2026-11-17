@@ -28,9 +28,39 @@ class LaplaceApproximation(InferenceEngine):
 
     Methods
     -------
+    fit(model, data, init_params=None, seed=None) -> Posterior
+        Not implemented yet.
     from_map(map_posterior) -> Posterior
         Construct a Gaussian approximation centered at MAP.
     """
+
+    def fit(
+        self,
+        model,
+        data,
+        init_params: dict | None = None,
+        seed: int | None = None,
+    ) -> MAPPosterior:
+        """
+        Fit a Laplace approximation to data (stub).
+
+        Parameters
+        ----------
+        model : WPPM
+            Model instance.
+        data : TrialData
+            Observed trials.
+        init_params : dict | None, optional
+            Starting parameter PyTree for the MAP fit.
+        seed : int | None, optional
+            PRNG seed for this fit. None means 0.
+
+        Raises
+        ------
+        NotImplementedError
+            Always. Use MAPOptimizer or NUTSSampler instead.
+        """
+        raise NotImplementedError("LaplaceApproximation.fit not implemented yet.")
 
     def from_map(self, map_posterior: MAPPosterior) -> MAPPosterior:
         """

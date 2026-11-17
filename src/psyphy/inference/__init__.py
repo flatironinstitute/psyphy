@@ -33,19 +33,10 @@ from .map_optimizer import MAPOptimizer
 # naming the extra.
 from .nuts import NUTSSampler
 
-# Registry for string-based inference selection
-INFERENCE_ENGINES = {
-    "map": MAPOptimizer,
-    "nuts": NUTSSampler,
-    "laplace": LaplaceApproximation,
-    "langevin": LangevinSampler,
-}
-
 __all__ = [
     "InferenceEngine",
     "MAPOptimizer",
     "NUTSSampler",
     "LangevinSampler",
     "LaplaceApproximation",
-    "INFERENCE_ENGINES",
 ]

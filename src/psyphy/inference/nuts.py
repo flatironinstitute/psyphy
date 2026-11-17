@@ -115,8 +115,6 @@ class NUTSSampler(InferenceEngine):
         starts from a mass matrix matched to the prior scales rather than
         the identity. Results are returned in W coordinates either way. Set
         False to reproduce the old identity-start behavior.
-    seed : int, default=0
-        Master PRNG seed for chain initialization and sampling keys.
     show_progress : bool, default=True
         Display a tqdm progress bar during warmup and sampling.
         Requires `tqdm`, which ships in the ``progress`` extra
@@ -161,7 +159,6 @@ class NUTSSampler(InferenceEngine):
         step_size: float | None = None,
         max_num_doublings: int = 8,
         prior_preconditioning: bool = True,
-        seed: int = 0,
         show_progress: bool = True,
     ):
         self.num_warmup = int(num_warmup)
@@ -174,7 +171,6 @@ class NUTSSampler(InferenceEngine):
             raise ValueError(f"max_num_doublings must be >= 1, got {max_num_doublings}")
         self.max_num_doublings = int(max_num_doublings)
         self.prior_preconditioning = bool(prior_preconditioning)
-        self.seed = int(seed)
         self.show_progress = bool(show_progress)
 
     # ------------------------------------------------------------------
@@ -198,10 +194,11 @@ class NUTSSampler(InferenceEngine):
             Observed trials.
         init_params : dict | None, optional
             Initial parameter PyTree. If None, samples from the model prior
-            using the master seed. Providing MAP params as init_params
+            using the seed. Providing MAP params as init_params
             dramatically reduces the warmup needed.
         seed : int | None, optional
-            Override the master PRNG seed set at construction.
+            Master PRNG seed for chain initialization and sampling keys.
+            None means 0.
 
         Returns
         -------
@@ -221,7 +218,7 @@ class NUTSSampler(InferenceEngine):
                 "this error appears even after installing it."
             ) from e
 
-        rng_seed = self.seed if seed is None else int(seed)
+        rng_seed = 0 if seed is None else int(seed)
         master_key = jax.random.PRNGKey(rng_seed)
         init_key, chain_key = jax.random.split(master_key)
 
