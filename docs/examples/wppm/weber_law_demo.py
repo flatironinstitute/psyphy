@@ -289,7 +289,8 @@ BASIS_DEGREE_FIT = 3
 print("[2/5] Fitting 1D WPPM via MAPOptimizer ...")
 
 # --8<-- [start:fit]
-prior = Prior(input_dim=1, basis_degree=BASIS_DEGREE_FIT)
+# extra_embedding_dims=0 so U(x) is 1x1, as in WeberGroundTruth
+prior = Prior(input_dim=1, basis_degree=BASIS_DEGREE_FIT, extra_embedding_dims=0)
 model = WPPM(
     # 1D in put stimuli
     prior=prior,
@@ -338,42 +339,25 @@ weber_fraction_fitted = jnd_fitted / s_grid
 # --8<-- [end:jnd]
 
 # ---------------------------------------------------------------------------
-# Weight analysis: exact analytical basis change; Chebyshev(x) -> monomial(s).
+# Weight analysis: Chebyshev weights, and the line JND(s) = slope*s + intercept
 # ---------------------------------------------------------------------------
-# The normalization x = a*s + b is an invertible affine map.  Because T_n(x(s))
-# is a degree-n polynomial in s, the Chebyshev representation U(x) = Σ W_n T_n(x)
-# and the physical monomial representation U(s) = Σ c_n s^n span the same space.
-# The conversion is a pure linear basis change; no fitting, no approximation:
-#   Step 1: cheb2poly converts W -> monomial coefficients in normalized x.
-#   Step 2: substituting x = a*s + b (polynomial composition) maps those to s.
-W_raw = np.asarray(map_posterior.params["W"]).reshape(-1)  # shape (BASIS_DEGREE+1,)
+# U and -U give the same Sigma = U^2, so the sign of W is arbitrary.
+# We flip it so that U > 0 in the middle of the reference range.
+W_raw = np.asarray(map_posterior.params["W"])[:, 0, 0]  # (BASIS_DEGREE_FIT+1,)
+x_mid = float(to_norm(0.5 * (S_MIN + S_MAX_REF)))
+W_raw = W_raw * np.sign(np.polynomial.chebyshev.chebval(x_mid, W_raw))
 
-_a = 2.0 / (S_MAX - S_MIN)  # slope of x(s)
-_b = -2.0 * S_MIN / (S_MAX - S_MIN) - 1.0  # intercept of x(s)
-
-mono_in_x = np.polynomial.chebyshev.cheb2poly(W_raw)  # U(x) in monomial basis
-
-phys_coeffs = np.zeros(len(mono_in_x))
-for k, ck in enumerate(mono_in_x):
-    # (b + a*s)^k as a polynomial in s (ascending coefficient order)
-    term = np.polynomial.polynomial.polypow([_b, _a], k)
-    phys_coeffs[: len(term)] += ck * term
-# phys_coeffs[n] = coefficient of s^n in U(s), for n = 0 ... BASIS_DEGREE
-
+# The monomial coefficients of a degree-3 U(s) are not pinned by data on
+# [S_MIN, S_MAX_REF], since s, s^2 and s^3 are nearly collinear there.
+# The slope of the fitted JND over that range is, and Weber predicts slope k, intercept 0
+weber_slope, weber_intercept = np.polyfit(
+    np.asarray(s_grid), np.asarray(jnd_fitted), deg=1
+)
 print(
-    "  Weight analysis; physical coefficients cn of U(s) = sum_n cn*s^n:\n"
-    + "".join(
-        f"    c_{n} = {phys_coeffs[n]:.4f}"
-        + (
-            "  <- Weber slope (truth 0.2000)"
-            if n == 1
-            else "  <- noise floor (truth 0.0000)"
-            if n == 0
-            else "  <- should be \approx 0"
-        )
-        + "\n"
-        for n in range(len(phys_coeffs))
-    )
+    f"  Chebyshev weights W = {', '.join(f'{w:.4f}' for w in W_raw)}\n"
+    f"  Line fit to JND on [{S_MIN}, {S_MAX_REF}]: "
+    f"slope = {weber_slope:.4f} (truth {K_WEBER}), "
+    f"intercept = {weber_intercept:.4f} (truth 0)"
 )
 
 # --8<-- [start:fechner]
@@ -562,13 +546,11 @@ def draw_weber_fraction(ax):
 def draw_weber_coeffs_raw(ax):
     """Left panel: raw Chebyshev coefficients W_0 ... W_degree in normalized-x space.
 
-    U(x) = sum_n W_n * T_n(x), x in [-1, 1].
-    W_1 (linear term) should dominate; W_2, W_3, ... should be near zero,
-    showing the model didn't use its extra flexibility.
+    U(x) = sum_n W_n * T_n(x) over the whole domain x in [-1, 1], s in [S_MIN, S_MAX].
+    References only cover [S_MIN, S_MAX_REF], so W_2 and W_3 need not be near zero
+    for a linear JND on that range. Read the right panel for the Weber slope.
 
-    Note: W_0 is large even for pure Weber's law; not because of a noise floor,
-    but because x=0 maps to the middle of the physical domain (s=1.1), not s=0.
-    The physically interpretable decomposition is in the right panel.
+    W_0 is large even for pure Weber's law, since x=0 maps to s=1.1, not s=0.
     """
     degree = len(W_raw) - 1
     poly_names = ["constant", "linear", "quadratic", "cubic", "quartic", "quintic"]
@@ -578,52 +560,34 @@ def draw_weber_coeffs_raw(ax):
         poly = poly_names[n] if n < len(poly_names) else f"degree {n}"
         labels.append(f"$W_{n}$\n{poly}\n($T_{n}$)")
 
-    colors = ["#c0392b" if n == 1 else "#aaaaaa" for n in range(degree + 1)]
-    ax.bar(labels, W_raw.tolist(), color=colors, width=0.6)
+    ax.bar(labels, W_raw.tolist(), color="C0", width=0.6)
     ax.axhline(0.0, color="gray", linewidth=0.8)
     ax.set_ylabel("Coefficient (normalized-$x$ units)")
     ax.set_title(
         f"Raw Chebyshev weights  $W_0 \\ldots W_{{{degree}}}$\n"
-        r"Higher-order terms $\approx 0$: extra flexibility unused"
+        f"$U(x)$ over the whole domain $s \\in [{S_MIN}, {S_MAX}]$"
     )
     ax.grid(True, axis="y", alpha=0.25)
 
 
 def draw_weber_coeffs_physical(ax):
-    """Right panel: polynomial coefficients of U(s) in physical stimulus units.
+    """Right panel: slope and intercept of a line fit to the fitted JND(s).
 
-    Obtained by fitting a degree-BASIS_DEGREE polynomial to sqrt(Sigma_hat(s))
-    vs physical s. Coefficients are ordered ascending: c_0 (constant), c_1
-    (linear), c_2 (quadratic), ...
-
-    For Weber's law, c_1 should dominate (\approx K_WEBER) and all other terms
-    should be near zero; showing the model recovered a linear law despite
-    having the flexibility to fit higher-order curves.
+    The line is fit on the reference range [S_MIN, S_MAX_REF]. Weber's law
+    predicts slope K_WEBER and intercept 0, shown as black ticks.
     """
-    degree = len(phys_coeffs) - 1
-    poly_names = ["constant", "linear", "quadratic", "cubic", "quartic", "quintic"]
-
-    labels = []
-    for n in range(degree + 1):
-        poly = poly_names[n] if n < len(poly_names) else f"degree {n}"
-        labels.append(f"$c_{n}$\n{poly}\n($s^{n}$)")
-
-    colors = ["#c0392b" if n == 1 else "#aaaaaa" for n in range(degree + 1)]
-    ax.bar(labels, phys_coeffs.tolist(), color=colors, width=0.6)
-    ax.axhline(
-        K_WEBER,
-        color="k",
-        linestyle="--",
-        linewidth=2,
-        label=f"ground truth $k = {K_WEBER}$",
-    )
+    labels = ["slope", "intercept"]
+    fitted = [weber_slope, weber_intercept]
+    truth = [K_WEBER, 0.0]
+    ax.bar(labels, fitted, color=["C0", "C1"], width=0.6)
+    ax.scatter(labels, truth, marker="_", s=2000, color="k", linewidths=2, zorder=3)
     ax.axhline(0.0, color="gray", linewidth=0.8)
-    ax.set_ylabel("Coefficient (physical units)")
+    ax.set_ylabel("Physical units")
     ax.set_title(
-        f"Physical polynomial coefficients  $c_0 \\ldots c_{{{degree}}}$\n"
-        r"$c_1$ (linear / Weber) should dominate; others $\approx 0$"
+        f"Line fit to JND on $s \\in [{S_MIN}, {S_MAX_REF}]$\n"
+        f"slope {weber_slope:.3f} (truth {K_WEBER}), "
+        f"intercept {weber_intercept:.3f} (truth 0)"
     )
-    ax.legend(fontsize=8)
     ax.grid(True, axis="y", alpha=0.25)
 
 
