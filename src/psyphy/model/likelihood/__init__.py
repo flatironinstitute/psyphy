@@ -8,7 +8,8 @@ once per distribution, and a new task only implements ``predict``:
 
 Modules
 -------
-base    : TaskLikelihood, BernoulliTaskLikelihood, GaussianTaskLikelihood
+base    : TaskLikelihood, BernoulliTaskLikelihood, GaussianTaskLikelihood,
+          log_probs_from_logit
 oddity  : OddityTaskConfig, OddityTask (3-AFC, Monte Carlo)
 
 Every public name is re-exported here, so existing imports are unaffected::
@@ -20,6 +21,7 @@ from .base import (
     BernoulliTaskLikelihood,
     GaussianTaskLikelihood,
     TaskLikelihood,
+    log_probs_from_logit,
 )
 from .oddity import OddityTask, OddityTaskConfig
 
@@ -28,6 +30,7 @@ __all__ = [
     "TaskLikelihood",
     "BernoulliTaskLikelihood",
     "GaussianTaskLikelihood",
+    "log_probs_from_logit",
     # Concrete tasks
     "OddityTaskConfig",
     "OddityTask",

@@ -18,7 +18,7 @@ import jax
 import jax.numpy as jnp
 import jax.random as jr
 
-from .base import BernoulliTaskLikelihood
+from .base import BernoulliTaskLikelihood, log_probs_from_logit
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +68,7 @@ class OddityTask(BernoulliTaskLikelihood):
            - d^2(z_refprime, z_comparison) = distance from reference_prime to comparison
         4. Apply oddity decision rule: delta = min(d^2(z_ref,z_comparison), d^2(z_refprime,z_comparison)) - d^2(z_ref,z_refprime)
         5. Logistic smoothing: P(correct) ~ logistic.cdf(delta / bandwidth)
-        6. Average over samples
+        6. Average over samples, in log space
 
     Examples
     --------
@@ -112,7 +112,8 @@ class OddityTask(BernoulliTaskLikelihood):
         model: Any,
         key: Any = None,
     ) -> tuple[jnp.ndarray, ...]:
-        """Return p(correct) for a single (ref, comparison) trial via MC simulation.
+        """Return log p(correct) and log p(incorrect) for a single (ref, comparison)
+        trial, via MC simulation.
 
         MC controls (``num_samples``, ``bandwidth``) are read from
         :class:`OddityTaskConfig`. Pass ``key`` to control randomness; when
@@ -172,8 +173,10 @@ class OddityTask(BernoulliTaskLikelihood):
 
         Returns
         -------
-        float
-            Estimated P(correct) for this trial, in range [0, 1]
+        log_p : jnp.ndarray, shape ()
+            log of the estimated P(correct) for this trial
+        log_1mp : jnp.ndarray, shape ()
+            log of the estimated P(incorrect)
 
         Notes
         -----
@@ -204,6 +207,8 @@ class OddityTask(BernoulliTaskLikelihood):
 
         6. Monte Carlo average:
            - P(correct) \approx mean over num_samples
+           - in log space: log P(correct) = logsumexp(log sigmoid(delta / bandwidth)) - log(num_samples),
+             and the same with -delta for log P(incorrect)
 
         """
         input_dim = ref.shape[0]
@@ -383,18 +388,19 @@ class OddityTask(BernoulliTaskLikelihood):
         #   - small bandwidth (~1e-3): sharp threshold (nearly deterministic)
         #   - large bandwidth (~5e-2): smooth, gradual transition
         # P(correct | delta) \approx sigmoid(delta / bandwidth)
+        # we keep the log of both outcomes: log sigmoid(z) and log sigmoid(-z)
 
-        prob_correct_per_sample = jax.scipy.stats.logistic.cdf(delta / bandwidth)
+        log_p_per_sample, log_1mp_per_sample = log_probs_from_logit(
+            delta / bandwidth
+        )  # each (num_samples,)
 
         # ========================================================================
         # STEP 7: Monte Carlo average
         # ========================================================================
         # by law of large numbers: mean(samples) -> E[P(correct)]
-        prob = jnp.mean(prob_correct_per_sample)
-
-        # Clip probability to avoid numerical issues with log(0) or log(1)
-        # - Use eps=1e-6  for safety (or smaller epsilon and increase precison from float32 to float64)
-        # - Clipping here (before return) ensures gradients stay finite
-        # - Without this, prob=1.0 -> log(1.0)=0.0 -> grad through clip at boundary -> NaN
-        eps = 1e-6
-        return (jnp.clip(prob, eps, 1.0 - eps),)
+        # in log space: log mean(p_i) = logsumexp(log p_i) - log(num_samples)
+        # no P(correct) is formed, so log P(incorrect) stays exact near P = 1
+        log_n = jnp.log(num_samples)
+        log_p = jax.scipy.special.logsumexp(log_p_per_sample) - log_n
+        log_1mp = jax.scipy.special.logsumexp(log_1mp_per_sample) - log_n
+        return (log_p, log_1mp)

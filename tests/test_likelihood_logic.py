@@ -19,7 +19,7 @@ from psyphy.model.likelihood import BernoulliTaskLikelihood, GaussianTaskLikelih
 
 class MockBernoulliTask(BernoulliTaskLikelihood):
     def predict(self, params, stimuli, model, key, noise=None):
-        return jnp.array(0.4)  # p_correct
+        return jnp.log(0.4), jnp.log(0.6)  # log p_correct, log p_incorrect
 
 
 class MockGaussianTask(GaussianTaskLikelihood):

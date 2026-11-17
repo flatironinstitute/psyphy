@@ -292,8 +292,7 @@ class WPPMPredictivePosterior:
         if not isinstance(model.likelihood, BernoulliTaskLikelihood):
             raise NotImplementedError(
                 "Threshold prediction currently only supports "
-                "BernoulliTaskLikelihood (e.g. OddityTask), whose predict() "
-                "returns a single p(correct)."
+                "BernoulliTaskLikelihood (e.g. OddityTask)."
             )
         task = model.likelihood
 
@@ -343,9 +342,10 @@ class WPPMPredictivePosterior:
 
         @jax.jit
         def _p_correct_chunk(params, stim_chunk, key_chunk):
-            return jax.vmap(lambda s, k: task.predict(params, s, model, key=k)[0])(
+            log_p, _ = jax.vmap(lambda s, k: task.predict(params, s, model, key=k))(
                 stim_chunk, key_chunk
             )
+            return jnp.exp(log_p)
 
         def _sweep_one(params, ref, key):
             comps = ref[None, None, :] + dirs[:, None, :] * lengths[None, :, None]
