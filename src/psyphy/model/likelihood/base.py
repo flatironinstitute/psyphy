@@ -192,6 +192,8 @@ class BernoulliTaskLikelihood(TaskLikelihood):
     - ``simulate(params, inputs, model, *, key)`` -> simulated responses
 
     ``predict`` returns log-probabilities, not p(correct), and doesn't clip them.
+    ``exp(log_p)`` can round to exactly 1.0, where ``log(1 - p)`` is ``-inf``. Use
+    ``log_1mp`` for log p(incorrect).
     ``loglik`` holds each trial's probability in [1e-6, 1 - 1e-6]. A task with a
     logit returns :func:`log_probs_from_logit`. A task that averages over
     samples, like :class:`OddityTask`, takes ``logsumexp`` over the samples'
