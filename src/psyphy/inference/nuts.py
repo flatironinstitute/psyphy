@@ -9,25 +9,10 @@ p(θ| data), unlike MAP which returns only a point estimate.
 
 Connections
 -----------
--  BlackJax needs a log density and calls
-    WPPM.log_posterior_from_data(params, data, key=fixed_key) as the
-  log-density. A fixed key is baked in at construction time to make the
-  stochastic MC likelihood deterministic for NUTS (see Notes).
-- Returns an MCMCPosterior wrapping the sampled chains and model.
-
-Notes on stochastic likelihood
--------------------------------
-WPPM's current oddity-task-likelihood is estimated
-via Monte Carlo inside OddityTask.loglik.
-NUTS requires a (nearly) deterministic log-density to compute consistent
-Hamiltonian dynamics. The chosen approach: a single fixed JAX key is baked
-into the logdensity closure so every gradient evaluation uses the same MC
-noise realization. This bias decreases as MC_SAMPLES -> \inf (>=200 recommended).
-
-Alternatives (not implemented here):
-- fresh key per NUTS *trajectory* (pseudo-marginal / noisy HMC)
-- Neural surrogate likelihood
-(exact gradients, see NeuralSurrogateTask, not yet implemented)
+- Shares its chain loop with every psyphy MCMC engine, in
+  ``psyphy.inference.mcmc``: the fixed MC key in the log density, prior
+  preconditioning, vmapped chains, and the returned MCMCPosterior. The
+  notes on the stochastic likelihood are there.
 
 Notes on warmup cost
 --------------------
@@ -62,12 +47,18 @@ blackjax >= 1.0  (install with: pip install 'psyphy[sampling]')
 from __future__ import annotations
 
 import contextlib
-import sys
+from functools import partial
 
 import jax
 import jax.numpy as jnp
 
 from psyphy.inference.base import InferenceEngine
+from psyphy.inference.mcmc import (
+    _fit_chains,
+    _import_blackjax,
+    _make_pbar,
+    _run_fixed_kernel,
+)
 from psyphy.posterior.mcmc_posterior import MCMCPosterior
 
 
@@ -206,124 +197,27 @@ class NUTSSampler(InferenceEngine):
             Samples shaped (num_chains, num_samples, *param_shape),
             sampler_stats with acceptance_rate.
         """
-        try:
-            import blackjax
-        except ImportError as e:
-            raise ImportError(
-                "BlackJAX is required for NUTSSampler. "
-                "Install it with: pip install 'psyphy[sampling]'\n"
-                f"Note: blackjax >= 1.4 requires Python >= 3.11 (this is "
-                f"{sys.version_info.major}.{sys.version_info.minor}), so on an "
-                "older interpreter the 'sampling' extra resolves to nothing and "
-                "this error appears even after installing it."
-            ) from e
+        blackjax = _import_blackjax("NUTSSampler")
 
-        rng_seed = 0 if seed is None else int(seed)
-        master_key = jax.random.PRNGKey(rng_seed)
-        init_key, chain_key = jax.random.split(master_key)
-
-        # init_position: dict matching the model's parameter PyTree structure.
-        # For WPPM: {"W": jnp.ndarray of shape (degree+1, degree+1, input_dim, embedding_dim)}
-        # e.g. degree=1, input_dim=2, extra_dims=1 -> {"W": shape (2, 2, 2, 3)}
-        # BlackJAX requires this as the starting point for Hamiltonian dynamics.
-        init_position = (
-            init_params if init_params is not None else model.init_params(init_key)
-        )
-
-        # Fixed MC key baked into logdensity: makes the stochastic
-        # likelihood deterministic for NUTS gradient evaluations.
-        fixed_mc_key = jax.random.PRNGKey(self.logdensity_key_seed)
-
-        # -- BlackJAX API boundary --------------------------------
-        # logdensity_fn is the ONLY thing BlackJAX needs from psyphy.
-        # Contract:
-        #   input:  params, a dict with the same structure as init_position
-        #                      e.g. {"W": (2, 2, 2, 3)}
-        #   output: scalar, log p(θ | data), a JAX float (shape ())
-        #   must be: JAX-differentiable (jax.grad must work on it)
-        #            (nearly) deterministic; hence the fixed_mc_key
-        # -----------------------------------------
-        def logdensity_fn(params: dict) -> jnp.ndarray:
-            return model.log_posterior_from_data(params, data, key=fixed_mc_key)
-
-        # chain_keys: shape (num_chains, 2), one PRNGKey per chain,
-        # split further inside each mode into warmup_key and sample_key.
-        chain_keys = jax.random.split(chain_key, self.num_chains)
-
-        # blackjax is passed as an argument rather than imported again in each
-        # private method. Because it is a soft dependency, the single import
-        # (with its error-handling) lives here in fit(). In Python, modules are
-        # first-class objects; 'import blackjax' just binds the module to a
-        # local variable, which can be passed around like any other value.
         if self.step_size is None:
-            # Prior preconditioning (adaptive warmup only -- with a fixed step
-            # size the caller picked it for W coordinates, and silently
-            # rescaling would change what that number means). See "Notes on
-            # warmup cost" above.
-            scales = (
-                self._prior_scales(model, init_position)
-                if self.prior_preconditioning
-                else None
-            )
-            if scales is None:
-                positions, sampler_stats = self._run_adaptive(
-                    blackjax, logdensity_fn, init_position, chain_keys
-                )
-            else:
-                # Change of variables W = scales * z. The Jacobian of a fixed
-                # linear map is a constant, so it is dropped: it does not
-                # change the posterior or any accept/reject decision.
-                def z_logdensity_fn(z: dict) -> jnp.ndarray:
-                    return logdensity_fn(jax.tree.map(jnp.multiply, z, scales))
-
-                init_z = jax.tree.map(jnp.divide, init_position, scales)
-                z_positions, sampler_stats = self._run_adaptive(
-                    blackjax, z_logdensity_fn, init_z, chain_keys
-                )
-                # Map draws back to W. z leaves are (n_chains, n_draws, *shape)
-                # and scales leaves are (*shape), so they broadcast over the
-                # two leading axes. Every downstream consumer (MCMCPosterior,
-                # ArviZ, plots) therefore only ever sees W.
-                positions = jax.tree.map(jnp.multiply, z_positions, scales)
+            run_chains = partial(self._run_adaptive, blackjax)
+            # Prior preconditioning is for adaptive warmup only. A fixed step
+            # size was picked for W coordinates.
+            precondition = self.prior_preconditioning
         else:
-            positions, sampler_stats = self._run_fixed_stepsize(
-                blackjax, logdensity_fn, init_position, chain_keys
-            )
+            run_chains = partial(self._run_fixed_stepsize, blackjax)
+            precondition = False
 
-        # positions: dict, each value shaped (n_chains, n_draws, *param_shape)
-        #   e.g. {"W": (num_chains, num_samples, 2, 2, 2, 3)}
-        # sampler_stats: each value shaped (num_chains, num_samples), one scalar
-        # per draw per chain. Keys follow ArviZ's sample_stats convention.
-        return MCMCPosterior(model, positions, sampler_stats=sampler_stats)
-
-    # ------------------------------------------------------------------
-    # Prior preconditioning helper
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _prior_scales(model, init_position):
-        """Per-parameter prior stds shaped like ``init_position``, or None.
-
-        Returns None (-> no preconditioning, identity-start adaptation) when
-        the model has no ``prior.param_scales()`` or when its output does not
-        line up leaf-for-leaf with ``init_position``. Preconditioning is an
-        optimization, never a requirement, so falling back silently keeps
-        an unfamiliar model sampling.
-        """
-        prior = getattr(model, "prior", None)
-        if not hasattr(prior, "param_scales"):
-            return None
-        scales = prior.param_scales()
-        # Same PyTree structure (e.g. both {"W": ...}) and same leaf shapes,
-        # otherwise the elementwise W = scales * z below would be wrong.
-        if jax.tree.structure(scales) != jax.tree.structure(init_position):
-            return None
-        if any(
-            s.shape != jnp.shape(p)
-            for s, p in zip(jax.tree.leaves(scales), jax.tree.leaves(init_position))
-        ):
-            return None
-        return scales
+        return _fit_chains(
+            model,
+            data,
+            init_params,
+            seed,
+            num_chains=self.num_chains,
+            logdensity_key_seed=self.logdensity_key_seed,
+            precondition=precondition,
+            run_chains=run_chains,
+        )
 
     # ------------------------------------------------------------------
     # Adaptive warmup (window_adaptation), chains vmapped
@@ -423,25 +317,12 @@ class NUTSSampler(InferenceEngine):
 
             def one_step(state, rng_key):
                 state, info = kernel(rng_key, state)
-                # Names match ArviZ's sample_stats convention (diverging, energy,
-                # n_steps) so to_arviz() feeds az.plot_energy / divergence
-                # reporting directly. `diverging` is the single most important
-                # NUTS diagnostic: any divergence makes a run suspect regardless
-                # of what R-hat says. `n_steps` is how to check whether
-                # max_num_doublings is truncating trajectories: values pinned
-                # at 2**max_num_doublings - 1 mean it is.
-                return state, (
-                    state.position,
-                    info.acceptance_rate,
-                    info.is_divergent,
-                    info.energy,
-                    info.num_integration_steps,
-                )
+                return state, (state.position, _nuts_stats(info))
 
             # lax.scan carry : NUTSState
             # lax.scan xs    : (num_samples, 2) PRNGKeys
-            # lax.scan ys    : positions {"W": (num_samples, *shape)} + 4 stats,
-            #                  each (num_samples,)
+            # lax.scan ys    : positions {"W": (num_samples, *shape)}, stats
+            #                  dict, each (num_samples,)
             sample_keys = jax.random.split(sample_key, self.num_samples)
             _, outputs = jax.lax.scan(one_step, state, sample_keys)
             return outputs
@@ -451,7 +332,8 @@ class NUTSSampler(InferenceEngine):
         split_keys = jax.vmap(jax.random.split)(chain_keys)
         warmup_keys, sample_keys = split_keys[:, 0], split_keys[:, 1]
 
-        pbar = self._make_pbar(
+        pbar = _make_pbar(
+            self.show_progress,
             total=self.num_chains * (self.num_warmup + self.num_samples),
             desc="NUTS (adaptive)",
         )
@@ -477,9 +359,9 @@ class NUTSSampler(InferenceEngine):
 
         # Sampling, all chains at once, each with its own adapted
         # step size and mass matrix.
-        positions, acc_rates, diverging, energy, n_steps = jax.jit(
-            jax.vmap(sample_one_chain)
-        )(states, step_sizes, inverse_mass_matrices, sample_keys)
+        positions, sampler_stats = jax.jit(jax.vmap(sample_one_chain))(
+            states, step_sizes, inverse_mass_matrices, sample_keys
+        )
 
         if pbar is not None:
             with contextlib.suppress(Exception):
@@ -488,13 +370,8 @@ class NUTSSampler(InferenceEngine):
 
         # vmap already stacked the chain axis first:
         #   positions : {"W": (n_chains, n_draws, *param_shape)}
-        #   stats     : (n_chains, n_draws)
-        return positions, {
-            "acceptance_rate": acc_rates,
-            "diverging": diverging,
-            "energy": energy,
-            "n_steps": n_steps,
-        }
+        #   stats     : each (n_chains, n_draws)
+        return positions, sampler_stats
 
     # ------------------------------------------------------------------
     # Fixed step size, all chains vmapped
@@ -512,108 +389,42 @@ class NUTSSampler(InferenceEngine):
     def _run_fixed_stepsize(self, blackjax, logdensity_fn, init_position, chain_keys):
         """Run NUTS with fixed step_size: all chains vmapped in one call.
 
-        BlackJAX inputs
-        ---------------
-        logdensity_fn        : dict -> scalar   (see fit() for full contract)
-        init_position        : dict             e.g. {"W": (2, 2, 2, 3)}
-        step_size            : float            user-supplied; no adaptation
-        inverse_mass_matrix  : (n_params,)      diagonal identity, no per-parameter scaling
-
-        BlackJAX outputs (via jax.vmap over chain_keys)
-        ------------------------------------------------
-        all_positions : dict  e.g. {"W": (num_chains, num_samples, 2, 2, 2, 3)}
-        all_acc_rates : (num_chains, num_samples)
+        Returns
+        -------
+        positions       : dict            {"W": (num_chains, num_samples, ...)}
+        sampler_stats   : dict            each (num_chains, num_samples)
         """
-        # n_params: total scalar count across all parameter leaves.
+        # inverse_mass_matrix: (n_params,), diagonal identity, no per-parameter scaling
         # For WPPM {"W": (2,2,2,3)}: n_params = 2*2*2*3 = 48.
-        # inverse_mass_matrix shape: (n_params,), diagonal of M^-1 (identity = no scaling).
-        flat_leaves = jax.tree.leaves(init_position)
-        n_params = sum(x.size for x in flat_leaves)
-        inverse_mass_matrix = jnp.ones(n_params)  # shape: (n_params,)
-
-        # blackjax.nuts(...) returns an object with:
-        #   .init(position)             -> NUTSState
-        #   .step(PRNGKey, NUTSState)   -> (NUTSState, NUTSInfo)
-        # All parameters are JAX arrays -> entire run_one_chain is vmappable.
-        # max_num_doublings: same tree-depth cap as adaptive warmup -- at most
-        # 2**max_num_doublings - 1 gradient evaluations per draw.
+        n_params = sum(x.size for x in jax.tree.leaves(init_position))
         nuts = blackjax.nuts(
             logdensity_fn,
             step_size=self.step_size,
-            inverse_mass_matrix=inverse_mass_matrix,
+            inverse_mass_matrix=jnp.ones(n_params),
             max_num_doublings=self.max_num_doublings,
         )
+        return _run_fixed_kernel(
+            nuts,
+            init_position,
+            chain_keys,
+            num_warmup=self.num_warmup,
+            num_samples=self.num_samples,
+            stats_fn=_nuts_stats,
+            pbar=_make_pbar(
+                self.show_progress, total=1, desc="NUTS (fixed step_size, vmapped)"
+            ),
+        )
 
-        def run_one_chain(chain_key):
-            # chain_key: PRNGKey shape (2,), one per chain, vmapped over
-            warmup_key, sample_key = jax.random.split(chain_key)
 
-            # nuts.init: position dict -> NUTSState
-            # NUTSState holds: position (dict), momentum, potential_energy, ...
-            state = nuts.init(init_position)
+def _nuts_stats(info) -> dict:
+    """Per-draw NUTS statistics, keyed in ArviZ's sample_stats spelling.
 
-            # lax.scan carry : NUTSState
-            # lax.scan xs    : keys shape (num_steps, 2)
-            # lax.scan ys    : (position dict, scalar acc_rate)
-            def one_step(state, rng_key):
-                state, info = nuts.step(rng_key, state)
-                # state.position : dict  e.g. {"W": (2, 2, 2, 3)}
-                # stats          : ArviZ sample_stats names -- see the adaptive
-                #                  warmup note above
-                return state, (
-                    state.position,
-                    info.acceptance_rate,
-                    info.is_divergent,
-                    info.energy,
-                    info.num_integration_steps,
-                )
-
-            # Burn-in: num_warmup steps, no adaptation, positions discarded.
-            # (contrast adaptive warmup: here there is no step_size tuning, just mixing)
-            burn_keys = jax.random.split(warmup_key, self.num_warmup)
-            state, _ = jax.lax.scan(one_step, state, burn_keys)
-
-            # Sampling: positions kept
-            # positions : dict  e.g. {"W": (num_samples, 2, 2, 2, 3)}
-            # acc_rates : (num_samples,)
-            s_keys = jax.random.split(sample_key, self.num_samples)
-            _, (positions, acc_rates, diverging, energy, n_steps) = jax.lax.scan(
-                one_step, state, s_keys
-            )
-            return positions, acc_rates, diverging, energy, n_steps
-
-        pbar = self._make_pbar(total=1, desc="NUTS (fixed step_size, vmapped)")
-
-        # jax.vmap(run_one_chain)(chain_keys):
-        #   input  : chain_keys shape (num_chains, 2)
-        #   output : positions dict e.g. {"W": (num_chains, num_samples, 2, 2, 2, 3)}
-        #            acc_rates shape (num_chains, num_samples)
-        all_positions, all_acc, all_div, all_energy, all_n_steps = jax.vmap(
-            run_one_chain
-        )(chain_keys)
-
-        if pbar is not None:
-            with contextlib.suppress(Exception):
-                pbar.update(1)
-                pbar.close()
-
-        return all_positions, {
-            "acceptance_rate": all_acc,
-            "diverging": all_div,
-            "energy": all_energy,
-            "n_steps": all_n_steps,
-        }
-
-    # ------------------------------------------------------------------
-    # Progress bar helper
-    # ------------------------------------------------------------------
-
-    def _make_pbar(self, *, total: int, desc: str):
-        if not self.show_progress:
-            return None
-        try:
-            from tqdm.auto import tqdm
-
-            return tqdm(total=total, desc=desc, leave=False)
-        except Exception:
-            return None
+    ``diverging`` is the first NUTS diagnostic to check. ``n_steps`` pinned at
+    2**max_num_doublings - 1 means trajectories are truncated.
+    """
+    return {
+        "acceptance_rate": info.acceptance_rate,
+        "diverging": info.is_divergent,
+        "energy": info.energy,
+        "n_steps": info.num_integration_steps,
+    }
