@@ -429,7 +429,8 @@ class WPPM(Model):
             )
 
         stimuli = jnp.stack(stimulus, axis=0)
-        return self.likelihood.predict(params, stimuli, self)[0]
+        log_p, _ = self.likelihood.predict(params, stimuli, self)
+        return jnp.exp(log_p)
 
     # ----------------------------------------------------------------------
     # LIKELIHOOD (delegates to likelihood component)

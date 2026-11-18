@@ -8,7 +8,7 @@ from psyphy.model.wppm import WPPM
 
 class MockTask(BernoulliTaskLikelihood):
     def predict(self, params, stimuli, model, noise=None):
-        return jnp.array(0.5)  # p_correct
+        return jnp.log(0.5), jnp.log(0.5)  # log p_correct, log p_incorrect
 
     def loglik(self, params, data, model, noise=None):
         return jnp.array(0.0)

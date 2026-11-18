@@ -400,17 +400,19 @@ for s_ref in PSYCH_LEVELS_PHYS:
     stims_psych = jnp.stack([refs_psych, comps_psych], axis=1)  # (n_delta, 2, 1)
 
     # --8<-- [start:psychometric]
-    # predict returns (p_correct,); vmap gives (array,); [0] extracts the array
+    # predict returns (log_p, log_1mp), so vmap gives 2 arrays of shape (n_delta,)
     # p_fit: psychometric curve from the *fitted* WPPM; p_gt: from the ground truth.
-    p_fit = jax.vmap(
+    log_p_fit, _ = jax.vmap(
         lambda stim: task_smooth.predict(
             params=map_posterior.params, stimuli=stim, model=model, key=key_psych
         )
-    )(stims_psych)[0]
+    )(stims_psych)
+    p_fit = jnp.exp(log_p_fit)
 
-    p_gt = jax.vmap(
+    log_p_gt, _ = jax.vmap(
         lambda stim: task_smooth.predict(None, stim, weber_gt, key=key_psych)
-    )(stims_psych)[0]
+    )(stims_psych)
+    p_gt = jnp.exp(log_p_gt)
     # --8<-- [end:psychometric]
 
     psych_data[s_ref] = {

@@ -196,21 +196,21 @@ class TestMCLikelihood:
     def test_loglik_bernoulli_exact_value_single_response_channel(self):
         """loglik must match the Bernoulli formula exactly.
 
-        Uses a stripped down version of predict that always returns p=0.7,
-        so the expected log-likelihood is analytically known. Catches broadcasting
+        Uses a stripped down version of predict that always returns the
+        log-probabilities of p=0.7, so the expected log-likelihood is analytically known. Catches broadcasting
         bugs where (N, 1) responses broadcast against (N,) probs to produce an
         (N, N) sum instead of (N,).
 
         """
 
-        # subclass OddityTask overriding predict to always return a fixed probability.
+        # subclass OddityTask overriding predict to always return fixed log-probabilities.
         # This makes the expected log-likelihood analytically computable so we can
         # assert the exact value. ie, no MC variance and no model dependency.
         # *_args, **_kwargs: accept and ignore all arguments (stimuli, params, key)
         # since we only care that loglik applies the Bernoulli formula correctly.
         class FixedProbTask(OddityTask):
             def predict(self, *_args, **_kwargs):
-                return jnp.array(0.7)
+                return jnp.log(0.7), jnp.log(0.3)
 
         task = FixedProbTask()
         # dummy data: 3 data points

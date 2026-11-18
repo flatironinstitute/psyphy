@@ -9,10 +9,9 @@ checked claim rather than an intention. It pins three things:
    (`WPPM.predict_prob` and `WPPMPredictivePosterior` both require a
    `BernoulliTaskLikelihood`, so a task that quietly stops being one keeps
    fitting while silently breaking every prediction path);
-3. the `predict` return contract, which is a tuple of sufficient statistics.
-   A bare array here is not a type error: `BernoulliTaskLikelihood.loglik`
-   indexes element 0 after vmapping, so a scalar return silently collapses
-   every trial onto the first trial's probability.
+3. the `predict` return contract: a Bernoulli task returns the tuple
+   `(log_p, log_1mp)`, and every consumer of `predict` accepts a minimal task
+   that returns it (section 4).
 
 This file should keep passing unchanged through the package split.
 """
@@ -21,9 +20,12 @@ from __future__ import annotations
 
 import importlib
 
+import jax
 import jax.numpy as jnp
 import jax.random as jr
 import pytest
+
+from psyphy.model.likelihood import BernoulliTaskLikelihood, log_probs_from_logit
 
 # --------------------------------------------------------------------------
 # 1. public names, at every path they are importable from
@@ -35,6 +37,7 @@ LIKELIHOOD_NAMES = [
     "GaussianTaskLikelihood",
     "OddityTask",
     "OddityTaskConfig",
+    "log_probs_from_logit",
 ]
 
 # Names re-exported one level up, from psyphy.model. A subset:
@@ -129,13 +132,13 @@ def test_predict_returns_a_tuple_not_a_bare_array():
 
     out = model.likelihood.predict(params, stimuli, model, key=jr.PRNGKey(1))
 
-    assert isinstance(out, tuple), (
-        "predict must return a tuple of sufficient statistics; a bare array makes "
-        "BernoulliTaskLikelihood.loglik silently use trial 0 for every trial"
-    )
-    assert len(out) == 1, "Bernoulli tasks return exactly (p_correct,)"
-    assert jnp.ndim(out[0]) == 0, "p_correct is a scalar per trial"
-    assert 0.0 < float(out[0]) < 1.0
+    assert isinstance(out, tuple), "predict must return a tuple"
+    assert len(out) == 2, "Bernoulli tasks return exactly (log_p, log_1mp)"
+    log_p, log_1mp = out
+    assert jnp.ndim(log_p) == 0 and jnp.ndim(log_1mp) == 0, "one scalar each per trial"
+    assert float(log_p) < 0.0 and float(log_1mp) < 0.0
+    # complementary outcomes; float32 rounding is about 1e-7, so 1e-5 is 100x headroom
+    assert float(jnp.exp(log_p) + jnp.exp(log_1mp)) == pytest.approx(1.0, abs=1e-5)
 
 
 def test_loglik_uses_each_trial_separately():
@@ -150,7 +153,8 @@ def test_loglik_uses_each_trial_separately():
 
     class VaryingTask(BernoulliTaskLikelihood):
         def predict(self, params, stimuli, model, *, key=None):
-            return (jnp.where(stimuli[0, 0] > 0.5, 0.9, 0.1),)
+            p = jnp.where(stimuli[0, 0] > 0.5, 0.9, 0.1)
+            return jnp.log(p), jnp.log1p(-p)
 
     data = types.SimpleNamespace(
         stimuli=jnp.array(
@@ -166,3 +170,123 @@ def test_loglik_uses_each_trial_separately():
         f"loglik={got}, expected {expected}; {collapsed} would mean every trial "
         "is using trial 0's probability"
     )
+
+
+# --------------------------------------------------------------------------
+# 4. a minimal conforming Bernoulli task, through every consumer of predict
+# --------------------------------------------------------------------------
+
+SLOPE = 50.0  # logit units per unit of distance
+RADIUS = 0.1  # distance where p(correct) = 2/3, the threshold criterion
+
+
+class DistanceTask(BernoulliTaskLikelihood):
+    """p(correct) = sigmoid(SLOPE * (distance - RADIUS) + log 2): 2/3 at RADIUS."""
+
+    def predict(self, params, stimuli, model, *, key=None):
+        distance = jnp.linalg.norm(stimuli[1] - stimuli[0])
+        return log_probs_from_logit(SLOPE * (distance - RADIUS) + jnp.log(2.0))
+
+
+def _distance_model():
+    from psyphy.model import WPPM, GaussianNoise, Prior
+
+    return WPPM(
+        prior=Prior(input_dim=2, basis_degree=1),
+        likelihood=DistanceTask(),
+        noise=GaussianNoise(),
+    )
+
+
+def _pair(distance, axis=0):
+    """(K=2, d=2) stimuli, reference at the origin, comparison `distance` away."""
+    return jnp.stack([jnp.zeros(2), jnp.zeros(2).at[axis].set(distance)])
+
+
+def test_log_probs_from_logit_matches_the_sigmoid():
+    z = jnp.array([-4.0, 0.0, 3.0])
+    log_p, log_1mp = log_probs_from_logit(z)
+    assert jnp.allclose(jnp.exp(log_p), jax.nn.sigmoid(z), atol=1e-6)
+    assert jnp.allclose(jnp.exp(log_1mp), 1.0 - jax.nn.sigmoid(z), atol=1e-6)
+
+
+def test_minimal_task_through_loglik():
+    """loglik takes log p(correct) for a 1 and log p(incorrect) for a 0."""
+    import types
+
+    data = types.SimpleNamespace(
+        stimuli=jnp.stack([_pair(0.2), _pair(0.0)]),  # (2, K=2, d=2)
+        responses=jnp.array([[1], [0]]),
+    )
+    z = SLOPE * (jnp.array([0.2, 0.0]) - RADIUS) + jnp.log(2.0)  # (2,)
+    expected = jnp.log(jax.nn.sigmoid(z[0])) + jnp.log(1.0 - jax.nn.sigmoid(z[1]))
+
+    got = DistanceTask().loglik(None, data, None)
+
+    assert float(got) == pytest.approx(float(expected), abs=1e-5)
+
+
+def test_loglik_holds_each_trial_within_1e_6_of_0_and_1():
+    """A saturated trial adds log(1e-6) when wrong and log(1 - 1e-6) when right."""
+    import types
+
+    far = jnp.stack([_pair(1.0)])  # (1, K=2, d=2); logit about 46
+
+    wrong = DistanceTask().loglik(
+        None, types.SimpleNamespace(stimuli=far, responses=jnp.array([[0]])), None
+    )
+    right = DistanceTask().loglik(
+        None, types.SimpleNamespace(stimuli=far, responses=jnp.array([[1]])), None
+    )
+
+    # unclipped, wrong would be about -46 and right about -1e-20
+    assert float(wrong) == pytest.approx(float(jnp.log(1e-6)), abs=1e-5)
+    assert float(right) == pytest.approx(float(jnp.log1p(-1e-6)), abs=1e-7)
+
+
+def test_minimal_task_through_simulate():
+    """simulate returns (responses, (p_correct,)), with p_correct = exp(log_p)."""
+    stimuli = jnp.stack([_pair(RADIUS), _pair(1.0)])  # p = 2/3, then p rounds to 1
+    responses, (p_correct,) = DistanceTask().simulate(
+        None, stimuli, None, key=jr.PRNGKey(0)
+    )
+
+    assert responses.shape == (2,)
+    assert p_correct.shape == (2,)
+    assert float(p_correct[0]) == pytest.approx(2.0 / 3.0, abs=1e-5)
+    assert int(responses[1]) == 1  # p_correct == 1.0, so every draw is correct
+
+
+def test_minimal_task_through_predict_prob():
+    model = _distance_model()
+    params = model.init_params(jr.PRNGKey(0))  # DistanceTask ignores them
+
+    p = model.predict_prob(params, (jnp.zeros(2), jnp.array([RADIUS, 0.0])))
+
+    assert float(p) == pytest.approx(2.0 / 3.0, abs=1e-5)
+
+
+def test_minimal_task_through_the_predictive_posterior():
+    """Both modes: p(correct) at paired stimuli, and the recovered threshold."""
+    from psyphy.posterior import MAPPosterior, ThresholdConfig, WPPMPredictivePosterior
+
+    model = _distance_model()
+    posterior = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
+
+    X_pairs = jnp.stack([_pair(RADIUS, axis=0), _pair(RADIUS, axis=1)])  # (2, K=2, d=2)
+    probs = WPPMPredictivePosterior(posterior, X_pairs, n_samples=2, key=jr.PRNGKey(0))
+    assert jnp.allclose(probs.mean, 2.0 / 3.0, atol=1e-5)
+
+    # grid step 0.01 with RADIUS on the grid, so the threshold is a circle of radius RADIUS
+    cfg = ThresholdConfig(n_theta=8, n_length=20, bounds=(0.01, 0.2))
+    X_refs = jnp.array([[0.0, 0.0], [0.5, 0.5]])  # (n_test=2, d=2)
+    thresholds = WPPMPredictivePosterior(
+        posterior,
+        X_refs,
+        n_samples=1,
+        threshold_pred=True,
+        threshold_config=cfg,
+        key=jr.PRNGKey(0),
+    )
+    # off by about 2e-9 here; one grid step off moves an entry by 2e-3, 20 times the tolerance
+    assert jnp.allclose(thresholds.mean, RADIUS**2 * jnp.eye(2), atol=1e-4)
