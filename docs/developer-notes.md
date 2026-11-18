@@ -77,19 +77,48 @@ the caller chooses and hands ArviZ that instead, in an `xarray.DataTree` with di
 because `posterior.sample(n)` pools the chains and R-hat needs to know which chain a sample
 came from.
 
-The sampler statistics ride along in ArviZ's `sample_stats` group, and `NUTSSampler` spells
-their keys the way ArviZ reads them:
+The sampler statistics ride along in ArviZ's `sample_stats` group, and each engine spells
+their keys the way ArviZ reads them. Every engine reports `acceptance_rate`. The rest
+depend on the engine:
 
-- `diverging`
-- `energy`
-- `n_steps`
+- `NUTSSampler`: `diverging`, `energy`, `n_steps`
+- `MALASampler`: `is_accepted`
 
-A new engine that fills `sampler_stats` has to use those spellings, or `az.plot_energy` and
-the divergence ticks on a trace plot will not find the statistics they draw.
+A new engine that reports a divergence, an energy or a tree size has to use those
+spellings, or `az.plot_energy` and the divergence ticks on a trace plot will not find the
+statistics they draw. R-hat and effective sample size need only the draws, so they work
+the same for every engine.
 
 **What it costs.** The caller has to choose evaluation points, which is why `points` has no
 default. The diagnostics then describe $\Sigma$ at those points rather than the parameters
 themselves.
+
+---
+
+## MCMC engines share one chain loop, as functions
+
+**Symbols:** [`NUTSSampler`](reference/inference.md#psyphy.inference.NUTSSampler),
+[`MALASampler`](reference/inference.md#psyphy.inference.MALASampler).
+**Last updated:** 2026-11-17
+
+**What we wanted.** A second sampler without copying the 4 parts of a fit that have nothing
+to do with the sampler.
+
+**What psyphy does.** The private module `psyphy.inference.mcmc` holds those parts:
+
+- the log density with a fixed Monte Carlo key
+- prior preconditioning, sampling z = W / prior_std and returning W
+- all chains vmapped, burn-in then sampling
+- the draws wrapped in an `MCMCPosterior`
+
+An engine builds its BlackJAX kernel and calls `_fit_chains` with it. `NUTSSampler` and
+`MALASampler` each subclass `InferenceEngine` only. The engines tune in different ways
+(window adaptation for NUTS, none for MALA), so each one tunes before it hands over the
+kernel.
+
+**What it costs.** There is no public base class to subclass for a new sampler. A new engine
+goes into `psyphy.inference` next to the other two. We'd add a public base when someone
+outside psyphy needs to write one.
 
 ---
 
