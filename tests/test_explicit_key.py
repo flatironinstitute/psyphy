@@ -179,11 +179,10 @@ class TestSubsamplingStillTakesAKey:
 
         assert not jnp.allclose(a, b, atol=1e-6)
 
-    def test_point_mass_posterior_still_needs_n_samples(self, model, ref_points):
-        """A MAPPosterior exposes no n_chains, so it cannot infer the count."""
+    def test_point_mass_posterior_needs_no_key(self, model, ref_points):
+        """A MAPPosterior stores its 1 sample, so nothing is subsampled."""
         map_posterior = MAPPosterior(
             params=model.init_params(jr.PRNGKey(0)), model=model
         )
 
-        with pytest.raises(ValueError, match="n_samples"):
-            WPPMCovarianceFieldSamples(map_posterior)
+        assert WPPMCovarianceFieldSamples(map_posterior).n_samples == 1
