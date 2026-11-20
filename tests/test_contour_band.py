@@ -337,12 +337,10 @@ def test_non_2d_models_are_rejected():
         _fields(post, 4, jr.PRNGKey(0)).credible_band(jnp.array([[0.0]]))
 
 
-def test_map_posterior_needs_explicit_n_samples(tiny_model):
-    """MAPPosterior exposes no n_chains/n_draws, so the default cannot be inferred.
-
-    The draws are taken at construction, so this is where the count is needed.
-    """
+def test_map_posterior_band_raises_without_n_samples(tiny_model):
+    """A MAPPosterior stores 1 sample, and 1 sample has no band."""
     post = MAPPosterior(tiny_model, tiny_model.init_params(jr.PRNGKey(0)))
+    pts = jnp.array([[0.0, 0.0], [0.2, 0.2]])
 
-    with pytest.raises(ValueError, match="n_samples"):
-        _fields(post)
+    with pytest.raises(ValueError, match="no credible band"):
+        _fields(post).credible_band(pts)

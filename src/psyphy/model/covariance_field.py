@@ -78,7 +78,7 @@ def _draws_from(posterior, n_samples: int | None, key) -> tuple[dict, int]:
     ----------
     posterior : ParameterPosterior
         For the pooled path, one exposing ``samples``, ``n_chains`` and
-        ``n_draws``, which today means an ``MCMCPosterior``.
+        ``n_draws``, such as an ``MCMCPosterior`` or a ``MAPPosterior``.
     n_samples : int or None
         Draws to use, or None for every stored draw.
     key : jax.Array or None
@@ -179,6 +179,18 @@ class _PriorSource:
 
     def sample(self, n: int, *, key) -> dict:
         return self.model.prior.sample(n, key=key)
+
+
+class _OneSetSource:
+    """1 parameter set, stored as 1 chain with 1 sample for _draws_from."""
+
+    n_chains = 1
+    n_draws = 1
+
+    def __init__(self, model, params):
+        self.model = model
+        # (1, 1, *param_shape): chains, then samples per chain
+        self.samples = jax.tree.map(lambda x: jnp.asarray(x)[None, None], dict(params))
 
 
 @runtime_checkable
@@ -486,8 +498,8 @@ class WPPMCovarianceField:
         - Sample-based posteriors (e.g. ``MCMCPosterior``): ``params`` is the
           mean parameter E[W], and Σ(E[W]) is NOT the posterior mean of Σ. It
           is systematically too small and can collapse toward λI (see
-          ``WPPMCovarianceFieldSamples`` for why). A ``UserWarning`` is
-          raised in that case. Use
+          ``WPPMCovarianceFieldSamples`` for why). We raise a ``UserWarning``
+          when the posterior stores more than 1 sample. Use
           ``WPPMCovarianceFieldSamples(posterior).mean(x)``
           for E[Σ], or ``posterior.sample(n, key=...)`` for individual samples.
 
@@ -503,14 +515,12 @@ class WPPMCovarianceField:
         >>> field(jnp.array([0.5, 0.5])).shape  # doctest: +SKIP
         (2, 2)
         """
-        # Sample-based posteriors are recognized by duck typing (they expose a
-        # sample count), the same criterion _draws_from uses.
-        # isinstance(posterior, MCMCPosterior) would need an import from
-        # psyphy.posterior, which already imports psyphy.model -> cycle.
-        #
-        # Warns and does not switch to the posterior-mean field, which has a
-        # different return type and no sqrt_cov.
-        if getattr(posterior, "n_draws", None) is not None:
+        # stored sample count, by duck typing as in _draws_from. A MAPPosterior
+        # stores 1, and the mean of 1 sample is that sample
+        n_chains = getattr(posterior, "n_chains", None)
+        n_draws = getattr(posterior, "n_draws", None)
+        n_stored = int(n_chains or 1) * int(n_draws or 1)
+        if n_draws is not None and n_stored > 1:
             warnings.warn(
                 f"from_posterior() on a {type(posterior).__name__} builds Σ from the "
                 "mean parameter E[W]. Σ is nonlinear in W, so Σ(E[W]) is not the "
@@ -931,8 +941,10 @@ class WPPMCovarianceFieldSamples:
         :meth:`from_prior`.
     n_samples : int, optional
         How many samples to take. Omit it for every stored sample, which needs
-        the posterior to expose ``samples``, ``n_chains`` and ``n_draws``. A
-        point-mass posterior such as ``MAPPosterior`` has to pass this.
+        the posterior to expose ``samples``, ``n_chains`` and ``n_draws``.
+        ``MCMCPosterior`` and ``MAPPosterior`` both do, and a ``MAPPosterior``
+        stores 1 sample. For 1 parameter set with no posterior, use
+        :meth:`from_params`.
     key : jax.Array, optional
         PRNG key for the subsample. Required when ``n_samples`` is given, and
         unread otherwise, since every stored sample is taken in order.
@@ -1070,6 +1082,54 @@ class WPPMCovarianceFieldSamples:
         (8, 3, 3, 2, 3)
         """
         return cls(_PriorSource(model), n_samples=n_samples, key=key)
+
+    @classmethod
+    def from_params(cls, model, params: dict) -> WPPMCovarianceFieldSamples:
+        """
+        1 parameter set, such as a ground truth or a published W.
+
+        The result holds 1 sample, so ``fields(x)[0]`` is the covariance at
+        ``x``. No key, since nothing is drawn. After a fit, pass the posterior
+        to the constructor instead.
+
+        Parameters
+        ----------
+        model : WPPM
+            Model that evaluates the parameters.
+        params : dict
+            1 parameter set, with no leading sample axis. For WPPM:
+            ``{"W": (degree+1, degree+1, d, m)}``.
+
+        Returns
+        -------
+        WPPMCovarianceFieldSamples
+            With ``n_samples == 1``.
+
+        Raises
+        ------
+        TypeError
+            If ``model`` is a dict or ``params`` is not one, as when the two
+            arguments are swapped.
+
+        Examples
+        --------
+        >>> import jax.numpy as jnp
+        >>> import jax.random as jr
+        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
+        >>> params = model.init_params(jr.PRNGKey(0))  # {"W": (3, 3, 2, 3)}
+        >>> fields = WPPMCovarianceFieldSamples.from_params(model, params)
+        >>> fields.n_samples
+        1
+        >>> fields(jnp.array([0.5, 0.5])).shape  # (n_samples, d, d)
+        (1, 2, 2)
+        """
+        if isinstance(model, Mapping) or not isinstance(params, Mapping):
+            raise TypeError(
+                "from_params takes the model first: "
+                "WPPMCovarianceFieldSamples.from_params(model, params)"
+            )
+        return cls(_OneSetSource(model, params))
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
@@ -1220,7 +1280,10 @@ class WPPMCovarianceFieldSamples:
             If the model is not 2-D. The direction grid is a circle, and higher
             dimensions have no single analogous grid.
         ValueError
-            If ``ci_kind`` is unknown, or if any ``ci_prob`` is outside (0, 1).
+            If the object holds 1 sample, as after a MAP fit or
+            :meth:`from_params`. For a band, build it from an MCMC posterior.
+            Also if ``ci_kind`` is unknown, or if any ``ci_prob`` is outside
+            (0, 1).
 
         Examples
         --------
@@ -1238,6 +1301,12 @@ class WPPMCovarianceFieldSamples:
         >>> nested.upper.shape  # (n_levels, n_points, n_directions)
         (3, 2, 181)
         """
+        if self.n_samples == 1:
+            raise ValueError(
+                "1 parameter set has no spread, so it has no credible band. "
+                "Build the field from an MCMC posterior: "
+                "WPPMCovarianceFieldSamples(mcmc_posterior)."
+            )
         if ci_kind not in _CI_KINDS:
             raise ValueError(
                 f"ci_kind must be one of {sorted(_CI_KINDS)}, got {ci_kind!r}."

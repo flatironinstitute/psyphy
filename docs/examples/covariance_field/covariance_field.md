@@ -138,6 +138,7 @@ A different key gives a different field from the same prior:
 | `from_prior(model, key)` | Sample from prior | Initialization, visualization |
 | `from_posterior(posterior)` | Extract fitted field | Analysis after fitting |
 | `from_params(model, params)` | Any parameter set | tests, or fitted parameters saved earlier, e.g. from another subject |
+| `WPPMCovarianceFieldSamples.from_params(model, params)` | 1 parameter set, with a sample axis of length 1 | a ground truth or a published $W$, in the same shape as the samples of a fit |
 
 `from_posterior` builds the field from `posterior.params`, a single parameter set. For a
 maximum a posteriori (MAP) fit that is $W_\text{MAP}$, which is what you want. For a
