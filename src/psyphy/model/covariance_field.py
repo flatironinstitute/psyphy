@@ -144,6 +144,30 @@ def _sigma(model, params: dict, X: jnp.ndarray) -> jnp.ndarray:
     return Sigmas_flat.reshape(X.shape[:-1] + (d, d))
 
 
+def _sqrt(model, params: dict, X: jnp.ndarray) -> jnp.ndarray:
+    """U at every location for one parameter set.
+
+    Parameters
+    ----------
+    model : WPPM
+        Model providing ``_compute_sqrt``.
+    params : dict
+        One parameter set, with no leading draws axis.
+    X : jnp.ndarray, shape (..., d)
+        Stimulus locations, any number of batch dimensions.
+
+    Returns
+    -------
+    jnp.ndarray, shape (..., d, m)
+        One square root per location, ``m`` the embedding dimension.
+    """
+    d = model.input_dim
+    X_flat = X.reshape(-1, d)  # (n_flat, d)
+    # (n_flat, d, m)
+    U_flat = jax.vmap(lambda x: model._compute_sqrt(params, x))(X_flat)
+    return U_flat.reshape(X.shape[:-1] + U_flat.shape[-2:])
+
+
 _READ_ONLY = "{name} is fixed when the object is built. Build a new one: {build}"
 
 
@@ -894,11 +918,10 @@ class WPPMCovarianceFieldSamples:
     averaged parameters gives contours several times too small, because
     :math:`\Sigma(x) = U(x) U(x)^\top + \lambda I` is nonlinear in :math:`W`.
 
-    There is no ``sqrt_cov``. An average of :math:`U U^\top` is not
-    :math:`U U^\top` for any single :math:`U`, so no matrix here is the field's
-    square root. For a factor of the mean matrix, use
-    ``jnp.linalg.cholesky(fields.mean(x))``. :class:`WPPMCovarianceField` has
-    ``sqrt_cov``, for one parameter set.
+    :meth:`sqrt_cov` gives :math:`U(x)` for every draw. The mean matrix has no
+    :math:`U`, because an average of :math:`U U^\top` is not :math:`U U^\top`
+    for any single :math:`U`. For a factor of the mean matrix, use
+    ``jnp.linalg.cholesky(fields.mean(x))``.
 
     Parameters
     ----------
@@ -1109,6 +1132,38 @@ class WPPMCovarianceFieldSamples:
         if x.ndim == 1:
             return self._mean_single(x)
         return self._mean_batch_jitted(x)
+
+    def sqrt_cov(self, x: jnp.ndarray) -> jnp.ndarray:
+        r"""
+        Evaluate the square root :math:`U(x)` for every draw.
+
+        Parameters
+        ----------
+        x : jnp.ndarray, shape (d,) or (..., d)
+            One stimulus location, or any batch of them. The last axis must
+            have size ``input_dim``.
+
+        Returns
+        -------
+        U : jnp.ndarray, shape (n_samples, d, m) or (n_samples, ..., d, m)
+            One matrix per draw per location, ``m`` the embedding dimension.
+            :math:`U U^\top + \lambda I` is the matching matrix of ``fields(x)``,
+            with :math:`\lambda` the model's ``diag_term``.
+
+        Examples
+        --------
+        >>> import jax.numpy as jnp
+        >>> import jax.random as jr
+        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
+        >>> fields = WPPMCovarianceFieldSamples.from_prior(
+        ...     model, n_samples=8, key=jr.PRNGKey(0)
+        ... )
+        >>> fields.sqrt_cov(jnp.array([0.5, 0.3])).shape  # (n_samples, d, m)
+        (8, 2, 3)
+        """
+        self._check_input_dim(x)
+        return jax.vmap(lambda params: _sqrt(self.model, params, x))(self.samples)
 
     def credible_band(
         self,

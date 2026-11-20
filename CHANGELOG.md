@@ -216,6 +216,20 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Added
 
+- **`MALASampler` in `psyphy.inference`**, a second MCMC engine. It runs the
+  Metropolis-adjusted Langevin algorithm from BlackJAX, with one gradient per step and a
+  fixed step size. It returns an `MCMCPosterior` with the same layout as `NUTSSampler`, so
+  `covariance_to_arviz`, `WPPMCovarianceFieldSamples` and `plot_ellipses` take either.
+
+  ```python
+  sampler = MALASampler(num_warmup=2000, num_samples=2000, step_size=1e-4)
+  posterior = sampler.fit(model, data, init_params=map_posterior.params)
+  posterior.sampler_stats["acceptance_rate"].mean()  # aim for about 0.6
+  ```
+
+  `step_size` has no default. `sampler_stats` holds `acceptance_rate` and `is_accepted`,
+  with no `diverging`, `energy` or `n_steps`.
+
 - **`ParameterSource` in `psyphy.posterior`**, a one-method protocol for anything we can
   draw parameters from: `sample(n, *, key)` returning a PyTree with a leading axis of `n`.
   `Prior`, `MAPPosterior` and `MCMCPosterior` all satisfy it, and `ParameterPosterior` now
@@ -239,6 +253,18 @@ breaking changes are called out below but do not force a minor-version bump.
 
   `sample_params(key)` keeps its single-draw signature, because `model.init_params` is on
   the inference path and wants one unbatched draw rather than a batch of 1 to index.
+
+- **`WPPMCovarianceFieldSamples.sqrt_cov(x)`** returns the square root `U` for every
+  sample, shape `(N, d, m)` for one point or `(N, ..., d, m)` for a batch. `U U^T +
+  diag_term * I` equals `fields(x)[i]` for each `i`:
+
+  ```python
+  fields = WPPMCovarianceFieldSamples(posterior)
+  U = fields.sqrt_cov(x)   # (N, d, m)
+  ```
+
+  `isinstance(fields, CovarianceField)` is now `True`, since the check reads member names.
+  Its outputs still carry the leading `N` axis.
 
 ### Breaking
 
