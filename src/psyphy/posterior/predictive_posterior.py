@@ -54,6 +54,10 @@ class ThresholdConfig:
         Number of directions probed around each reference point. Must be at
         least ``d * (d + 1) // 2`` (the number of free parameters of a
         symmetric ``d x d`` matrix) or the ellipsoid fit is underdetermined.
+        Raise it as ``d`` grows. In 2-D the directions are evenly spaced and
+        the default 16 is enough. From 3-D on they are random unit vectors, and
+        with 16 the fitted ellipsoid is off in some directions; use 64 in 3-D
+        (about 4 times the cost of 16).
     n_length : int
         Number of candidate distances probed per direction. Brute-force
         search rather than bisection: P(correct) is only monotone in
