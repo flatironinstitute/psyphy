@@ -170,6 +170,18 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Changed
 
+- **`WPPMCovarianceFieldSamples.credible_band` raises `ValueError` for 1 sample.** Before,
+  it returned a band of zero width, with `lower`, `median` and `upper` equal. A plot of it
+  read as certainty.
+
+  ```python
+  WPPMCovarianceFieldSamples(map_posterior).credible_band(points)  # raises ValueError
+  WPPMCovarianceFieldSamples(mcmc_posterior).credible_band(points)  # unchanged
+  ```
+
+- **`WPPMCovarianceField.from_posterior` warns only for more than 1 stored sample.** Before,
+  it warned for any posterior with an `n_draws`, which now includes `MAPPosterior`.
+
 - **The model comes first in `MAPPosterior` and `MCMCPosterior`.** Both now match
   `WPPMCovarianceField(model, params)`, `from_prior(model, key)` and `fit(model, data)`.
   Calls that name the arguments still work.
@@ -215,6 +227,33 @@ breaking changes are called out below but do not force a minor-version bump.
   only to shuffle something about to be averaged.
 
 ### Added
+
+- **`MAPPosterior` stores its 1 sample**, as `samples`, `n_chains` and `n_draws`, in the
+  layout `MCMCPosterior` uses. So `WPPMCovarianceFieldSamples(map_posterior)` takes a MAP
+  fit with no `n_samples` and no key:
+
+  ```python
+  map_posterior.samples["W"].shape  # (1, 1, 3, 3, 2, 3): 1 chain, 1 sample, then W
+  map_posterior.n_chains, map_posterior.n_draws  # (1, 1)
+
+  # before
+  WPPMCovarianceFieldSamples(map_posterior, n_samples=1, key=key)
+  # now
+  WPPMCovarianceFieldSamples(map_posterior)  # n_samples == 1
+  ```
+
+  A posterior with no `samples`, `n_chains` and `n_draws` still raises and asks for
+  `n_samples` and a key.
+
+- **`WPPMCovarianceFieldSamples.from_params(model, params)`** holds 1 parameter set, such
+  as a ground truth or a published `W`, with no key. `params` has no leading sample axis.
+
+  ```python
+  fields = WPPMCovarianceFieldSamples.from_params(model, params)  # n_samples == 1
+  fields(x)[0]  # (d, d), the same as model.local_covariance(params, x)
+  ```
+
+  A swapped call, `from_params(params, model)`, raises `TypeError`.
 
 - **`MALASampler` in `psyphy.inference`**, a second MCMC engine. It runs the
   Metropolis-adjusted Langevin algorithm from BlackJAX, with one gradient per step and a
