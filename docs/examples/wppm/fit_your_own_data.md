@@ -13,11 +13,7 @@ code fits 3-D stimuli.
 The companion script is
 [`fit_your_own_data.py`](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/fit_your_own_data.py).
 
-!!! note "The fit shown here has not converged"
-    Figures and numbers come from `--mode quick`, a smoke test that runs in ca. 1 min on a
-    laptop CPU. All 3 checks below catch it. `--mode full` uses Hong et al.'s Monte Carlo
-    settings and needs a GPU.
-    <!-- CLUSTER: replace with the --mode full figures and numbers, then drop this note -->
+The figures come from `--mode full`, Hong et al.'s Monte Carlo settings, run on 1 GPU.
 
 ??? note "How to run the script"
 
@@ -142,7 +138,11 @@ ellipsoid is tilted out of it.
 <div align="center">
   <img src="../plots/own_data_thresholds.png" width="440"/>
   <p><em>Threshold contours at 66.7% correct (<code>thresholds</code> above), not the noise
-  field <code>covs</code>. Solid: fit from seed 0. Dashed: fit from seed 1.</em></p>
+  field <code>covs</code>, on a 7 x 7 grid of reference points. Solid: fit from seed 0.
+  Dashed: fit from seed 1. The 2 fits agree in the upper half and on the right. In the
+  lower left (<i>x</i><sub>1</sub> &lt; 0, <i>x</i><sub>2</sub> &lt; -0.25) the contours of seed 1 are larger and longer, so
+  there the 2 fits found different fields. <a href="#checks-with-no-ground-truth">Check
+  (a)</a> shows why.</em></p>
 </div>
 
 ## Checks with no ground truth
@@ -156,11 +156,16 @@ A curve that still trends down needs more steps, and spikes mean the fit hasn't 
   <img src="../plots/own_data_learning_curve.png" width="460"/>
   <p><em>The loss <code>MAPOptimizer</code> minimizes, at each step: the negative log
   posterior divided by the number of trials N, i.e. the negative log likelihood plus the
-  negative log prior, per trial. One line per fit.</em></p>
+  negative log prior, per trial. One line per fit. Both drop within the first 50 steps
+  and flatten near 0.51. Each spike is a step that jumped away from the plateau, and the
+  loss comes back down after it. The last spike of seed 1, at ca. step 1,470, hasn't come
+  back down by the final step.</em></p>
 </div>
 
-A flat curve alone doesn't show convergence, since a fit can sit on a plateau well above the
-optimum. So we also run (b).
+`MAPOptimizer` returns the parameters of the final step. A curve that ends on a spike
+therefore returns a fit from inside the spike, as seed 1 does here. Run more steps, or fit
+again from another seed. A flat curve alone doesn't show convergence either, since a fit can
+sit on a plateau above the optimum. So we also run (b).
 
 **(b) 2 fits from different prior samples give the same field.** We compare the thresholds
 of the 2 fits point by point, as the relative Frobenius distance
@@ -171,8 +176,7 @@ $\lVert \Sigma_1 - \Sigma_0 \rVert_F / \lVert \Sigma_0 \rVert_F$:
 ```
 
 For a converged fit this is close to 0 at every point. A value near 1 means the 2 fits
-found different fields, as in the threshold figure above.
-<!-- CLUSTER: median and max for --mode full -->
+found different fields, as in the lower left of the threshold figure above.
 
 **(c) The fit predicts trials it wasn't fitted on.** We sort the held-out trials into 10 bins
 by predicted P(correct), and compare each bin's mean prediction with the proportion of
@@ -184,7 +188,11 @@ correct responses in it:
 
 <div align="center">
   <img src="../plots/own_data_held_out.png" width="360"/>
-  <p><em>One dot per bin, with 2 standard errors. Gray: perfect prediction.</em></p>
+  <p><em>Fit from seed 0, on the 6,000 held-out trials. One dot per bin of 600 trials,
+  with 2 standard errors. Gray: perfect prediction. The dots follow the diagonal from a
+  predicted P(correct) of 0.35 to 1, and the error bars of most bins cross it, so the fit
+  predicts trials it wasn't fitted on. 2 bins, near 0.58 and 0.84, sit just above
+  it.</em></p>
 </div>
 
 The dots should lie on the diagonal, within their error bars. Dots above it mean the fit
@@ -202,7 +210,6 @@ predicts too few correct responses, dots below too many.
     For your simulation, pass your true `W` in place of `W_published`, in the shape
     `prior` gives it. `load_reference_W` reads 2-D weights only. If your simulation
     returns $\Sigma$ at the reference points instead, compare `covs` with those.
-    <!-- CLUSTER: median and max relative error for --mode full -->
 
 ## Next steps
 
