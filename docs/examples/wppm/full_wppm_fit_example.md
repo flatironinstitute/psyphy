@@ -212,6 +212,7 @@ W_\text{MAP} = \arg\max_{W} \big[\log p(\mathcal{D}\mid W) + \log p(W)\big].
 - $\log p(\mathcal{D}\mid W)$ is computed by the task's log-likelihood (here via Monte Carlo inside `OddityTask.loglik`).
 
 The result in this example is a [`MAPPosterior`](../../reference/posterior.md#psyphy.posterior.MAPPosterior) object that contains a point estimate `map_posterior.params`.
+It also stores that estimate the way an MCMC fit stores its samples: `map_posterior.samples["W"]` has shape `(1, 1, ...)`, 1 chain and 1 sample per chain before the axes of $W$, and `n_chains` and `n_draws` are both 1. No sampler ran, though. It's just the layout, so `WPPMCovarianceFieldSamples(map_posterior)` takes the fit without a key.
 
 
 ---
