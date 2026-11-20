@@ -186,9 +186,8 @@ def main(mode: str) -> None:
     # --8<-- [end:eval_model]
 
     # --8<-- [start:thresholds]
-    n_theta = (
-        16 if d == 2 else 64
-    )  # directions probed per reference, raise it as d grows
+    # directions probed per reference, raise it as d grows
+    n_theta = 16 if d == 2 else 64
     thresholds = []
     for fit in fits:
         predictive = WPPMPredictivePosterior(
