@@ -254,6 +254,18 @@ breaking changes are called out below but do not force a minor-version bump.
   `sample_params(key)` keeps its single-draw signature, because `model.init_params` is on
   the inference path and wants one unbatched draw rather than a batch of 1 to index.
 
+- **`WPPMCovarianceFieldSamples.sqrt_cov(x)`** returns the square root `U` for every
+  sample, shape `(N, d, m)` for one point or `(N, ..., d, m)` for a batch. `U U^T +
+  diag_term * I` equals `fields(x)[i]` for each `i`:
+
+  ```python
+  fields = WPPMCovarianceFieldSamples(posterior)
+  U = fields.sqrt_cov(x)   # (N, d, m)
+  ```
+
+  `isinstance(fields, CovarianceField)` is now `True`, since the check reads member names.
+  Its outputs still carry the leading `N` axis.
+
 ### Breaking
 
 - **`cov()` and `cov_batch()` are gone from the covariance fields.** Both methods have
