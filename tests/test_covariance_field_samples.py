@@ -234,11 +234,10 @@ def test_subsample_requires_a_key(posterior):
         WPPMCovarianceFieldSamples(posterior, n_samples=10)
 
 
-def test_needs_n_samples_without_a_sample_count(model):
-    """MAP (or any posterior without n_chains/n_draws) must be told how many."""
+def test_map_posterior_needs_no_n_samples(model):
+    """A MAPPosterior stores its 1 sample, so the count is known."""
     point_mass = MAPPosterior(model, model.init_params(jr.PRNGKey(0)))
-    with pytest.raises(ValueError, match="n_samples"):
-        WPPMCovarianceFieldSamples(point_mass)
+    assert WPPMCovarianceFieldSamples(point_mass).n_samples == 1
 
 
 def test_map_posterior_gives_sigma_of_theta_map(model, X):
