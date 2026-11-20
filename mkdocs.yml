@@ -91,7 +91,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Quickstart: usage.md
+  - Fit Your Own Data: examples/wppm/fit_your_own_data.md
   - API:
     - Overview: reference/overview.md
     - Reference: reference.md
