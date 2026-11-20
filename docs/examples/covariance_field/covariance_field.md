@@ -149,6 +149,9 @@ evaluates $\Sigma$ for every posterior draw and averages the matrices, giving
 $\mathbb{E}[\Sigma(x)]$. See
 [Step 5 of the NUTS tutorial](../wppm/nuts_inference_example.md#step-5-plotting-posterior-samples-and-credible-intervals).
 
+`WPPMCovarianceFieldSamples(posterior).sqrt_cov(x)` returns $U(x)$ for every draw, shape
+`(n_samples, d, m)` for one point, with $m$ the embedding dimension.
+
 ### Evaluation
 
 | Method | Input Shape | Output Shape | Description |
