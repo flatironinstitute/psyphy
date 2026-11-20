@@ -346,20 +346,69 @@ def test_invariant_to_embedding_rotations(model, X):
 
 
 # ==============================================================================
+# The square root, per draw
+# ==============================================================================
+
+
+def test_sqrt_cov_is_the_models_square_root_per_draw(posterior, X, model):
+    """sqrt_cov(x)[i] is model._compute_sqrt on draw i, shape (N, n_points, d, m)."""
+    fields = WPPMCovarianceFieldSamples(posterior)
+    U = fields.sqrt_cov(X)  # (50, n_points=2, d=2, m=3)
+    assert U.shape == (50, 2, 2, 3)
+
+    pooled = posterior.samples["W"].reshape(50, *posterior.samples["W"].shape[2:])
+    for i in (0, 17, 49):
+        for j in range(2):
+            ref = model._compute_sqrt({"W": pooled[i]}, X[j])
+            assert jnp.allclose(U[i, j], ref, rtol=0.0, atol=ATOL)
+
+
+def test_sqrt_cov_squares_to_the_field(posterior, X, model):
+    """U U^T + diag_term * I equals fields(x)[i] for every draw."""
+    fields = WPPMCovarianceFieldSamples(posterior)
+    U = fields.sqrt_cov(X)
+    sigma = U @ jnp.swapaxes(U, -1, -2) + model.diag_term * jnp.eye(2)
+    assert jnp.allclose(sigma, fields(X), rtol=0.0, atol=ATOL)
+
+
+def test_sqrt_cov_single_point_and_batch_shapes(posterior, X):
+    """Shape (d,) drops the points axis, and a grid keeps its shape."""
+    fields = WPPMCovarianceFieldSamples(posterior, n_samples=5, key=jr.PRNGKey(0))
+    assert fields.sqrt_cov(X[0]).shape == (5, 2, 3)
+    assert fields.sqrt_cov(jnp.zeros((4, 3, 2))).shape == (5, 4, 3, 2, 3)
+    assert jnp.allclose(
+        fields.sqrt_cov(X[0]), fields.sqrt_cov(X)[:, 0], rtol=0.0, atol=ATOL
+    )
+
+
+def test_sqrt_cov_rejects_wrong_input_dim(posterior):
+    fields = WPPMCovarianceFieldSamples(posterior)
+    with pytest.raises(ValueError, match="input_dim"):
+        fields.sqrt_cov(jnp.zeros((3,)))
+
+
+def test_sqrt_cov_has_no_average(posterior, X):
+    """An average of U U^T has no single U behind it, so the mean is not a root."""
+    fields = WPPMCovarianceFieldSamples(posterior)
+    U = fields.sqrt_cov(X)
+    # averaging the draws of U gives a different matrix than U U^T averaged
+    from_mean_U = U.mean(axis=0) @ jnp.swapaxes(U.mean(axis=0), -1, -2)
+    gap = jnp.abs(from_mean_U - (U @ jnp.swapaxes(U, -1, -2)).mean(axis=0)).max()
+    assert gap > 1e-3
+
+
+# ==============================================================================
 # What the class is not
 # ==============================================================================
 
 
-def test_no_square_root(posterior, X):
-    """An average of U U^T has no single U behind it, so sqrt_cov is absent."""
+def test_shapes_differ_from_a_covariance_field(posterior, X, model):
+    """isinstance checks member names, which now match. The shapes still differ."""
     fields = WPPMCovarianceFieldSamples(posterior)
-    assert not hasattr(fields, "sqrt_cov")
-
-
-def test_is_not_a_covariance_field(posterior):
-    """fields(x) carries a draws axis and there is no U(x), so the protocol fails."""
-    fields = WPPMCovarianceFieldSamples(posterior)
-    assert not isinstance(fields, CovarianceField)
+    assert isinstance(fields, CovarianceField)
+    one = WPPMCovarianceField(model, {"W": fields.samples["W"][0]})
+    assert fields(X).shape == (50,) + one(X).shape
+    assert fields.sqrt_cov(X).shape == (50,) + one.sqrt_cov_batch(X).shape
 
 
 # ==============================================================================
