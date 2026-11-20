@@ -13,7 +13,7 @@ breaking changes are called out below but do not force a minor-version bump.
 - **A Bernoulli task's `predict` returns `(log_p, log_1mp)`, not `(p_correct,)`.** These
   are log p(correct) and log p(incorrect) for one trial. `loglik` takes one of the 2 by the
   response and holds it in [1e-6, 1 - 1e-6], the bound `OddityTask.predict` applied to
-  p(correct) before. So the log-likelihood is the same, up to float32 rounding. `predict`
+  p(correct) before. So the log-likelihood is the same, up to float 32 rounding. `predict`
   itself no longer clips, and `WPPM.predict_prob` and `simulate` return `exp(log_p)`, which
   can be exactly 1.0.
 
