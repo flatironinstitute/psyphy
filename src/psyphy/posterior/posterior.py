@@ -20,7 +20,10 @@ class MAPPosterior:
     """
     MAP (Maximum A Posteriori) posterior: the point estimate θ_MAP.
 
-    Carries no uncertainty.
+    Carries no uncertainty. It stores θ_MAP as 1 chain with 1 sample, the same
+    layout an ``MCMCPosterior`` uses for its samples, so
+    ``WPPMCovarianceFieldSamples(map_posterior)`` needs no ``n_samples`` and no
+    key. The chain axis is only a layout: no sampler ran.
 
     Parameters
     ----------
@@ -60,6 +63,29 @@ class MAPPosterior:
     def model(self):
         """Return the associated model."""
         return self._model
+
+    @property
+    def samples(self) -> dict:
+        """θ_MAP as 1 chain with 1 sample.
+
+        Returns
+        -------
+        dict
+            ``{name: array of shape (1, 1, *param_shape)}``, axes chains, then
+            samples per chain. For WPPM: ``{"W": (1, 1, d0, d1, d2, d3)}``.
+            A fresh dict on every call.
+        """
+        return jax.tree.map(lambda x: jnp.asarray(x)[None, None], dict(self._params))
+
+    @property
+    def n_chains(self) -> int:
+        """Number of chains, always 1."""
+        return 1
+
+    @property
+    def n_draws(self) -> int:
+        """Number of samples per chain, always 1."""
+        return 1
 
     def sample(self, n: int, key):
         """
