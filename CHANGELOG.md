@@ -276,6 +276,12 @@ breaking changes are called out below but do not force a minor-version bump.
   breaks. `threshold_pred` and `ThresholdConfig` in `psyphy.posterior` keep their names,
   because the contour they recover is defined by a target probability correct.
 
+- **A page, *Fit your own data*** (`docs/examples/wppm/fit_your_own_data.md`), replaces
+  `usage.md` in the nav. It reads trials from a CSV into a `TrialData`, fits a `WPPM` and
+  checks the fit with no ground truth. Its script takes the number of stimulus dimensions
+  from the data, so it fits 2-D and 3-D stimuli. The `ThresholdConfig.n_theta` docstring now
+  says to raise it as the dimension grows: 16 is enough in 2-D, use 64 in 3-D.
+
 ### Fixed
 
 - **`WPPMCovarianceField.from_posterior` accepts any `ParameterPosterior`.** It read the
