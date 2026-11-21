@@ -537,7 +537,7 @@ if steps_hist:
 if steps_hist and loss_hist:
     fig2, ax2 = plt.subplots(figsize=(6, 4))
     ax2.set_xlim(steps_hist[0], steps_hist[-1])
-    ax2.plot(steps_hist, loss_hist, color="#4444aa")
+    ax2.plot(steps_hist, loss_hist, color="C0")
     ax2.set_title(
         f"Learning curve \n lr={lr}, steps={steps} - MC-samples={MC_SAMPLES}, num-trials-per-ref={num_trials_per_ref}"
     )

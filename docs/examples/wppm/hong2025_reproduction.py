@@ -664,7 +664,7 @@ def stage3_refit(
     )
 
     fig, ax = plt.subplots(figsize=(6, 4), dpi=150)
-    ax.plot(loss_hist, color="#4444aa")
+    ax.plot(loss_hist, color="C0")
     ax.set_xlabel("Step")
     ax.set_ylabel("Neg log posterior (per trial)")
     ax.set_title(f"Learning curve — mode={mode}, N={data.num_trials}", fontsize=9)

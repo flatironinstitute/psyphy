@@ -211,7 +211,7 @@ LEARNING_RATE = 5e-4
 
 # Reference levels for the psychometric function panel (in physical units)
 PSYCH_LEVELS_PHYS = [0.3, 0.6, 0.9]
-PSYCH_COLORS = ["#2166ac", "#d6604d", "#4dac26"]
+PSYCH_COLORS = ["C0", "C1", "C2"]
 
 # ---------------------------------------------------------------------------
 # Unified axis label constants
@@ -466,7 +466,7 @@ def draw_trial_scatter(ax):
         d_np[~correct] + jitter_i,
         s=5,
         alpha=0.3,
-        color="#d6604d",
+        color="C3",
         label="Incorrect",
         rasterized=True,
     )
@@ -475,7 +475,7 @@ def draw_trial_scatter(ax):
         d_np[correct] + jitter_c,
         s=5,
         alpha=0.3,
-        color="#054907",
+        color="C2",
         label="Correct",
         rasterized=True,
     )
@@ -510,7 +510,7 @@ def draw_jnd_recovery(ax):
     ax.plot(
         s_grid,
         jnd_fitted,
-        color="#c0392b",
+        color="C3",
         linewidth=2,
         label=r"WPPM: $\sqrt{\hat{\Sigma}(s)}$",
     )
@@ -533,7 +533,7 @@ def draw_weber_fraction(ax):
     ax.plot(
         s_grid,
         weber_fraction_fitted,
-        color="#c0392b",
+        color="C3",
         linewidth=2,
         label=r"WPPM: $\sqrt{\hat{\Sigma}(s)}\,/\,s$",
     )
@@ -619,7 +619,7 @@ def draw_fechner(ax):
     ax.plot(
         s_grid,
         psi_truth,
-        color="#888888",
+        color="gray",
         linewidth=1.5,
         linestyle=":",
         label=r"Ground truth $\int 1/\sqrt{\Sigma_\mathrm{gt}}\,ds$",
@@ -627,7 +627,7 @@ def draw_fechner(ax):
     ax.plot(
         s_grid,
         psi_fitted,
-        color="#c0392b",
+        color="C3",
         linewidth=2,
         label=r"WPPM: $\int \frac{1}{\sqrt{\hat\Sigma(s)}}\,ds$",
     )
@@ -733,7 +733,7 @@ steps_hist, loss_hist = optimizer.get_history()  # (step indices, neg-log-poster
 #   diverged -> climbs or hits NaN/Inf (lower LEARNING_RATE; MAPOptimizer stops
 #       early and prints a "Non-finite loss" message).
 if steps_hist:
-    ax6.plot(steps_hist, loss_hist, color="#4444aa", linewidth=1.5)
+    ax6.plot(steps_hist, loss_hist, color="C0", linewidth=1.5)
     ax6.set_xlabel("optimization step")
     ax6.set_ylabel(r"Negative log posterior $-(\log \mathcal{L} + \log p(W))$")
     ax6.set_title(
@@ -834,7 +834,7 @@ if RUN_BASIS_SWEEP:
     # --8<-- [end:basis_sweep]
 
     fig_s, ax_s = plt.subplots(figsize=(5.5, 4.2))
-    ax_s.plot(sweep_degrees, heldout_ll_per_trial, "o-", color="#2166ac", linewidth=2)
+    ax_s.plot(sweep_degrees, heldout_ll_per_trial, "o-", color="C0", linewidth=2)
     # Parsimony rule: pick the simplest degree whose held-out score is within a
     # small tolerance of the best. Differences below MC noise do not justify the
     # extra parameters, so we prefer the smallest sufficient model.
@@ -846,7 +846,7 @@ if RUN_BASIS_SWEEP:
         [heldout_ll_per_trial[chosen]],
         s=170,
         facecolors="none",
-        edgecolors="#c0392b",
+        edgecolors="C3",
         linewidths=2,
         zorder=5,
         label=f"simplest sufficient: degree {sweep_degrees[chosen]}",
