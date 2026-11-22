@@ -41,7 +41,8 @@ breaking changes are called out below but do not force a minor-version bump.
   ```
 
   `jax.vmap(field)(X)` evaluates the points one at a time and puts them first,
-  `(n_points, 1, d, d)`. Pass `X` to `field` directly for the samples first.
+  `(n_points, 1, d, d)`. Pass `X` to `field` directly for the samples first, or write
+  `jax.vmap(field, out_axes=1)(X)` inside code that has to `vmap` over the points.
 
   ```python
   # before
