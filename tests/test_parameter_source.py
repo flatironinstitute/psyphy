@@ -217,14 +217,14 @@ class TestDrawSemantics:
 
 
 class MinimalPosterior:
-    """params, model and sample, and nothing else."""
+    """model and sample, and nothing else."""
 
     def __init__(self, model, params):
         self.model = model
-        self.params = params
+        self._theta = params  # one parameter set, repeated by sample
 
     def sample(self, n, *, key):
-        return jax.tree.map(lambda x: jnp.broadcast_to(x, (n, *x.shape)), self.params)
+        return jax.tree.map(lambda x: jnp.broadcast_to(x, (n, *x.shape)), self._theta)
 
 
 class TestMinimalPosteriorThroughConsumers:

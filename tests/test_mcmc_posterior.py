@@ -74,9 +74,20 @@ class TestMCMCPosteriorProtocol:
     def test_satisfies_parameter_posterior_protocol(self, posterior):
         assert isinstance(posterior, ParameterPosterior)
 
-    def test_params_is_posterior_mean(self, posterior, fake_samples):
-        expected = jnp.mean(fake_samples["W"], axis=(0, 1))
-        assert jnp.allclose(posterior.params["W"], expected)
+    def test_mean_params_is_posterior_mean(self, posterior, fake_samples):
+        expected = jnp.mean(fake_samples["W"], axis=(0, 1))  # (2, 2, 2, 3)
+        assert jnp.allclose(posterior.mean_params["W"], expected)
+
+    def test_params_raises_with_both_routes(self, posterior):
+        with pytest.raises(AttributeError) as err:
+            _ = posterior.params
+        msg = str(err.value)
+        assert "WPPMCovarianceField(posterior)" in msg
+        assert "posterior.mean_params" in msg
+
+    def test_params_is_not_in_the_protocol(self, posterior):
+        assert not hasattr(posterior, "params")
+        assert not hasattr(ParameterPosterior, "params")
 
     def test_model_property(self, posterior, tiny_model):
         assert posterior.model is tiny_model

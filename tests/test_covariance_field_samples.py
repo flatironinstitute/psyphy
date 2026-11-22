@@ -295,7 +295,7 @@ def test_jensen_gap_mean_sigma_dominates_sigma_of_mean_W(model, X):
     posterior = MCMCPosterior(model, samples)
 
     mean_sigma = WPPMCovarianceField(posterior).mean(X)
-    sigma_of_mean_W = _sigma(model, posterior.params["W"], X)
+    sigma_of_mean_W = _sigma(model, posterior.mean_params["W"], X)
 
     gap_eigs = jnp.linalg.eigvalsh(mean_sigma - sigma_of_mean_W)
     assert jnp.all(gap_eigs >= -1e-8)
@@ -308,9 +308,9 @@ def test_sign_flipped_draws_do_not_cancel(model, X):
     posterior = MCMCPosterior(model, samples)
 
     # The trap this class replaces: E[W] = 0, so Σ(E[W]) is just λI.
-    assert jnp.allclose(posterior.params["W"], 0.0)
+    assert jnp.allclose(posterior.mean_params["W"], 0.0)
     lam_I = model.diag_term * jnp.eye(2)
-    assert jnp.allclose(_sigma(model, posterior.params["W"], X), lam_I)
+    assert jnp.allclose(_sigma(model, posterior.mean_params["W"], X), lam_I)
 
     fields = WPPMCovarianceField(posterior)
     assert jnp.allclose(fields.mean(X), _sigma(model, W, X), rtol=1e-5, atol=1e-9)
