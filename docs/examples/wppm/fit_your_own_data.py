@@ -77,20 +77,6 @@ def rel_frobenius(A, B):
     return np.linalg.norm(A - B, axis=(1, 2)) / np.linalg.norm(B, axis=(1, 2))
 
 
-# --8<-- [start:plane_section]
-def plane_section(refs, covs, x3=0.0):
-    """Cut each 3-D ellipsoid with the plane at fixed x3, as 2-D ellipses."""
-    in_plane = np.isclose(refs[:, 2], x3)  # reference points in the plane
-    precision = np.linalg.inv(covs[in_plane])  # (n, 3, 3)
-    section = np.linalg.inv(
-        precision[:, :2, :2]
-    )  # (n, 2, 2) x1-x2 block of the inverse
-    return refs[in_plane, :2], section
-
-
-# --8<-- [end:plane_section]
-
-
 def main(mode: str) -> None:
     cfg = MODES[mode]
     print(f"mode={mode} {cfg}, device {jax.devices()[0]}")
@@ -248,15 +234,10 @@ def main(mode: str) -> None:
     fig.savefig(PLOTS_DIR / "own_data_learning_curve.png", dpi=150)
 
     # --8<-- [start:plot]
-    if d == 2:
-        centers, shown = refs, thresholds
-    else:  # d == 3: the plane x3 = 0, one cross-section per ellipsoid
-        sections = [plane_section(refs, t) for t in thresholds]
-        centers, shown = sections[0][0], [s[1] for s in sections]
     fig, ax = plt.subplots(figsize=(4.6, 4.6))
     plot_ellipses(
-        centers,
-        shown,
+        refs,  # (n_refs, 2)
+        thresholds,  # 2 fits, each (n_refs, 2, 2)
         ax=ax,
         colors=["C0", "C1"],
         linestyles=["-", "--"],
