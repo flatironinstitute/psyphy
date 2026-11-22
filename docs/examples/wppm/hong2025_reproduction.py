@@ -434,8 +434,8 @@ def stage1_exact_check(paths: dict[str, Path]) -> None:
     coords, sigma_published = hong2025.load_sigma_table(path=paths["noise_ellipses"])
 
     model = hong2025.build_paper_model(mc_samples=1)  # MC unused: no likelihood here
-    field = WPPMCovarianceField(model=model, params={"W": W_org})
-    sigma_psyphy = np.asarray(field(jnp.asarray(coords)))
+    field = WPPMCovarianceField.from_params(model=model, params={"W": W_org})
+    sigma_psyphy = np.asarray(field(jnp.asarray(coords))[0])  # (n_points, 2, 2), 1 set
 
     max_abs = float(np.abs(sigma_psyphy - sigma_published).max())
     # --8<-- [end:stage1]
@@ -541,11 +541,12 @@ def stage3_figure_from_fit(
     W_fit = jnp.asarray(np.load(fit_path)["W"])
 
     model = hong2025.build_paper_model(mc_samples=1)  # MC unused: no likelihood
+    # [0]: the 1 parameter set -> (n_points, 2, 2)
     Sigma_ref = np.asarray(
-        WPPMCovarianceField(model, {"W": W_org})(jnp.asarray(coords))
+        WPPMCovarianceField.from_params(model, {"W": W_org})(jnp.asarray(coords))[0]
     )
     Sigma_fit = np.asarray(
-        WPPMCovarianceField(model, {"W": W_fit})(jnp.asarray(coords))
+        WPPMCovarianceField.from_params(model, {"W": W_fit})(jnp.asarray(coords))[0]
     )
 
     for key, value in compare_fields(Sigma_fit, Sigma_ref).items():
@@ -643,10 +644,13 @@ def stage3_refit(
     coords, _ = hong2025.load_sigma_table(paths["thres_ellipses"])
     W_org = hong2025.load_reference_W(paths["weights"])  # original best fit Weights
 
+    # [0]: the 1 parameter set -> (n_points, 2, 2)
     Sigma_ref = np.asarray(
-        WPPMCovarianceField(model, {"W": W_org})(jnp.asarray(coords))
+        WPPMCovarianceField.from_params(model, {"W": W_org})(jnp.asarray(coords))[0]
     )
-    Sigma_fit = np.asarray(WPPMCovarianceField(model, params)(jnp.asarray(coords)))
+    Sigma_fit = np.asarray(
+        WPPMCovarianceField.from_params(model, params)(jnp.asarray(coords))[0]
+    )
     metrics = compare_fields(Sigma_fit, Sigma_ref)
     # --8<-- [end:compare]
 
