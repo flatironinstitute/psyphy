@@ -604,7 +604,7 @@ covs_ensemble = covs_samples[:: fields.n_samples // n_ensemble]
 
 # Posterior mean covariance field, E[Σ(x)]: Σ is computed for every sample and
 # the matrices are averaged. Not
-# WPPMCovarianceField.from_params(model, nuts_posterior.params): params is the
+# WPPMCovarianceField.from_params(model, nuts_posterior.mean_params): this is the
 # mean parameter E[W], and Σ is nonlinear in W, so Σ(E[W]) comes out far too
 # small. See the WPPMCovarianceField docstring.
 # --8<-- [start:posterior_mean]
