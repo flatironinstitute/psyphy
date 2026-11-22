@@ -228,8 +228,8 @@ refs = jnp.repeat(ref_points, repeats=num_trials_per_ref, axis=0)  # (N, 2)
 num_trials_total = int(refs.shape[0])
 
 # Evaluate Σ(ref) in batch using the psyphy covariance-field wrapper.
-truth_field = WPPMCovarianceField(model=truth_model, params=truth_params)
-Sigmas_ref = truth_field(refs)  # (N, 2, 2)
+truth_field = WPPMCovarianceField.from_params(model=truth_model, params=truth_params)
+Sigmas_ref = truth_field(refs)[0]  # (N, 2, 2), [0] picks the 1 parameter set
 
 # Sample unit directions on the circle.
 k_dir, k_sim = jr.split(key)
@@ -297,9 +297,9 @@ model = WPPM(
 # --8<-- [start:prior]
 # Initialize at prior sample
 init_params = model.init_params(jax.random.PRNGKey(42))
-init_field = WPPMCovarianceField(model, init_params)
+init_field = WPPMCovarianceField.from_params(model, init_params)
 # Prior over covariance field
-covs_prior = init_field(ref_points)  # (25, 2, 2)
+covs_prior = init_field(ref_points)[0]  # (25, 2, 2) for the 1 parameter set
 # --8<-- [end:prior]
 print(f"shape of covs_prior: {covs_prior.shape}")
 
@@ -362,20 +362,21 @@ centers = jnp.stack(jnp.meshgrid(grid_x, grid_y), axis=-1).reshape(-1, 2)
 # reuse the library abstraction `WPPMCovarianceField`.
 #
 # Why it's helpful here:
-#   - It *binds* a (model, params) pair into a single callable object, so we don't
-#     accidentally use truth_params with the fit model, or vice versa.
+#   - It *binds* a model and its parameters into a single callable object, so we
+#     don't accidentally use truth_params with the fit model, or vice versa.
 #   - It supports both single-point and batched evaluation via `field(x)` where
-#     x can be shape (d,) or (..., d).
+#     x can be shape (d,) or (..., d). The result starts with the sample axis,
+#     length 1 for every field here, and [0] drops it.
 #   - It uses a vmapped + jitted batch path internally, which is typically faster
 #     than a Python loop and stays efficient when you evaluate many points.
 
-truth_field = WPPMCovarianceField(truth_model, truth_params)
+truth_field = WPPMCovarianceField.from_params(truth_model, truth_params)
 
 # --8<-- [start:cov_fields]
-map_field = WPPMCovarianceField(model, map_posterior.params)
+map_field = WPPMCovarianceField(posterior=map_posterior)
 # evaluate any covariance field object like this at either a single point
 # or a batch of points
-covs_map = map_field(ref_points)  # to get the fitted covariances
+covs_map = map_field(ref_points)[0]  # (n_ref_points, 2, 2), the fitted covariances
 # --8<-- [end:cov_fields]
 
 # ---- Plot scaling (purely for visualization) ----
@@ -384,7 +385,7 @@ covs_map = map_field(ref_points)  # to get the fitted covariances
 #
 # gt_covs: stacked covariances Σ_truth(x) at each reference point.
 # Shape: (n_ref_points, 2, 2)
-gt_covs = truth_field(ref_points)
+gt_covs = truth_field(ref_points)[0]
 # gt_means: for each covariance matrix, compute the mean eigenvalue.
 # For a 2x2 SPD matrix this correlates with the "overall variance" (typical radius).
 # Shape: (n_ref_points,)
@@ -417,7 +418,7 @@ for i, (field, _params, color, label) in enumerate(
 
     # Batch-evaluate covariances at all reference points in one shot.
     # This is typically much faster than calling field(center) inside a Python loop.
-    covs = field(ref_points)  # (n_ref_points, 2, 2)
+    covs = field(ref_points)[0]  # (n_ref_points, 2, 2) for the 1 parameter set
 
     # Convert batched covariances into batched polyline segments.
     segments, valid = _ellipse_segments_from_covs(
@@ -476,9 +477,9 @@ fig.savefig(
 # the covariance field before seeing any data.
 print("[4b/5] Plotting prior-only covariance field (fresh prior draw) ...")
 prior_only_params = model.init_params(jax.random.PRNGKey(7))
-prior_only_field = WPPMCovarianceField(model, prior_only_params)
+prior_only_field = WPPMCovarianceField.from_params(model, prior_only_params)
 
-prior_covs = prior_only_field(ref_points)  # (n_ref_points, 2, 2)
+prior_covs = prior_only_field(ref_points)[0]  # (n_ref_points, 2, 2)
 prior_segments, prior_valid = _ellipse_segments_from_covs(
     ref_points,
     prior_covs,

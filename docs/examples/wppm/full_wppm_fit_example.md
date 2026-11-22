@@ -212,7 +212,7 @@ W_\text{MAP} = \arg\max_{W} \big[\log p(\mathcal{D}\mid W) + \log p(W)\big].
 - $\log p(\mathcal{D}\mid W)$ is computed by the task's log-likelihood (here via Monte Carlo inside `OddityTask.loglik`).
 
 The result in this example is a [`MAPPosterior`](../../reference/posterior.md#psyphy.posterior.MAPPosterior) object that contains a point estimate `map_posterior.params`.
-It also stores that estimate the way an MCMC fit stores its samples: `map_posterior.samples["W"]` has shape `(1, 1, ...)`, 1 chain and 1 sample per chain before the axes of $W$, and `n_chains` and `n_draws` are both 1. No sampler ran, though. It's just the layout, so `WPPMCovarianceFieldSamples(map_posterior)` takes the fit without a key.
+It also stores that estimate the way an MCMC fit stores its samples: `map_posterior.samples["W"]` has shape `(1, 1, ...)`, 1 chain and 1 sample per chain before the axes of $W$, and `n_chains` and `n_draws` are both 1. No sampler ran, though. It's just the layout, so `WPPMCovarianceField(map_posterior)` takes the fit without a key, and its results start with a sample axis of length 1.
 
 
 ---
@@ -282,5 +282,5 @@ If you want to "follow the call graph":
 
 1. `WPPM.init_params(...)` (defined in [`src/psyphy/model/wppm.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/wppm.py)) -> delegates to the prior's `Prior.sample_params(...)` (defined in [`src/psyphy/model/prior.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/prior.py)).
 2. `OddityTask.predict_with_kwargs(...)` / `OddityTask.loglik(...)` (defined in [`src/psyphy/model/likelihood/oddity.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/likelihood/oddity.py)) -> calls into the model to get $\Sigma(x)$ and then runs the task's decision rule (Monte Carlo in the full model).
-3. `WPPMCovarianceField(model, params)` (defined in [`src/psyphy/model/covariance_field.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/covariance_field.py)) -> provides a callable `field(x)` that returns $\Sigma(x)$ for single points or batches.
+3. `WPPMCovarianceField(posterior)` or `WPPMCovarianceField.from_params(model, params)` (defined in [`src/psyphy/model/covariance_field.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/model/covariance_field.py)) -> provides a callable `field(x)` that returns $\Sigma(x)$ for single points or batches, sample axis first.
 4. `MAPOptimizer.fit(...)` (defined in [`src/psyphy/inference/map_optimizer.py`](https://github.com/flatironinstitute/psyphy/blob/main/src/psyphy/inference/map_optimizer.py)) -> runs gradient-based optimization of the negative log likelihood.
