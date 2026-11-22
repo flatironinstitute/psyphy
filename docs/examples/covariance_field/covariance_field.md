@@ -91,7 +91,7 @@ call:
 ```
 
 `field(X)` with `X` of shape `(n, 2)` returns `(1, n, 2, 2)`, since the sample axis comes
-first in every call. `jax.vmap(field)(X)` gives the same numbers with the points first,
+first in every call. `jax.vmap(field)(X)` gives the same values with the points first,
 `(n, 1, 2, 2)`. So we pass the batch to `field` directly.
 
 ### Plotting the field

@@ -277,7 +277,7 @@ grid_points = jnp.stack([X_grid.ravel(), Y_grid.ravel()], axis=1)  # (n_grid**2,
 # Evaluate covariance at all points in one call. The sample axis comes first
 Sigmas_grid = field(grid_points)  # (n_samples=1, n_grid**2, 2, 2)
 
-# jax.vmap over the points gives the same numbers with the points first,
+# jax.vmap over the points gives the same values with the points first,
 # so we pass the whole batch to field instead
 Sigmas_vmap = jax.vmap(field)(grid_points)  # (n_grid**2, n_samples=1, 2, 2)
 # --8<-- [end:grid_points]
