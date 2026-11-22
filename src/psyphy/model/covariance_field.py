@@ -486,7 +486,10 @@ class WPPMCovarianceField:
     with no error, and ``jnp.trace(fields(x)[0])`` is the trace.
 
     Pass ``X`` to ``fields`` directly. ``jax.vmap(fields)(X)`` evaluates the
-    points one at a time and puts them first, ``(n_points, N, d, d)``.
+    points one at a time and puts them first, ``(n_points, N, d, d)``, so
+    ``.mean(axis=0)`` on it averages over the points with no error. Inside
+    code that has to ``vmap`` over the points,
+    ``jax.vmap(fields, out_axes=1)(X)`` puts the samples first again.
 
     :meth:`mean` averages :math:`\Sigma` over the samples. A field built from
     the averaged parameters gives contours several times too small, because
