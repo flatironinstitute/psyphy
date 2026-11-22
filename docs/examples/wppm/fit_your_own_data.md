@@ -2,9 +2,7 @@
 
 This page is for readers who know the Wishart Process Psychophysical Model (WPPM) and want
 to fit it to their own trials with psyphy. It shows how psyphy stores trials and the calls in
-order, from a CSV file to thresholds and the checks we run on a fit. The model itself is
-
-explained in the [WPPM tutorial](full_wppm_fit_example.md).
+order, from a CSV file to thresholds and the checks we run on a fit. The model itself is explained in the [WPPM tutorial](full_wppm_fit_example.md).
 
 We use one observer's published trials from
 [Hong et al.](https://doi.org/10.7554/eLife.108943.2): 12,000 oddity-task trials in a 2-D
@@ -122,19 +120,11 @@ ellipsoid in 3-D).
     much as 16). It needs at least $d(d+1)/2$.
 
 [`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) draws 2-D
-ellipses. In 3-D we show the plane $x_3 = 0$ and cut each ellipsoid with it:
+ellipses. For 3-D stimuli, pick the view you need.
 
-```python title="Plot, in 2-D or in the plane x3 = 0"
+```python title="Plot"
 --8<-- "docs/examples/wppm/fit_your_own_data.py:plot"
 ```
-
-```python title="Cut a 3-D ellipsoid with a plane"
---8<-- "docs/examples/wppm/fit_your_own_data.py:plane_section"
-```
-
-The cut is the threshold for comparisons that stay in the plane. `covs[:, :2, :2]` is a
-different ellipse: the ellipsoid's shadow on the plane, which is larger whenever the
-ellipsoid is tilted out of it.
 
 <div align="center">
   <img src="../plots/own_data_thresholds.png" width="440"/>
