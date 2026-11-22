@@ -1,7 +1,7 @@
 # Developer notes
 
 Decisions in psyphy that are not obvious from the signature: what we were trying to achieve,
-what we chose, and potentially at what it costs. Written for someone reading or extending the source (not
+what we chose, and potentially at Trade-offs: Written for someone reading or extending the source (not
 for someone using the library). The tutorials under
 [Examples](examples/index.md) show how to *use* these pieces.
 
@@ -24,40 +24,83 @@ $P(\text{correct})$ by simulating `mc_samples` noisy internal representations pe
 two calls with different keys give slightly different answers. `NUTSSampler` freezes one key
 (`logdensity_key_seed`) for the whole run, so the sampler sees a deterministic function.
 
-**What it costs.** The sampler explores the posterior implied by that one noise realization,
+**Trade-offs:** The sampler explores the posterior implied by that one noise realization,
 not the exact posterior. Raising `mc_samples` shrinks the difference and costs proportionally
 more compute. A deterministic surrogate likelihood would remove the compromise entirely, and
 that is the main argument for building one.
 
 ---
 
-## The summaries of a fit are reductions on one draws object
+## One covariance field object, built from any fit
 
-**Symbols:**
-[`WPPMCovarianceFieldSamples`](reference/model.md#psyphy.model.WPPMCovarianceFieldSamples),
-[`WPPMCovarianceField`](reference/model.md#psyphy.model.WPPMCovarianceField).
-**Checked updated:**  2026-10-28
+**Symbols:** [`WPPMCovarianceField`](reference/model.md#psyphy.model.WPPMCovarianceField).
+**Checked updated:** 2026-11-22
 
-**What we wanted.** The summaries of a sample-based posterior, without inviting the wrong
-summary and without each one drawing its own samples.
+**What we wanted.** After any fit, 1 object that gives the covariance field. Many of
+psyphy's users come from MATLAB, not software engineering, so `vmap`, batching and `jit`
+stay inside psyphy.
 
-**What psyphy does.** `WPPMCovarianceFieldSamples` holds N parameter draws and offers the
-reductions over them as methods: the ensemble from `fields(x)`, $\mathbb{E}[\Sigma(x)]$
-from `mean`, a credible band on the contour from `credible_band`. The draws are taken once, at
-construction, so a figure built from all three shows one sample of the posterior. The class
-is separate from `WPPMCovarianceField` rather than a flag on it, because the two take
-different inputs: one takes a parameter set, the other takes draws.
+**What psyphy does.** psyphy computes the covariance field $\Sigma(x)$ in 2 ways, and both
+give the same numbers:
 
-The constructor takes the posterior, because a fitted posterior is what a scientist holds
-after a fit: `WPPMCovarianceFieldSamples(post)`. `from_prior(model, n_samples=, key=)` and
-`from_params(model, params)` are the factories, for a source with no posterior. There is no public way in from a dict of
-samples. A source psyphy doesn't ship needs only `.model` and `.sample(n, *, key)`.
+- the model: `model.local_covariance(params, x)` gives $\Sigma$ for 1 parameter set at 1
+  stimulus point $x$
+- the field object: `fields(X)` gives $\Sigma$ for every parameter set of a fit at every
+  stimulus point in `X`, in 1 call
 
-**What it costs.** Two names to learn instead of one, and a caller who wants the mean over
-a different subsample builds a second object.
-`WPPMCovarianceField.from_posterior` warns rather than raises when handed a sample-based
-posterior, since $\Sigma(\mathbb{E}[W])$ is a legitimate object that somebody may want.
-The class docstring has the identity showing why it is the wrong posterior mean.
+`WPPMCovarianceField` exists for that second call. It holds the model and the fit's N
+parameter sets, and calls `model.local_covariance` for each set and each point, so a
+scientist doesn't write the `vmap`s or the averages over samples.
+
+Every result starts with the sample axis, which has 1 entry per parameter set:
+
+- N = 1 after a MAP fit, for a ground truth or for a published $W$
+- N = the number of samples after an MCMC fit
+
+So for `X` of shape `(n_points, d)`, with `n_points` the stimulus points we evaluate at and
+$d$ the stimulus dimensions, `fields(X)` has shape `(N, n_points, d, d)`. That's
+`(1, n_points, d, d)` after a MAP fit and `(2000, n_points, d, d)` after an MCMC fit with
+2000 samples. Code downstream reads the same layout either way, and doesn't have to check
+whether it got a MAP point estimate or MCMC samples.
+
+We build the object from the posterior, `WPPMCovarianceField(post)`. Without a posterior
+there are 2 factories, `from_params(model, params)` and `from_prior(model, n_samples=, key=)`.
+What we read off it:
+
+- `fields(X)`: $\Sigma$ for each sample at each point
+- `mean(X)`: $\mathbb{E}[\Sigma(x)]$ at each point, averaged over the samples
+- `credible_band(points)`: a credible band on the one-standard-deviation contour at each point
+- `sqrt_cov(X)`: $U(x)$ for each sample at each point
+
+The object takes its samples once, when it's built, so every figure made from 1 object uses
+the same samples. There is no public constructor from a dict of samples. A source psyphy
+doesn't ship needs `.model`, and either `.sample(n, *, key)` or `.samples`, `.n_chains` and
+`.n_draws`.
+
+**Trade-offs:** The object adds an interface and no new computation. Each method has a
+model pathway that gives the same numbers:
+
+- `fields(X)`: `jax.vmap` of `model.local_covariance` over the samples and over the points
+- `mean(X)`: the same, then a mean over the sample axis
+- `credible_band(points)`: the same, then `contour_radii` and a quantile over the sample axis
+- `sqrt_cov(X)`: `jax.vmap` of `model._compute_sqrt`. That method is private, so the field
+  object is the only public way to get $U(x)$
+
+Where the field object falls short:
+
+- It keeps no results between calls. `fields(X)`, `mean(X)` and `credible_band(points)` each
+  go through `model.local_covariance` for every sample at every point again, so calling
+  `mean(X)` after `fields(X)` on the same `X` does that work twice.
+- The sample axis stays when N = 1. After a MAP fit, `fields(x)` at 1 stimulus point is
+  `(1, d, d)`, and we write `fields(x)[0]` for the matrix.
+- `jax.vmap(fields)(X)` evaluates 1 point at a time and puts the points first,
+  `(n_points, N, d, d)`; after a MAP fit `(n_points, 1, d, d)`. Passing `X` to `fields`
+  directly gives `(N, n_points, d, d)`.
+- The samples are fixed when the object is built. For a mean over 500 of an MCMC fit's 2000
+  samples, build a second object with `WPPMCovarianceField(post, n_samples=500, key=key)`.
+
+We'd revisit the design if users pass fields to their own code as functions of $x$ and the
+sample axis gets in the way.
 
 ---
 
@@ -89,7 +132,7 @@ spellings, or `az.plot_energy` and the divergence ticks on a trace plot will not
 statistics they draw. R-hat and effective sample size need only the draws, so they work
 the same for every engine.
 
-**What it costs.** The caller has to choose evaluation points, which is why `points` has no
+**Trade-offs:** The caller has to choose evaluation points, which is why `points` has no
 default. The diagnostics then describe $\Sigma$ at those points rather than the parameters
 themselves.
 
@@ -116,7 +159,7 @@ An engine builds its BlackJAX kernel and calls `_fit_chains` with it. `NUTSSampl
 (window adaptation for NUTS, none for MALA), so each one tunes before it hands over the
 kernel.
 
-**What it costs.** There is no public base class to subclass for a new sampler. A new engine
+**Trade-offs:** There is no public base class to subclass for a new sampler. A new engine
 goes into `psyphy.inference` next to the other two. We'd add a public base when someone
 outside psyphy needs to write one.
 
@@ -157,7 +200,7 @@ somewhere other than the call site, which is how two public paths to
 $\mathbb{E}[\Sigma(x)]$ came to agree at exactly 100 stored draws and disagree by a few
 percent at every other fit size.
 
-**What it costs.** Three draw semantics hide behind one method name: a prior generates
+**Trade-offs:** Three draw semantics hide behind one method name: a prior generates
 independent draws, a `MAPPosterior` repeats one parameter set, an `MCMCPosterior` subsamples.
 The protocol docstring has to state all three, or the ambiguity stays. Requiring the key also means a caller who does not care has to write
 `key=jr.PRNGKey(0)` themselves, which is the intended tradeoff: the seed is visible in their
