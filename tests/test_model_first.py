@@ -39,8 +39,8 @@ def test_mcmc_posterior_model_first(model, samples):
     new = MCMCPosterior(model, samples)
     kw = MCMCPosterior(samples=samples, model=model)
     assert new.model is model
-    assert jnp.array_equal(new.params["W"], kw.params["W"])
-    assert jnp.array_equal(new.params["W"], samples["W"].mean(axis=(0, 1)))
+    assert jnp.array_equal(new.mean_params["W"], kw.mean_params["W"])
+    assert jnp.array_equal(new.mean_params["W"], samples["W"].mean(axis=(0, 1)))
 
 
 def test_mcmc_posterior_sampler_stats_stays_keyword_only(model, samples):

@@ -131,7 +131,7 @@ class TestNUTSSamplerAdaptive:
         assert W.shape == (2, 10, 2, 2, 2, 3)
 
     def test_params_shape(self, posterior_adaptive):
-        params = posterior_adaptive.params
+        params = posterior_adaptive.mean_params
         assert "W" in params
         assert params["W"].shape == (2, 2, 2, 3)
 
@@ -177,7 +177,7 @@ class TestNUTSSamplerFixed:
         assert W.shape == (2, 10, 2, 2, 2, 3)
 
     def test_params_shape(self, posterior_fixed):
-        params = posterior_fixed.params
+        params = posterior_fixed.mean_params
         assert params["W"].shape == (2, 2, 2, 3)
 
 
@@ -245,7 +245,7 @@ class TestNUTSDownstreamIntegration:
 
     def test_map_and_nuts_interchangeable(self, posterior_adaptive, tiny_model):
         # WPPMPredictivePosterior only depends on the ParameterPosterior
-        # protocol (.sample(), .params, .model). It never inspects whether
+        # protocol (.sample(), .model). It never inspects whether
         # the posterior came from MAP or MCMC. This test confirms both work
         # identically at the call site, which is the key design invariant.
         from psyphy.posterior.posterior import MAPPosterior
