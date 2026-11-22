@@ -167,9 +167,10 @@ def main(mode: str) -> None:
     refs = np.stack(np.meshgrid(*[g] * d, indexing="ij"), axis=-1).reshape(
         -1, d
     )  # (7**d, d)
-    field = WPPMCovarianceField(model=model, params=posterior.params)
+    field = WPPMCovarianceField(posterior)
+    # field(refs): (1, 7**d, d, d), 1 parameter set after a MAP fit; [0] drops that axis
     covs = np.asarray(
-        field(jnp.asarray(refs))
+        field(jnp.asarray(refs))[0]
     )  # (7**d, d, d): Sigma(x) at each reference
     # --8<-- [end:field]
 
@@ -229,8 +230,8 @@ def main(mode: str) -> None:
     # --8<-- [start:truth]
     W_published = hong2025.load_reference_W(paths["weights"])  # (5, 5, 2, 3)
     covs_published = np.asarray(
-        WPPMCovarianceField(model, {"W": W_published})(jnp.asarray(refs))
-    )
+        WPPMCovarianceField.from_params(model, {"W": W_published})(jnp.asarray(refs))[0]
+    )  # (n_refs, d, d)
     error = rel_frobenius(covs, covs_published)  # (n_refs,)
     print(
         f"against the published field: median {np.median(error):.3f}, max {error.max():.3f}"
