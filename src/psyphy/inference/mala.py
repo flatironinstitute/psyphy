@@ -34,7 +34,7 @@ class MALASampler(InferenceEngine):
 
     Draws samples from the full posterior p(θ | data). Returns an
     :class:`MCMCPosterior` with the same layout as :class:`NUTSSampler`, so
-    ``covariance_to_arviz``, :class:`WPPMCovarianceFieldSamples` and the
+    ``covariance_to_arviz``, :class:`WPPMCovarianceField` and the
     plotting functions take either.
 
     MALA does not tune itself. The step size is fixed for the whole run,
