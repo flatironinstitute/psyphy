@@ -148,8 +148,8 @@ After a sample-based fit, for example from
 `field.mean(x)` evaluates $\Sigma$ for every sample and averages the matrices, giving
 $\mathbb{E}[\Sigma(x)]$. See
 [Step 5 of the NUTS tutorial](../wppm/nuts_inference_example.md#step-5-plotting-posterior-samples-and-credible-intervals).
-Don't pass that fit's `posterior.params` to `from_params`. It's the mean parameter
-$\mathbb{E}[W]$, and the field built from it is too small.
+Don't pass that fit's `posterior.mean_params` to `from_params`. It's the mean parameter
+$\mathbb{E}[W]$, and the field built from it is too small. `posterior.params` raises.
 
 `field.sqrt_cov(x)` returns $U(x)$ for every sample, shape `(n_samples, d, m)` for one point,
 with $m$ the embedding dimension.
