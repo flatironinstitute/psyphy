@@ -41,16 +41,16 @@ psyphy's users come from MATLAB, not software engineering, so `vmap`, batching a
 stay inside psyphy.
 
 **What psyphy does.** psyphy computes the covariance field $\Sigma(x)$ in 2 ways, and both
-give the same numbers:
+give the same result:
 
 - the model: `model.local_covariance(params, x)` gives $\Sigma$ for 1 parameter set at 1
   stimulus point $x$
 - the field object: `fields(X)` gives $\Sigma$ for every parameter set of a fit at every
   stimulus point in `X`, in 1 call
 
-`WPPMCovarianceField` exists for that second call. It holds the model and the fit's N
-parameter sets, and calls `model.local_covariance` for each set and each point, so a
-scientist doesn't write the `vmap`s or the averages over samples.
+`WPPMCovarianceField` is a wrapper around the model. It holds the model and the fit's N
+parameter sets, and calls `model.local_covariance` for each set and each point. The `vmap`s
+and the averages over samples happen inside it, so a scientist doesn't write them.
 
 Every result starts with the sample axis, which has 1 entry per parameter set:
 
@@ -79,7 +79,7 @@ doesn't ship needs `.model`, and either `.sample(n, *, key)` or `.samples`, `.n_
 `.n_draws`.
 
 **Trade-offs:** The object adds an interface and no new computation. Each method has a
-model pathway that gives the same numbers:
+model pathway that gives the same result but with more lines of code necessary to write and no convenient reduction methods such as .mean or .credible_band():
 
 - `fields(X)`: `jax.vmap` of `model.local_covariance` over the samples and over the points
 - `mean(X)`: the same, then a mean over the sample axis
@@ -93,10 +93,13 @@ Where the field object falls short:
   go through `model.local_covariance` for every sample at every point again, so calling
   `mean(X)` after `fields(X)` on the same `X` does that work twice.
 - The sample axis stays when N = 1. After a MAP fit, `fields(x)` at 1 stimulus point is
-  `(1, d, d)`, and we write `fields(x)[0]` for the matrix.
+  `(1, d, d)`, and we write `fields(x)[0]` for the matrix to get shape (d,d)
 - `jax.vmap(fields)(X)` evaluates 1 point at a time and puts the points first,
-  `(n_points, N, d, d)`; after a MAP fit `(n_points, 1, d, d)`. Passing `X` to `fields`
-  directly gives `(N, n_points, d, d)`.
+  `(n_points, N, d, d)`; after a MAP fit `(n_points, 1, d, d)`. The values are the same,
+  but code that reads axis 0 as the samples gets the points instead: `.mean(axis=0)`
+  averages over the points with no error, and `[0]` picks the first point. Pass `X` to
+  `fields` directly for `(N, n_points, d, d)`. Code that has to `vmap` over the points
+  writes `jax.vmap(fields, out_axes=1)(X)`, which puts the samples first again.
 - The samples are fixed when the object is built. For a mean over 500 of an MCMC fit's 2000
   samples, build a second object with `WPPMCovarianceField(post, n_samples=500, key=key)`.
 
