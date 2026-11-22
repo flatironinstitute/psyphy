@@ -21,10 +21,8 @@ Typical usage
 
 from .base import Model
 from .covariance_field import (
-    CovarianceField,
     CredibleBand,
     WPPMCovarianceField,
-    WPPMCovarianceFieldSamples,
     contour_radii,
     covariance_to_arviz,
 )
@@ -37,9 +35,7 @@ __all__ = [
     # Base
     "Model",
     # Covariance fields
-    "CovarianceField",
     "WPPMCovarianceField",
-    "WPPMCovarianceFieldSamples",
     "covariance_to_arviz",
     "CredibleBand",
     "contour_radii",
