@@ -362,7 +362,10 @@ def test_covariance_field_matches_published_sigma_noise(x64):
 
     coords, sigma_published = hong2025.load_sigma_table(_NOISE)
     model = hong2025.build_paper_model(mc_samples=1)
-    sigma_psyphy = np.asarray(WPPMCovarianceField(model, {"W": W_org})(coords))
+    field = WPPMCovarianceField.from_params(model, {"W": W_org})
+    sigma_psyphy = np.asarray(
+        field(coords)[0]
+    )  # (n_points, 2, 2), sample axis of 1 dropped
 
     assert sigma_psyphy.shape == sigma_published.shape
     max_abs = float(np.abs(sigma_psyphy - sigma_published).max())

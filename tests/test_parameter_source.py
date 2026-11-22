@@ -27,7 +27,6 @@ from psyphy.model import (
     OddityTask,
     Prior,
     WPPMCovarianceField,
-    WPPMCovarianceFieldSamples,
 )
 from psyphy.posterior import (
     MAPPosterior,
@@ -254,17 +253,11 @@ class TestMinimalPosteriorThroughConsumers:
         minimal, _ = pair
         assert isinstance(minimal, ParameterPosterior)
 
-    def test_covariance_field_from_posterior(self, pair, points):
-        minimal, map_posterior = pair
-        a = WPPMCovarianceField.from_posterior(minimal)(points)
-        b = WPPMCovarianceField.from_posterior(map_posterior)(points)
-        assert jnp.array_equal(a, b)
-
-    def test_covariance_field_samples_constructor(self, pair, points):
+    def test_covariance_field_constructor(self, pair, points):
         minimal, map_posterior = pair
         key = jr.PRNGKey(0)
-        a = WPPMCovarianceFieldSamples(minimal, n_samples=3, key=key)
-        b = WPPMCovarianceFieldSamples(map_posterior, n_samples=3, key=key)
+        a = WPPMCovarianceField(minimal, n_samples=3, key=key)
+        b = WPPMCovarianceField(map_posterior, n_samples=3, key=key)
         assert jnp.array_equal(a.mean(points), b.mean(points))
 
     def test_predictive_posterior(self, pair, points):
