@@ -3,6 +3,8 @@
 This page is for readers who know the Wishart Process Psychophysical Model (WPPM) and want
 to fit it to their own trials with psyphy. It shows how psyphy stores trials and the calls in
 order, from a CSV file to thresholds and the checks we run on a fit. The model itself is
+
+
 explained in the [WPPM tutorial](full_wppm_fit_example.md).
 
 We use one observer's published trials from
@@ -210,6 +212,11 @@ predicts too few correct responses, dots below too many.
     For your simulation, pass your true `W` in place of `W_published`, in the shape
     `prior` gives it. `load_reference_W` reads 2-D weights only. If your simulation
     returns $\Sigma$ at the reference points instead, compare `covs` with those.
+
+    `covs` is the noise field $\Sigma(x)$, `thresholds` the 66.7% contours. They're 2
+    different ellipses at each reference point, so check which one your simulation gives
+    before comparing. For our refit's contours drawn over the published ones, see
+    [Reproducing Hong et al. (2025)](hong2025_reproduction.md#end-to-end-from-raw-trials-to-figure-2b).
 
 ## Next steps
 
