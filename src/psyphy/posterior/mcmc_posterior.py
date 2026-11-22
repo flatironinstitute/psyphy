@@ -101,7 +101,7 @@ class MCMCPosterior:
         Warnings
         --------
         For WPPM, do **not** build a covariance field from this, e.g.
-        ``WPPMCovarianceField(model, posterior.params)``. That gives Σ(E[W]),
+        ``WPPMCovarianceField.from_params(model, posterior.params)``. That gives Σ(E[W]),
         which is not the posterior mean of Σ and is systematically too small:
 
         - Σ = U Uᵀ + λI is quadratic in W, so E[Σ] = Σ(E[W]) + Cov[U] and
@@ -111,7 +111,7 @@ class MCMCPosterior:
           orientations partly cancel in E[W], pulling Σ(E[W]) toward λI.
 
         For the posterior mean covariance field use
-        ``WPPMCovarianceFieldSamples(posterior).mean(x)``; for
+        ``WPPMCovarianceField(posterior).mean(x)``; for
         individual covariance draws use ``sample(n)``. E[W] remains a valid parameter set, e.g. as
         ``init_params`` for another fit.
         """
@@ -121,7 +121,7 @@ class MCMCPosterior:
         # protocol requires params to be a parameter PyTree (NUTSSampler and
         # MAPOptimizer accept it as init_params), and E[Σ] cannot be expressed
         # as any single W. The fix for covariance summaries therefore lives in
-        # WPPMCovarianceFieldSamples, not here.
+        # WPPMCovarianceField, not here.
         return jax.tree.map(lambda x: jnp.mean(x, axis=(0, 1)), self._samples)
 
     @property
