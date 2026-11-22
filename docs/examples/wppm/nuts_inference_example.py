@@ -79,7 +79,6 @@ from psyphy.model import (
     OddityTaskConfig,
     Prior,
     WPPMCovarianceField,
-    WPPMCovarianceFieldSamples,
     contour_radii,
     covariance_to_arviz,
 )
@@ -396,7 +395,7 @@ truth_model = WPPM(
     diag_term=DIAG_TERM,
 )
 truth_params = truth_model.init_params(jr.PRNGKey(123))
-truth_field = WPPMCovarianceField(model=truth_model, params=truth_params)
+truth_field = WPPMCovarianceField.from_params(model=truth_model, params=truth_params)
 
 # Build reference grid
 ref_grid = jnp.linspace(-0.8, 0.8, N_REF_GRID)
@@ -408,7 +407,7 @@ refs = jnp.repeat(ref_points, NUM_TRIALS_PER_REF, axis=0)
 key = jr.PRNGKey(3)
 k_dir, k_sim = jr.split(key)
 n_total = refs.shape[0]
-Sigmas_ref = truth_field(refs)
+Sigmas_ref = truth_field(refs)[0]  # (n_total, 2, 2), [0] picks the 1 parameter set
 angles = jr.uniform(k_dir, (n_total,), minval=0.0, maxval=2 * jnp.pi)
 unit_dirs = jnp.stack([jnp.cos(angles), jnp.sin(angles)], axis=1)
 L = jnp.linalg.cholesky(Sigmas_ref)
@@ -588,7 +587,7 @@ ELLIPSE_SCALE = 1.2  # magnification; ellipses are not drawn at true size
 
 # Posterior samples as covariance fields
 # --8<-- [start:posterior_samples]
-fields = WPPMCovarianceFieldSamples(posterior=nuts_posterior)  # every stored sample
+fields = WPPMCovarianceField(posterior=nuts_posterior)  # every stored sample
 # (n_samples, n_ref, 2, 2): one field per sample
 covs_samples = fields(ref_points)
 # every k-th sample, so the plot shows n_ensemble contours from all chains
@@ -598,13 +597,13 @@ covs_ensemble = covs_samples[:: fields.n_samples // n_ensemble]
 
 # Posterior mean covariance field, E[Σ(x)]: Σ is computed for every sample and
 # the matrices are averaged. Not
-# WPPMCovarianceField(model, nuts_posterior.params): params is the mean
-# parameter E[W], and Σ is nonlinear in W, so Σ(E[W]) comes out far too
-# small. See the WPPMCovarianceFieldSamples docstring.
+# WPPMCovarianceField.from_params(model, nuts_posterior.params): params is the
+# mean parameter E[W], and Σ is nonlinear in W, so Σ(E[W]) comes out far too
+# small. See the WPPMCovarianceField docstring.
 # --8<-- [start:posterior_mean]
 covs_mean = fields.mean(ref_points)  # (n_ref, 2, 2)
 # --8<-- [end:posterior_mean]
-covs_truth = truth_field(ref_points)
+covs_truth = truth_field(ref_points)[0]  # (n_ref, 2, 2)
 
 fig, ax = plt.subplots(figsize=(7, 7))
 
@@ -844,19 +843,15 @@ except ImportError:
 # 7. MAP vs NUTS mean comparison (side-by-side)
 # ---------------------------------------------------------------------------
 fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-# (field, color, label, draw_the_posterior_ensemble_behind_it)
+# (covs, color, label, draw_the_posterior_ensemble_behind_it)
 #
+covs_map = WPPMCovarianceField(map_posterior)(ref_points)[0]  # (n_ref, 2, 2), 1 set
 
 configs = [
-    (truth_field, "k", "Ground truth", False),
+    (covs_truth, "k", "Ground truth", False),
+    (covs_map, "C1", f"MAP ({MAP_STEPS} steps)", False),
     (
-        WPPMCovarianceField(model, map_posterior.params),
-        "C1",
-        f"MAP ({MAP_STEPS} steps)",
-        False,
-    ),
-    (
-        fields.mean,
+        covs_mean,
         "C3",
         f"NUTS mean ({NUM_CHAINS}×{NUM_SAMPLES} samples) + {n_ensemble} of them shown",
         True,
@@ -865,7 +860,7 @@ configs = [
 # the ensemble from section 5, reused by the NUTS panel below
 ensemble = jax.device_get(covs_ensemble)
 
-for ax, (field, color, label, with_ensemble) in zip(axes, configs):
+for ax, (covs, color, label, with_ensemble) in zip(axes, configs):
     if with_ensemble:
         plot_ellipses(
             jax.device_get(ref_points),
@@ -889,7 +884,7 @@ for ax, (field, color, label, with_ensemble) in zip(axes, configs):
         )
     plot_ellipses(
         jax.device_get(ref_points),
-        jax.device_get(field(ref_points)),
+        jax.device_get(covs),
         ax=ax,
         scale=ELLIPSE_SCALE,
         colors=color,
@@ -936,8 +931,8 @@ plot_ellipses(
 plot_ellipses(
     jax.device_get(ref_points),
     [
-        jax.device_get(truth_field(ref_points)),
-        jax.device_get(WPPMCovarianceField(model, map_posterior.params)(ref_points)),
+        jax.device_get(covs_truth),
+        jax.device_get(covs_map),
         jax.device_get(covs_mean),
     ],
     ax=ax,
