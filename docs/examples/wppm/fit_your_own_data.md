@@ -2,7 +2,8 @@
 
 This page is for readers who know the Wishart Process Psychophysical Model (WPPM) and want
 to fit it to their own trials with psyphy. It shows how psyphy stores trials and the calls in
-order, from a CSV file to thresholds and the checks we run on a fit. The model itself is explained in the [WPPM tutorial](full_wppm_fit_example.md).
+order, from a CSV file to thresholds and the checks we run on a fit. The model itself is
+explained in the [WPPM tutorial](full_wppm_fit_example.md).
 
 We use one observer's published trials from
 [Hong et al.](https://doi.org/10.7554/eLife.108943.2): 12,000 oddity-task trials in a 2-D
@@ -96,8 +97,8 @@ The covariance field $\Sigma(x)$ at the reference points we choose, here a 7 x 7
 --8<-- "docs/examples/wppm/fit_your_own_data.py:field"
 ```
 
-For thresholds we predict with more Monte Carlo samples than we fit with. The predicted
-P(correct) is then less noisy.
+For thresholds we predict with more Monte Carlo samples than we fit with. This is because the
+ predicted $P(correct)$ is then less noisy.
 
 ```python title="A model for predictions"
 --8<-- "docs/examples/wppm/fit_your_own_data.py:eval_model"
@@ -120,11 +121,19 @@ ellipsoid in 3-D).
     much as 16). It needs at least $d(d+1)/2$.
 
 [`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) draws 2-D
-ellipses. For 3-D stimuli, pick the view you need.
+ellipses. In 3-D we show the plane $x_3 = 0$ and cut each ellipsoid with it:
 
-```python title="Plot"
+```python title="Plot, in 2-D or in the plane x3 = 0"
 --8<-- "docs/examples/wppm/fit_your_own_data.py:plot"
 ```
+
+```python title="Cut a 3-D ellipsoid with a plane"
+--8<-- "docs/examples/wppm/fit_your_own_data.py:plane_section"
+```
+
+The cut is the threshold for comparisons that stay in the plane. `covs[:, :2, :2]` is a
+different ellipse: the ellipsoid's shadow on the plane, which is larger whenever the
+ellipsoid is tilted out of it.
 
 <div align="center">
   <img src="../plots/own_data_thresholds.png" width="440"/>
@@ -201,11 +210,6 @@ predicts too few correct responses, dots below too many.
     For your simulation, pass your true `W` in place of `W_published`, in the shape
     `prior` gives it. `load_reference_W` reads 2-D weights only. If your simulation
     returns $\Sigma$ at the reference points instead, compare `covs` with those.
-
-    `covs` is the noise field $\Sigma(x)$, `thresholds` the 66.7% contours. They're 2
-    different ellipses at each reference point, so check which one your simulation gives
-    before comparing. For our refit's contours drawn over the published ones, see
-    [Reproducing Hong et al. (2025)](hong2025_reproduction.md#end-to-end-from-raw-trials-to-figure-2b).
 
 ## Next steps
 
