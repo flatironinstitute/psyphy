@@ -183,10 +183,11 @@ returned $n$, so nothing accepted both. Four docstrings in the source built prio
 Python loop and wrapped the result in an `MCMCPosterior` to get something samplable.
 
 **What psyphy does.** `ParameterSource` declares `sample(n, *, key)` and nothing else.
-`ParameterPosterior` extends it with `params` and `model`, so the parameter source protocol is the
-narrower of the two. The protocol stays asymmetric: a prior has no
-point estimate, and `WPPM` holds its `Prior`, so a prior carrying a model back would close a
-cycle. Drawing parameters is the overlap prior and posteriors share.
+`ParameterPosterior` extends it with `model`, so the parameter source protocol is the
+narrower of the two. `params` is not on either: `MAPPosterior.params` is the fitted parameter
+set, and `MCMCPosterior.params` raises because the posterior holds samples (its
+`mean_params` is the mean of them). The protocol stays asymmetric: `WPPM` holds its `Prior`,
+so a prior carrying a model back would close a cycle. Drawing parameters is the overlap prior and posteriors share.
 
 Three things stayed off the protocol:
 

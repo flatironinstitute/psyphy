@@ -224,6 +224,29 @@ breaking changes are called out below but do not force a minor-version bump.
   map_posterior.sample(1, key=key)  # the key goes unread for a point mass
   ```
 
+- **`MCMCPosterior.params` raises, and `mean_params` is the mean of the samples.** A
+  NUTS or MALA fit holds samples, not 1 parameter set. `params` used to return the mean
+  of the samples, which has the shape of 1 parameter set, `{"W": (3, 3, 2, 3)}` for
+  degree 0 to 2 in $x_1$, the same in $x_2$, $d = 2$ stimulus dimensions and $m = 3$
+  embedding dimensions. Every function accepted it, so
+  `WPPMCovarianceField.from_params(model, nuts_posterior.params)` ran with no error and
+  gave contours several times too small.
+
+  `params` now raises an `AttributeError` that names both routes. `mean_params` returns
+  the mean. `params` also leaves the `ParameterPosterior` protocol, which now holds `model`
+  and `sample`. `MAPPosterior.params` is unchanged.
+
+  ```python
+  # before
+  init = nuts_posterior.params                              # mean of the samples
+  WPPMCovarianceField.from_params(model, nuts_posterior.params)  # runs, contours too small
+
+  # now
+  init = nuts_posterior.mean_params
+  WPPMCovarianceField(nuts_posterior)                       # the field
+  nuts_posterior.params                                     # AttributeError
+  ```
+
 ### Changed
 
 - **`WPPMCovarianceFieldSamples.credible_band` raises `ValueError` for 1 sample.** Before,
