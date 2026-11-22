@@ -326,8 +326,8 @@ s_grid = jnp.linspace(S_MIN, S_MAX_REF, 300)  # physical, reference range
 x_grid = to_norm(s_grid)[:, None]  # normalized, shape (300, 1)
 
 # Bind fitted parameters to the model: creates a callable x -> Sigma(x).
-fitted_cov_fn = WPPMCovarianceField(model=model, params=map_posterior.params)
-variances = fitted_cov_fn(x_grid)  # (300, 1, 1); 1x1 "matrix" per grid point;
+fitted_cov_fn = WPPMCovarianceField(posterior=map_posterior)
+variances = fitted_cov_fn(x_grid)[0]  # (300, 1, 1); [0] drops the 1-sample axis
 # [:, 0, 0] extracts the scalar Sigma(s)
 # sqrt(Sigma) from WPPM; proxy for implied JND in physical units
 # (valid in the 1D equal-variance limit; see module docstring)
