@@ -2,20 +2,17 @@
 covariance_field.py
 -------------------
 
-Covariance field abstraction for spatially-varying Σ(x).
+The covariance field Σ(x) of a WPPM, and summaries of it.
 
-A covariance field represents a function from stimulus locations to covariance
-matrices, encapsulating the spatially-varying perceptual uncertainty in WPPM.
+A covariance field maps a stimulus location to a covariance matrix, the
+perceptual noise around that location.
 
-Design
-------
-This module provides:
-- CovarianceField: Protocol defining the interface
-- WPPMCovarianceField: Concrete implementation for WPPM models
-- construction from priors, posteriors, or arbitrary parameters
-- WPPMCovarianceFieldSamples: N draws of the field, with E[Σ(x)] and a
-  credible band on its contour as reductions over them (see its docstring on
-  why averaging W instead gives too-small ellipses)
+Contents
+--------
+- WPPMCovarianceField: the field for each of N parameter sets, built from a
+  posterior, from the prior, or from 1 parameter set. The sample axis comes
+  first in every call, with E[Σ(x)] and a credible band on the contour as
+  reductions over it
 - covariance_to_arviz: per-sample Σ(x) at chosen points as an ArviZ DataTree,
   for convergence diagnostics that are not fooled by the non-identifiable
   orientation of W (see its docstring)
@@ -41,20 +38,20 @@ Usage Examples
 >>> import jax.random as jr
 >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
 >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
->>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
->>> field(jnp.array([0.5, 0.3])).shape
-(2, 2)
->>> field(jnp.zeros((10, 2))).shape
-(10, 2, 2)
->>> field.sqrt_cov(jnp.array([0.5, 0.3])).shape  # (input_dim, embedding_dim)
-(2, 3)
+>>> params = model.init_params(jr.PRNGKey(0))  # {"W": (3, 3, 2, 3)}
+>>> field = WPPMCovarianceField.from_params(model, params)
+>>> field(jnp.array([0.5, 0.3])).shape  # (n_samples=1, d, d)
+(1, 2, 2)
+>>> field(jnp.zeros((10, 2))).shape  # (n_samples=1, n_points, d, d)
+(1, 10, 2, 2)
+>>> field.sqrt_cov(jnp.array([0.5, 0.3])).shape  # (n_samples=1, d, m)
+(1, 2, 3)
 """
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, NamedTuple, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -172,7 +169,7 @@ _READ_ONLY = "{name} is fixed when the object is built. Build a new one: {build}
 
 
 class _PriorSource:
-    """A model's prior with the 2 members WPPMCovarianceFieldSamples reads."""
+    """A model's prior with the 2 members WPPMCovarianceField reads."""
 
     def __init__(self, model):
         self.model = model
@@ -191,458 +188,6 @@ class _OneSetSource:
         self.model = model
         # (1, 1, *param_shape): chains, then samples per chain
         self.samples = jax.tree.map(lambda x: jnp.asarray(x)[None, None], dict(params))
-
-
-@runtime_checkable
-class CovarianceField(Protocol):
-    """
-    Protocol for spatially-varying covariance fields Σ(x).
-
-    A covariance field maps stimulus locations x ∈ R^d to
-    covariance matrices Σ(x) ∈ R^{dxd}.
-
-    Methods
-    -------
-    __call__(x)
-        Evaluate field at one or more locations. Supports both single points
-        and arbitrary batch dimensions.
-    sqrt_cov(x)
-        Evaluate U(x) such that Σ(x) = U(x) @ U(x)^T + λI.
-
-    Notes
-    -----
-    This protocol enables polymorphic use of covariance fields from different
-    sources (prior samples, fitted posteriors, custom parameterizations).
-
-    The field is callable for mathematical elegance and JAX compatibility:
-        Sigma = field(x)  # Single point or batch
-    """
-
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
-        """Evaluate covariance field at one or more stimulus locations."""
-        ...
-
-    def sqrt_cov(self, x: jnp.ndarray) -> jnp.ndarray:
-        """Evaluate "square root" matrix U(x) such that Σ(x) = U(x) @ U(x)^T + λI."""
-        ...
-
-
-class WPPMCovarianceField:
-    """
-    Covariance field for WPPM with Wishart process
-    Encapsulates model + parameters to provide clean evaluation interface
-    for Σ(x) and U(x).
-
-    Parameters
-    ----------
-    model : WPPM
-        Model providing evaluation logic (local_covariance, _compute_sqrt)
-    params : dict
-        Model parameters:
-        - Wishart: {"W": (degree+1, degree+1, input_dim, embedding_dim)}
-          where embedding_dim = input_dim + extra_embedding_dims
-
-          Note: The 3rd dimension is input_dim (output/stimulus space) and not
-          embedding_dim. This is analogous to the einsum in
-          _compute_sqrt where U(x) has shape (input_dim, embedding_dim).
-
-    Attributes
-    ----------
-    model : WPPM
-        Associated model instance
-    params : dict
-        Parameter dictionary
-
-    Both attributes are fixed when the object is built. Assigning to one
-    raises ``AttributeError``. After changing an attribute of the model in
-    place, such as ``model.diag_term``, build a new field. The field copies
-    ``params`` at construction, so changing the dict you passed in afterwards
-    changes nothing.
-
-    Examples
-    --------
-    >>> import jax.numpy as jnp
-    >>> import jax.random as jr
-    >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-    >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-    >>> # from the prior
-    >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
-    >>> field(jnp.array([0.5, 0.3])).shape
-    (2, 2)
-    >>> # from a MAP fit
-    >>> from psyphy.inference import MAPOptimizer
-    >>> map_posterior = MAPOptimizer().fit(model, data)  # doctest: +SKIP
-    >>> field = WPPMCovarianceField.from_posterior(map_posterior)  # doctest: +SKIP
-
-    Notes
-    -----
-    Implements the CovarianceField protocol for polymorphic use.
-    """
-
-    def __init__(self, model, params: dict):
-        """
-        Construct covariance field from model and parameters.
-
-        Parameters
-        ----------
-        model : WPPM
-            Model providing evaluation logic
-        params : dict
-            Parameter dictionary
-
-        Raises
-        ------
-        TypeError
-            If ``model`` is a dict or ``params`` is not one, as when the two
-            arguments are swapped.
-        """
-        if isinstance(model, Mapping) or not isinstance(params, Mapping):
-            raise TypeError(
-                "WPPMCovarianceField takes the model first: "
-                "WPPMCovarianceField(model, params)"
-            )
-        self._model = model
-        self._params = dict(params)
-        # Pre-compile JIT batch evaluation path for performance
-        self._eval_batch_jitted = jax.jit(self._eval_batch_impl)
-
-    @property
-    def model(self):
-        """The model that evaluates the field. Fixed when the object is built."""
-        return self._model
-
-    @model.setter
-    def model(self, value):
-        raise AttributeError(
-            _READ_ONLY.format(name="model", build="WPPMCovarianceField(model, params)")
-        )
-
-    @property
-    def params(self) -> dict:
-        """A shallow copy of the parameter dict. Fixed when the object is built."""
-        return dict(self._params)
-
-    @params.setter
-    def params(self, value):
-        raise AttributeError(
-            _READ_ONLY.format(name="params", build="WPPMCovarianceField(model, params)")
-        )
-
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
-        """
-        Evaluate covariance field at one or more stimulus locations.
-
-        Automatically dispatches to single-point or batch evaluation based on input shape.
-        Last axis must have size input_dim. Any number of batch dimensions supported.
-
-        Parameters
-        ----------
-        x : jnp.ndarray, shape (input_dim,) or (..., input_dim)
-            The first for a single point, the second for a batch with
-            arbitrary leading batch dimensions.
-
-        Returns
-        -------
-        jnp.ndarray, shape (d, d) or (..., d, d), where d = model.input_dim
-            Square covariance matrix/matrices: the first shape for a single
-            point, the second for a batch.
-
-            For input_dim=2: returns (2, 2) or (..., 2, 2)
-            For input_dim=3: returns (3, 3) or (..., 3, 3)
-
-        Raises
-        ------
-        ValueError
-            If last axis size != input_dim
-
-        Examples
-        --------
-        >>> import jax.numpy as jnp
-        >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> # 2D stimulus space (e.g., isoluminant plane)
-        >>> model_2d = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> field_2d = WPPMCovarianceField.from_prior(model_2d, jr.PRNGKey(0))
-        >>>
-        >>> # Single 2D point
-        >>> x = jnp.array([0.5, 0.3])  # Shape (2,)
-        >>> Sigma = field_2d(x)  # Shape (2, 2)
-        >>>
-        >>> # Batch of 2D points
-        >>> X = jnp.array([[0.1, 0.2], [0.5, 0.5]])  # Shape (2, 2)
-        >>> Sigmas = field_2d(X)  # Shape (2, 2, 2)
-        >>>
-        >>> # 2D spatial grid in 2D stimulus space
-        >>> X_grid = jnp.ones((10, 10, 2))  # Shape (10, 10, 2)
-        >>> Sigmas_grid = field_2d(X_grid)  # Shape (10, 10, 2, 2)
-        >>>
-        >>> # 3D stimulus space (e.g., RGB)
-        >>> model_3d = WPPM(Prior(input_dim=3, basis_degree=2), OddityTask())
-        >>> field_3d = WPPMCovarianceField.from_prior(model_3d, jr.PRNGKey(0))
-        >>>
-        >>> # Single 3D point
-        >>> x_3d = jnp.array([0.5, 0.3, 0.2])  # Shape (3,)
-        >>> Sigma_3d = field_3d(x_3d)  # Shape (3, 3)
-        >>>
-        >>> # Batch of 3D points
-        >>> X_3d = jnp.ones((5, 10, 3))  # Shape (5, 10, 3)
-        >>> Sigmas_3d = field_3d(X_3d)  # Shape (5, 10, 3, 3)
-
-        Notes
-        -----
-        For input_dim=1, single points must have shape (1,) not (). Use x[None]
-        if needed to convert scalar to shape (1,).
-        """
-        # Validate input dimension
-        if x.shape[-1] != self.model.input_dim:
-            raise ValueError(
-                f"Last axis must be input_dim={self.model.input_dim}, got {x.shape[-1]}"
-            )
-
-        # Dispatch logic:
-        #   - x.ndim == 1: Single point -> call _eval_single()
-        #   - x.ndim >= 2: Batch -> flatten, vmap, reshape
-
-        # Dispatch based on shape
-        if x.ndim == 1:
-            # Single point: shape (d,) -> (d, d) where d = model.input_dim
-            # E.g., input_dim=2: (2,) -> (2,2), input_dim=3: (3,) -> (3,3)
-            return self._eval_single(x)
-        else:
-            # Batch: shape (..., d) -> (..., d, d) where d = model.input_dim
-            # Returns square covariance matrices for each point in the batch
-            return self._eval_batch_jitted(x)
-
-    def _eval_single(self, x: jnp.ndarray) -> jnp.ndarray:
-        """
-        Evaluate covariance at a single stimulus location.
-
-        Parameters
-        ----------
-        x : jnp.ndarray, shape (input_dim,)
-            Single stimulus location
-
-        Returns
-        -------
-        jnp.ndarray, shape (input_dim, input_dim)
-            Covariance matrix Σ(x)
-        """
-        return self.model.local_covariance(self.params, x)
-
-    def _eval_batch_impl(self, X: jnp.ndarray) -> jnp.ndarray:
-        """
-        Batch evaluation, compiled in ``__init__``.
-
-        Parameters
-        ----------
-        X : jnp.ndarray, shape (..., input_dim)
-            Batch of stimulus locations with arbitrary batch dimensions
-
-        Returns
-        -------
-        jnp.ndarray, shape (..., input_dim, input_dim)
-            Batch of covariance matrices
-        """
-        return _sigma(self.model, self.params, X)
-
-    @classmethod
-    def from_prior(cls, model, key: jax.Array) -> WPPMCovarianceField:
-        """
-        Sample a covariance field from the prior.
-
-        Parameters
-        ----------
-        model : WPPM
-            Model defining prior distribution
-        key : jax.Array
-            PRNG key for sampling
-
-        Returns
-        -------
-        WPPMCovarianceField
-            Field sampled from p(Σ(x))
-
-        Examples
-        --------
-        >>> import jax.numpy as jnp
-        >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(42))
-        >>> field(jnp.array([0.5, 0.5])).shape
-        (2, 2)
-        """
-        params = model.init_params(key)
-        return cls(model, params)
-
-    @classmethod
-    def from_posterior(cls, posterior) -> WPPMCovarianceField:
-        """
-        Create covariance field from fitted posterior.
-
-        Parameters
-        ----------
-        posterior : ParameterPosterior
-            Fitted posterior (e.g., from model.fit())
-
-        Returns
-        -------
-        WPPMCovarianceField
-            Field representing posterior estimate of Σ(x)
-
-        Notes
-        -----
-        Builds the field from ``posterior.params``, i.e. a single parameter set.
-
-        - MAP posteriors: ``params`` is θ_MAP, so this is Σ(θ_MAP).
-        - Sample-based posteriors (e.g. ``MCMCPosterior``): ``params`` is the
-          mean parameter E[W], and Σ(E[W]) is NOT the posterior mean of Σ. It
-          is systematically too small and can collapse toward λI (see
-          ``WPPMCovarianceFieldSamples`` for why). We raise a ``UserWarning``
-          when the posterior stores more than 1 sample. Use
-          ``WPPMCovarianceFieldSamples(posterior).mean(x)``
-          for E[Σ], or ``posterior.sample(n, key=...)`` for individual samples.
-
-        Examples
-        --------
-        >>> import jax.numpy as jnp
-        >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> from psyphy.inference import MAPOptimizer
-        >>> map_posterior = MAPOptimizer().fit(model, data)  # doctest: +SKIP
-        >>> field = WPPMCovarianceField.from_posterior(map_posterior)  # doctest: +SKIP
-        >>> field(jnp.array([0.5, 0.5])).shape  # doctest: +SKIP
-        (2, 2)
-        """
-        # stored sample count, by duck typing as in _draws_from. A MAPPosterior
-        # stores 1, and the mean of 1 sample is that sample
-        n_chains = getattr(posterior, "n_chains", None)
-        n_draws = getattr(posterior, "n_draws", None)
-        n_stored = int(n_chains or 1) * int(n_draws or 1)
-        if n_draws is not None and n_stored > 1:
-            warnings.warn(
-                f"from_posterior() on a {type(posterior).__name__} builds Σ from the "
-                "mean parameter E[W]. Σ is nonlinear in W, so Σ(E[W]) is not the "
-                "posterior mean of Σ and comes out systematically too small. Use "
-                "WPPMCovarianceFieldSamples(posterior).mean(x) "
-                "for E[Σ].",
-                UserWarning,
-                stacklevel=2,
-            )
-        return cls(posterior.model, posterior.params)
-
-    @classmethod
-    def from_params(cls, model, params: dict) -> WPPMCovarianceField:
-        """
-        Create field from arbitrary parameters.
-
-        Useful for:
-        - Custom initialization
-        - Posterior samples
-        - Intermediate optimization checkpoints
-        - Testing
-
-        Parameters
-        ----------
-        model : WPPM
-            Model providing evaluation logic
-        params : dict
-            Parameter dictionary
-
-        Returns
-        -------
-        WPPMCovarianceField
-
-        Examples
-        --------
-        >>> import jax.numpy as jnp
-        >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> params = model.init_params(jr.PRNGKey(0))  # {"W": (3, 3, 2, 3)}
-        >>> field = WPPMCovarianceField.from_params(model, params)
-        >>> field(jnp.array([0.5, 0.5])).shape
-        (2, 2)
-        """
-        return cls(model, params)
-
-    def sqrt_cov(self, x: jnp.ndarray) -> jnp.ndarray:
-        """
-        Evaluate U(x) such that Σ(x) = U(x) @ U(x)^T + diag_term*I.
-
-        Parameters
-        ----------
-        x : jnp.ndarray, shape (input_dim,)
-            Stimulus location
-
-        Returns
-        -------
-        jnp.ndarray, shape (input_dim, embedding_dim)
-            Rectangular square root matrix U(x).
-            embedding_dim = input_dim + extra_embedding_dims
-
-        Notes
-        -----
-        U is of shape (input_dim, embedding_dim).
-
-        Examples
-        --------
-        >>> import jax.numpy as jnp
-        >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
-        >>> x = jnp.array([0.5, 0.3])
-        >>> U = field.sqrt_cov(x)
-        >>> U.shape  # (input_dim, embedding_dim) for input_dim=2, extra_embedding_dims=1
-        (2, 3)
-        >>> # Σ = U @ U^T + λI
-        >>> bool(jnp.allclose(U @ U.T + model.diag_term * jnp.eye(2), field(x)))
-        True
-        """
-        if "W" not in self.params:
-            raise ValueError(
-                "params has no 'W', so sqrt_cov cannot evaluate U(x). "
-                "Pass params with a 'W' entry, e.g. from WPPM.init_params."
-            )
-        return self.model._compute_sqrt(self.params, x)
-
-    def sqrt_cov_batch(self, X: jnp.ndarray) -> jnp.ndarray:
-        """
-        Vectorized evaluation of U(x) at multiple locations.
-
-        Parameters
-        ----------
-        X : jnp.ndarray, shape (n_points, input_dim)
-            Multiple stimulus locations
-
-        Returns
-        -------
-        jnp.ndarray, shape (n_points, input_dim, embedding_dim)
-            Rectangular square root matrices at each location.
-            embedding_dim = input_dim + extra_embedding_dims
-
-        Notes
-        -----
-        In the rectangular design (Hong et al.), U is (input_dim, embedding_dim).
-
-        Examples
-        --------
-        >>> import jax.numpy as jnp
-        >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
-        >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
-        >>> X_grid = jnp.array([[0.1, 0.2], [0.5, 0.5], [0.9, 0.8]])  # (3, 2)
-        >>> field.sqrt_cov_batch(X_grid).shape  # (n_points, input_dim, embedding_dim)
-        (3, 2, 3)
-        """
-        if "W" not in self.params:
-            raise ValueError(
-                "params has no 'W', so sqrt_cov_batch cannot evaluate U(x)."
-            )
-        return jax.vmap(self.sqrt_cov)(X)
 
 
 def covariance_to_arviz(posterior, points):
@@ -914,37 +459,37 @@ def _hdi(radii: jnp.ndarray, prob: float) -> tuple[jnp.ndarray, jnp.ndarray]:
 _CI_KINDS = {"eti": _eti, "hdi": _hdi}
 
 
-class WPPMCovarianceFieldSamples:
+class WPPMCovarianceField:
     r"""
-    N draws of the WPPM covariance field, with the reductions over them.
+    The WPPM covariance field for each of N parameter sets.
 
-    A fit gives many parameter draws, so it gives many covariance fields. This
-    class holds the draws and evaluates them: ``fields(x)`` for every draw,
-    :meth:`mean` for :math:`\mathbb{E}[\Sigma(x)]`, :meth:`credible_band` for a credible
-    band on the contour. The draws are taken when the object is built, so the
-    three reductions are three views of one sample.
+    A MAP fit, a ground truth or a published W is 1 parameter set, and an MCMC
+    fit gives 1 per sample. The object holds them with their model and
+    evaluates every one: ``fields(x)`` for each sample, :meth:`mean` for
+    :math:`\mathbb{E}[\Sigma(x)]`, :meth:`credible_band` for a band on the
+    contour, and :meth:`sqrt_cov` for :math:`U(x)`.
 
-    :meth:`mean` averages :math:`\Sigma` over the draws. A field built from the
-    averaged parameters gives contours several times too small, because
+    The sample axis comes first in every call that keeps it, N = 1 included.
+    After a MAP fit ``fields(x)`` has shape ``(1, d, d)``, and ``fields(x)[0]``
+    is the matrix. Pass a batch of points directly. ``jax.vmap(fields)(X)``
+    puts the points first, ``(n_points, N, d, d)``.
+
+    :meth:`mean` averages :math:`\Sigma` over the samples. A field built from
+    the averaged parameters gives contours several times too small, because
     :math:`\Sigma(x) = U(x) U(x)^\top + \lambda I` is nonlinear in :math:`W`.
-
-    :meth:`sqrt_cov` gives :math:`U(x)` for every draw. The mean matrix has no
-    :math:`U`, because an average of :math:`U U^\top` is not :math:`U U^\top`
-    for any single :math:`U`. For a factor of the mean matrix, use
-    ``jnp.linalg.cholesky(fields.mean(x))``.
+    For a factor of the mean matrix, use ``jnp.linalg.cholesky(fields.mean(x))``.
 
     Parameters
     ----------
     posterior : ParameterPosterior
-        A fitted posterior, typically an ``MCMCPosterior``. Its ``model``
-        evaluates the samples. For samples from the prior, use
-        :meth:`from_prior`.
+        A fitted posterior, an ``MCMCPosterior`` or a ``MAPPosterior``. Its
+        ``model`` evaluates the samples. For the prior, use :meth:`from_prior`,
+        and for 1 parameter set with no posterior, :meth:`from_params`.
     n_samples : int, optional
         How many samples to take. Omit it for every stored sample, which needs
         the posterior to expose ``samples``, ``n_chains`` and ``n_draws``.
         ``MCMCPosterior`` and ``MAPPosterior`` both do, and a ``MAPPosterior``
-        stores 1 sample. For 1 parameter set with no posterior, use
-        :meth:`from_params`.
+        stores 1 sample.
     key : jax.Array, optional
         PRNG key for the subsample. Required when ``n_samples`` is given, and
         unread otherwise, since every stored sample is taken in order.
@@ -958,12 +503,12 @@ class WPPMCovarianceFieldSamples:
     Attributes
     ----------
     model : WPPM
-        The model the draws belong to.
-    samples : dict
-        The draws, leading axis ``n_samples``. Public, so a per-draw quantity
-        psyphy does not ship can be had with ``jax.vmap`` over it.
+        The model the samples belong to.
+    samples : dict, {"W": shape (n_samples, degree+1, degree+1, d, m)}
+        The parameter sets, leading axis ``n_samples``. For a per-sample
+        quantity psyphy doesn't ship, ``jax.vmap`` over it.
     n_samples : int
-        Draws held.
+        Parameter sets held, 1 after a MAP fit.
 
     All three are fixed when the object is built. Assigning to one raises
     ``AttributeError``. After changing an attribute of the model in place, such
@@ -971,22 +516,21 @@ class WPPMCovarianceFieldSamples:
 
     See Also
     --------
-    WPPMCovarianceField : one parameter set, so one field and its square root.
-    covariance_to_arviz : per-draw Σ with the chain axis kept, for diagnostics.
+    covariance_to_arviz : per-sample Σ with the chain axis kept, for diagnostics.
 
     Examples
     --------
     >>> import jax.numpy as jnp
     >>> import jax.random as jr
-    >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+    >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
     >>> from psyphy.posterior import MCMCPosterior
     >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
     >>> keys = jr.split(jr.PRNGKey(1), 100)
     >>> W = jnp.stack([model.init_params(k)["W"] for k in keys])  # (100, 3, 3, 2, 3)
     >>> posterior = MCMCPosterior(model, {"W": W.reshape(2, 50, *W.shape[1:])})
-    >>> WPPMCovarianceFieldSamples(posterior).n_samples
+    >>> WPPMCovarianceField(posterior).n_samples
     100
-    >>> fields = WPPMCovarianceFieldSamples(posterior, n_samples=50, key=jr.PRNGKey(0))
+    >>> fields = WPPMCovarianceField(posterior, n_samples=50, key=jr.PRNGKey(0))
     >>> ref_points = jnp.array([[-0.5, -0.5], [0.5, 0.5]])  # (n_points=2, d=2)
     >>> fields(ref_points).shape  # (n_samples, n_points, d, d)
     (50, 2, 2, 2)
@@ -994,6 +538,9 @@ class WPPMCovarianceFieldSamples:
     (2, 2, 2)
     >>> fields.credible_band(ref_points).lower.shape  # (n_points, n_directions)
     (2, 181)
+    >>> truth = WPPMCovarianceField.from_params(model, model.init_params(jr.PRNGKey(2)))
+    >>> truth(ref_points).shape  # (1, n_points, d, d): 1 parameter set
+    (1, 2, 2, 2)
     """
 
     def __init__(self, posterior, *, n_samples: int | None = None, key=None):
@@ -1007,7 +554,7 @@ class WPPMCovarianceFieldSamples:
         self._model = posterior.model
         self._samples = samples
         self._n_samples = int(leaves[0].shape[0])
-        # Pre-compile the batch paths, as in WPPMCovarianceField
+        # Pre-compile the batch paths
         self._eval_batch_jitted = jax.jit(self._eval_batch_impl)
         self._mean_batch_jitted = jax.jit(self._mean_batch_impl)
 
@@ -1019,9 +566,7 @@ class WPPMCovarianceFieldSamples:
     @model.setter
     def model(self, value):
         raise AttributeError(
-            _READ_ONLY.format(
-                name="model", build="WPPMCovarianceFieldSamples(posterior)"
-            )
+            _READ_ONLY.format(name="model", build="WPPMCovarianceField(posterior)")
         )
 
     @property
@@ -1032,9 +577,7 @@ class WPPMCovarianceFieldSamples:
     @samples.setter
     def samples(self, value):
         raise AttributeError(
-            _READ_ONLY.format(
-                name="samples", build="WPPMCovarianceFieldSamples(posterior)"
-            )
+            _READ_ONLY.format(name="samples", build="WPPMCovarianceField(posterior)")
         )
 
     @property
@@ -1045,13 +588,11 @@ class WPPMCovarianceFieldSamples:
     @n_samples.setter
     def n_samples(self, value):
         raise AttributeError(
-            _READ_ONLY.format(
-                name="n_samples", build="WPPMCovarianceFieldSamples(posterior)"
-            )
+            _READ_ONLY.format(name="n_samples", build="WPPMCovarianceField(posterior)")
         )
 
     @classmethod
-    def from_prior(cls, model, *, n_samples: int, key) -> WPPMCovarianceFieldSamples:
+    def from_prior(cls, model, *, n_samples: int, key) -> WPPMCovarianceField:
         """
         Samples from the model's prior.
 
@@ -1068,14 +609,14 @@ class WPPMCovarianceFieldSamples:
 
         Returns
         -------
-        WPPMCovarianceFieldSamples
+        WPPMCovarianceField
 
         Examples
         --------
         >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
         >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> fields = WPPMCovarianceFieldSamples.from_prior(
+        >>> fields = WPPMCovarianceField.from_prior(
         ...     model, n_samples=8, key=jr.PRNGKey(0)
         ... )
         >>> fields.samples["W"].shape  # (n_samples, degree+1, degree+1, d, m)
@@ -1084,7 +625,7 @@ class WPPMCovarianceFieldSamples:
         return cls(_PriorSource(model), n_samples=n_samples, key=key)
 
     @classmethod
-    def from_params(cls, model, params: dict) -> WPPMCovarianceFieldSamples:
+    def from_params(cls, model, params: dict) -> WPPMCovarianceField:
         """
         1 parameter set, such as a ground truth or a published W.
 
@@ -1102,7 +643,7 @@ class WPPMCovarianceFieldSamples:
 
         Returns
         -------
-        WPPMCovarianceFieldSamples
+        WPPMCovarianceField
             With ``n_samples == 1``.
 
         Raises
@@ -1115,10 +656,10 @@ class WPPMCovarianceFieldSamples:
         --------
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
         >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> params = model.init_params(jr.PRNGKey(0))  # {"W": (3, 3, 2, 3)}
-        >>> fields = WPPMCovarianceFieldSamples.from_params(model, params)
+        >>> fields = WPPMCovarianceField.from_params(model, params)
         >>> fields.n_samples
         1
         >>> fields(jnp.array([0.5, 0.5])).shape  # (n_samples, d, d)
@@ -1127,7 +668,7 @@ class WPPMCovarianceFieldSamples:
         if isinstance(model, Mapping) or not isinstance(params, Mapping):
             raise TypeError(
                 "from_params takes the model first: "
-                "WPPMCovarianceFieldSamples.from_params(model, params)"
+                "WPPMCovarianceField.from_params(model, params)"
             )
         return cls(_OneSetSource(model, params))
 
@@ -1180,9 +721,9 @@ class WPPMCovarianceFieldSamples:
         --------
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
         >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> fields = WPPMCovarianceFieldSamples.from_prior(
+        >>> fields = WPPMCovarianceField.from_prior(
         ...     model, n_samples=16, key=jr.PRNGKey(0)
         ... )
         >>> fields.mean(jnp.array([0.5, 0.3])).shape
@@ -1214,9 +755,9 @@ class WPPMCovarianceFieldSamples:
         --------
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
         >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
-        >>> fields = WPPMCovarianceFieldSamples.from_prior(
+        >>> fields = WPPMCovarianceField.from_prior(
         ...     model, n_samples=8, key=jr.PRNGKey(0)
         ... )
         >>> fields.sqrt_cov(jnp.array([0.5, 0.3])).shape  # (n_samples, d, m)
@@ -1289,10 +830,10 @@ class WPPMCovarianceFieldSamples:
         --------
         >>> import jax.numpy as jnp
         >>> import jax.random as jr
-        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+        >>> from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
         >>> model = WPPM(Prior(input_dim=2, basis_degree=2), OddityTask())
         >>> ref_points = jnp.array([[-0.5, -0.5], [0.5, 0.5]])  # (n_points, 2)
-        >>> fields = WPPMCovarianceFieldSamples.from_prior(
+        >>> fields = WPPMCovarianceField.from_prior(
         ...     model, n_samples=50, key=jr.PRNGKey(1)
         ... )
         >>> fields.credible_band(ref_points).lower.shape  # (n_points, n_directions)
@@ -1305,7 +846,7 @@ class WPPMCovarianceFieldSamples:
             raise ValueError(
                 "1 parameter set has no spread, so it has no credible band. "
                 "Build the field from an MCMC posterior: "
-                "WPPMCovarianceFieldSamples(mcmc_posterior)."
+                "WPPMCovarianceField(mcmc_posterior)."
             )
         if ci_kind not in _CI_KINDS:
             raise ValueError(
@@ -1381,7 +922,7 @@ class WPPMCovarianceFieldSamples:
         return jnp.mean(per_draw, axis=0)  # (d, d)
 
     def _mean_batch_impl(self, X: jnp.ndarray) -> jnp.ndarray:
-        """Flatten -> vmap -> reshape, as in ``WPPMCovarianceField``."""
+        """Flatten -> vmap -> reshape: E[Σ] at every location, (..., d, d)."""
         input_dim = self.model.input_dim
         batch_shape = X.shape[:-1]
         X_flat = X.reshape(-1, input_dim)
