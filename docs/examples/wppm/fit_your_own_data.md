@@ -4,7 +4,6 @@ This page is for readers who know the Wishart Process Psychophysical Model (WPPM
 to fit it to their own trials with psyphy. It shows how psyphy stores trials and the calls in
 order, from a CSV file to thresholds and the checks we run on a fit. The model itself is
 
-
 explained in the [WPPM tutorial](full_wppm_fit_example.md).
 
 We use one observer's published trials from
