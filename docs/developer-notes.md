@@ -58,9 +58,10 @@ Every result starts with the sample axis, which has 1 entry per parameter set:
 - N = the number of samples after an MCMC fit
 
 So for `X` of shape `(n_points, d)`, with `n_points` the stimulus points we evaluate at and
-$d$ the stimulus dimensions, `fields(X)` has shape `(N, n_points, d, d)`. That's
+$d$ the stimulus dimensions, `fields(X)` has shape `(N, n_points, d, d)`. For example, that
+would be
 `(1, n_points, d, d)` after a MAP fit and `(2000, n_points, d, d)` after an MCMC fit with
-2000 samples. Code downstream reads the same layout either way, and doesn't have to check
+2000 samples. Code downstream reads this shape and doesn't have to check
 whether it got a MAP point estimate or MCMC samples.
 
 We build the object from the posterior, `WPPMCovarianceField(post)`. Without a posterior

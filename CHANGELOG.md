@@ -10,6 +10,61 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ### Breaking
 
+- **One covariance field class, `WPPMCovarianceField`, where the sample axis is always first in every result.** `WPPMCovarianceFieldSamples` is renamed `WPPMCovarianceField`. The single-set
+  `WPPMCovarianceField`, the `CovarianceField` protocol, `sqrt_cov_batch` and
+  `from_posterior` are gone, and `psyphy.model` no longer exports `CovarianceField` or
+  `WPPMCovarianceFieldSamples`.
+
+  The sample axis is the leading axis of a result, with 1 entry per parameter set. An MCMC
+  fit has 1 per sample. A MAP fit, a ground truth or a published $W$ is 1 parameter set,
+  so its results now start with an axis of length 1. In the shapes below:
+
+  - `x`: one stimulus location, shape `(d,)`
+  - `X`: the stimulus locations at which we evaluate the field, shape `(n_points, d)`, or
+    any batch `(..., d)` such as a grid `(n_rows, n_cols, d)`
+  - `d`: stimulus dimensions, the model's `input_dim`
+  - `m`: columns of $U(x)$, `input_dim + extra_embedding_dims`
+
+  `field(x)` has shape `(1, d, d)`, `field(X)` has `(1, n_points, d, d)`, and
+  `field.sqrt_cov(x)` has `(1, d, m)`. `field(x)[0]` is the covariance matrix at `x`.
+
+  Code written for the old shapes can run on the new ones and give wrong numbers with no
+  error, so check each result that used to be `(d, d)` or `(n_points, d, d)`. 2 cases:
+
+  ```python
+  jnp.trace(field(x))            # (d,): the first row of Σ(x), not its trace
+  jnp.trace(field(x)[0])         # the trace
+
+  # a 1-D model, X of shape (n_points, 1) and truth of shape (n_points,)
+  field(X)[:, 0, 0] - truth      # (1, n_points): Σ at the first point minus every truth value
+  field(X)[0, :, 0, 0] - truth   # (n_points,)
+  ```
+
+  `jax.vmap(field)(X)` evaluates the points one at a time and puts them first,
+  `(n_points, 1, d, d)`. Pass `X` to `field` directly for the samples first.
+
+  ```python
+  # before
+  field = WPPMCovarianceField(model, map_posterior.params)        # or .from_posterior(map_posterior)
+  truth = WPPMCovarianceField(model, truth_params)
+  prior = WPPMCovarianceField.from_prior(model, key)
+  fields = WPPMCovarianceFieldSamples(nuts_posterior)
+  field(x)              # (d, d)
+  field.sqrt_cov_batch(X)
+
+  # now
+  field = WPPMCovarianceField(map_posterior)                     # no key
+  truth = WPPMCovarianceField.from_params(model, truth_params)
+  prior = WPPMCovarianceField.from_prior(model, n_samples=1, key=key)
+  fields = WPPMCovarianceField(nuts_posterior)
+  field(x)[0]           # (d, d); field(x) is (1, d, d)
+  field.sqrt_cov(X)[0]  # (n_points, d, m)
+  ```
+
+  `from_prior(model, n_samples=1, key=key)` splits the key, so it draws a different sample
+  than the old `from_prior(model, key)`. For the old draw, use
+  `from_params(model, model.init_params(key))`.
+
 - **A Bernoulli task's `predict` returns `(log_p, log_1mp)`, not `(p_correct,)`.** These
   are log p(correct) and log p(incorrect) for one trial. `loglik` takes one of the 2 by the
   response and holds it in [1e-6, 1 - 1e-6], the bound `OddityTask.predict` applied to
