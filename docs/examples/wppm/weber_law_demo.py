@@ -247,8 +247,9 @@ key = jr.PRNGKey(0)
 key_refs, key_radii, key_sim = jr.split(key, 3)
 
 # Sample reference stimuli uniformly in physical units, then normalize
-refs_s = jr.uniform(key_refs, (N_TRIALS,), minval=S_MIN, maxval=S_MAX_REF)  # physical
-refs_x = to_norm(refs_s)  # normalized, passed to models
+# (N,), physical units
+refs_s = jr.uniform(key_refs, (N_TRIALS,), minval=S_MIN, maxval=S_MAX_REF)
+refs_x = to_norm(refs_s)  # normalized, passed to models, (N,)
 refs = refs_x[:, None]  # (N, 1) for WPPM / OddityTask
 
 # jnd_multiples: how many JNDs each comparison is displaced from its reference.
@@ -256,24 +257,22 @@ refs = refs_x[:, None]  # (N, 1) for WPPM / OddityTask
 # Ranging from 0.5-4 JNDs ensures the scatter covers both hard and easy trials.
 # Displacements are one-sided (comp = ref + delta, delta > 0); direction does not
 # matter in 1D because only |delta|/sqrt(Sigma) enters the decision.
-jnd_multiples = jr.uniform(key_radii, (N_TRIALS,), minval=0.5, maxval=4.0)
-delta_s = (
-    jnd_multiples * K_WEBER * refs_s
-)  # physical displacement: jnd_multiples * JND(s)
+jnd_multiples = jr.uniform(key_radii, (N_TRIALS,), minval=0.5, maxval=4.0)  # (N,)
+# physical displacement: jnd_multiples * JND(s), (N,)
+delta_s = jnd_multiples * K_WEBER * refs_s
 
 # Comparisons in normalized coordinates (WPPM and OddityTask expect normalized x)
-comps_x = to_norm(refs_s + delta_s)
+comps_x = to_norm(refs_s + delta_s)  # (N,)
 comparisons = comps_x[:, None]  # (N, 1)
 
 # Simulate binary responses via the MC-based oddity decision process.
 # WeberGroundTruth receives normalized x; internally converts to physical s.
-stimuli = jnp.stack(
-    [refs, comparisons], axis=1
-)  # (N, 2, 1): new API requires pre-stacked
+# (N, K=2, d=1): slot 0 ref, slot 1 comparison
+stimuli = jnp.stack([refs, comparisons], axis=1)
 responses, prob_params = task.simulate(
     params=None, stimuli=stimuli, model=weber_gt, key=key_sim
-)
-p_correct_sim = prob_params[0]  # simulate returns (responses, (p_correct, ...))
+)  # responses (N,) 0 or 1
+p_correct_sim = prob_params[0]  # (N,); simulate returns (responses, (p_correct, ...))
 data = TrialData(stimuli=stimuli, responses=responses, stimulus_names=("ref", "comp"))
 # --8<-- [end:simulate]
 
@@ -299,6 +298,7 @@ model = WPPM(
     diag_term=DIAG_TERM,  # matches WeberGroundTruth for a fair comparison
 )
 
+# {"W": (4, 1, 1)}: degree 0 to 3, d=1, m=1
 init_params = model.init_params(jr.PRNGKey(1))
 
 optimizer = MAPOptimizer(
@@ -322,20 +322,22 @@ print("[3/5] Computing derived quantities ...")
 # Dense grid over the reference range for analysis and plotting.
 # Comparisons may extend above S_MAX_REF, but we only evaluate the sub-range
 # [S_MIN, S_MAX_REF] where the model is well-determined by training data.
-s_grid = jnp.linspace(S_MIN, S_MAX_REF, 300)  # physical, reference range
+s_grid = jnp.linspace(S_MIN, S_MAX_REF, 300)  # physical, reference range, (300,)
 x_grid = to_norm(s_grid)[:, None]  # normalized, shape (300, 1)
 
 # Bind fitted parameters to the model: creates a callable x -> Sigma(x).
 fitted_cov_fn = WPPMCovarianceField(posterior=map_posterior)
 variances = fitted_cov_fn(x_grid)[0]  # (300, 1, 1); [0] drops the 1-sample axis
-# [:, 0, 0] extracts the scalar Sigma(s)
+# [:, 0, 0] extracts the scalar Sigma(s) at each grid point, (300,)
+# Without the [0] above, [:, 0, 0] on (1, 300, 1, 1) gives (1, 1), Sigma at the first
+# point only, and jnd_fitted / s_grid would broadcast to (1, 300) with no error
 # sqrt(Sigma) from WPPM; proxy for implied JND in physical units
 # (valid in the 1D equal-variance limit; see module docstring)
-jnd_fitted = jnp.sqrt(variances[:, 0, 0])
-jnd_truth = K_WEBER * s_grid  # ground truth: k*s
+jnd_fitted = jnp.sqrt(variances[:, 0, 0])  # (300,)
+jnd_truth = K_WEBER * s_grid  # ground truth: k*s, (300,)
 
 # Weber fraction: JND(s)/s; should be flat at K_WEBER
-weber_fraction_fitted = jnd_fitted / s_grid
+weber_fraction_fitted = jnd_fitted / s_grid  # (300,)
 # --8<-- [end:jnd]
 
 # ---------------------------------------------------------------------------
@@ -364,7 +366,7 @@ print(
 # Fechner's law: psi(s) = integral_{S_MIN}^{s} 1/JND(s') ds'
 # When JND = k*s, psi = (1/k)*log(s/S_MIN) (the logarithmic magnitude scale)
 ds = float(s_grid[1] - s_grid[0])
-psi_fitted = jnp.cumsum(1.0 / jnd_fitted) * ds
+psi_fitted = jnp.cumsum(1.0 / jnd_fitted) * ds  # (300,), like the 2 below
 psi_truth = jnp.cumsum(1.0 / jnd_truth) * ds
 psi_log = jnp.log(s_grid / s_grid[0])
 
@@ -390,13 +392,13 @@ psych_data = {}
 
 for s_ref in PSYCH_LEVELS_PHYS:
     jnd_gt = K_WEBER * s_ref
-    delta_sweep = jnp.linspace(0.01 * jnd_gt, 4.0 * jnd_gt, n_delta)  # physical
+    # (n_delta,), physical units
+    delta_sweep = jnp.linspace(0.01 * jnd_gt, 4.0 * jnd_gt, n_delta)
 
     # Convert to normalized coordinates for model calls
     refs_psych = to_norm(jnp.full(n_delta, s_ref))[:, None]  # (n_delta, 1)
-    comps_psych = to_norm(jnp.full(n_delta, s_ref) + delta_sweep)[
-        :, None
-    ]  # (n_delta, 1)
+    # (n_delta, 1)
+    comps_psych = to_norm(jnp.full(n_delta, s_ref) + delta_sweep)[:, None]
     stims_psych = jnp.stack([refs_psych, comps_psych], axis=1)  # (n_delta, 2, 1)
 
     # --8<-- [start:psychometric]
@@ -407,12 +409,12 @@ for s_ref in PSYCH_LEVELS_PHYS:
             params=map_posterior.params, stimuli=stim, model=model, key=key_psych
         )
     )(stims_psych)
-    p_fit = jnp.exp(log_p_fit)
+    p_fit = jnp.exp(log_p_fit)  # (n_delta,)
 
     log_p_gt, _ = jax.vmap(
         lambda stim: task_smooth.predict(None, stim, weber_gt, key=key_psych)
     )(stims_psych)
-    p_gt = jnp.exp(log_p_gt)
+    p_gt = jnp.exp(log_p_gt)  # (n_delta,)
     # --8<-- [end:psychometric]
 
     psych_data[s_ref] = {
@@ -453,7 +455,7 @@ def draw_trial_scatter(ax):
     Weber's law predicts the JND boundary is a straight line through the origin.
     Trials above the line tend to be correct; below tend to be incorrect.
     """
-    correct = np.asarray(responses) == 1
+    correct = np.asarray(responses) == 1  # (N,) bool
     s_np = np.asarray(refs_s)  # physical
     d_np = np.asarray(delta_s)  # physical
 
@@ -793,8 +795,8 @@ if RUN_BASIS_SWEEP:
     task_sweep = OddityTask(config=OddityTaskConfig(num_samples=400))
 
     n_test = N_TRIALS // 5
-    perm = np.asarray(jr.permutation(jr.PRNGKey(7), N_TRIALS))
-    test_idx, train_idx = perm[:n_test], perm[n_test:]
+    perm = np.asarray(jr.permutation(jr.PRNGKey(7), N_TRIALS))  # (N,) trial indices
+    test_idx, train_idx = perm[:n_test], perm[n_test:]  # (n_test,) and (N - n_test,)
 
     def _subset(idx):
         return TrialData(

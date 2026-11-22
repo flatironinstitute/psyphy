@@ -394,13 +394,17 @@ truth_model = WPPM(
     noise=noise,
     diag_term=DIAG_TERM,
 )
+# {"W": (3, 3, 2, 3)}: degree 0 to 2, d=2, m=3
 truth_params = truth_model.init_params(jr.PRNGKey(123))
+# 1 sample
 truth_field = WPPMCovarianceField.from_params(model=truth_model, params=truth_params)
 
 # Build reference grid
-ref_grid = jnp.linspace(-0.8, 0.8, N_REF_GRID)
+ref_grid = jnp.linspace(-0.8, 0.8, N_REF_GRID)  # (N_REF_GRID,)
+# (n_ref, 2)
 ref_points = jnp.stack(jnp.meshgrid(ref_grid, ref_grid), axis=-1).reshape(-1, 2)
-n_ref = ref_points.shape[0]
+n_ref = ref_points.shape[0]  # N_REF_GRID**2
+# (n_total, 2), n_total = n_ref * NUM_TRIALS_PER_REF
 refs = jnp.repeat(ref_points, NUM_TRIALS_PER_REF, axis=0)
 
 # Covariance-scaled probe displacements (constant Mahalanobis radius)
@@ -408,16 +412,18 @@ key = jr.PRNGKey(3)
 k_dir, k_sim = jr.split(key)
 n_total = refs.shape[0]
 Sigmas_ref = truth_field(refs)[0]  # (n_total, 2, 2), [0] picks the 1 parameter set
+# (n_total,) radians
 angles = jr.uniform(k_dir, (n_total,), minval=0.0, maxval=2 * jnp.pi)
-unit_dirs = jnp.stack([jnp.cos(angles), jnp.sin(angles)], axis=1)
-L = jnp.linalg.cholesky(Sigmas_ref)
-deltas = 2.8 * jnp.einsum("nij,nj->ni", L, unit_dirs)
-comparisons = jnp.clip(refs + deltas, -1.0, 1.0)
+unit_dirs = jnp.stack([jnp.cos(angles), jnp.sin(angles)], axis=1)  # (n_total, 2)
+L = jnp.linalg.cholesky(Sigmas_ref)  # (n_total, 2, 2)
+deltas = 2.8 * jnp.einsum("nij,nj->ni", L, unit_dirs)  # (n_total, 2)
+comparisons = jnp.clip(refs + deltas, -1.0, 1.0)  # (n_total, 2)
 
 # Stimuli are packed (N, K, d) with K=2: slot 0 reference, slot 1 comparison.
 # The oddity task presents three stimuli but stores two: the reference is shown
 # twice, and that duplication lives in OddityTask, not in the data.
-stimuli = jnp.stack([refs, comparisons], axis=1)
+stimuli = jnp.stack([refs, comparisons], axis=1)  # (n_total, K=2, d=2)
+# (n_total,) 0 or 1
 ys, _ = task.simulate(truth_params, stimuli, truth_model, key=k_sim)
 
 # --8<-- [start:data]
@@ -555,14 +561,14 @@ else:
 print(
     f"  Posterior: {nuts_posterior.n_chains} chains × {nuts_posterior.n_draws} samples"
 )
-acc = nuts_posterior.sampler_stats["acceptance_rate"]
+acc = nuts_posterior.sampler_stats["acceptance_rate"]  # (n_chains, n_draws)
 print(f"  Mean acceptance rate: {float(jnp.mean(acc)):.3f}")
 # Divergences first: a divergent transition means the integrator blew up rather
 # than following the posterior's geometry, so the kept samples are biased in a way
 # more sampling does not fix. Any non-zero count makes the run suspect whatever
 # R-hat says, which is why it is printed before the convergence diagnostics.
 # --8<-- [start:divergence_check]
-_div = nuts_posterior.sampler_stats["diverging"]
+_div = nuts_posterior.sampler_stats["diverging"]  # (n_chains, n_draws) bool
 _n_div = int(jnp.sum(_div))
 print(
     f"  Divergences: {_n_div} / {_div.size} samples ({_n_div / _div.size:.1%})"
@@ -570,7 +576,7 @@ print(
 )
 # Fraction of post-warmup samples whose trajectory was cut off by the depth cap.
 # A large fraction means max_num_doublings is limiting mixing.
-_n_steps = nuts_posterior.sampler_stats["n_steps"]
+_n_steps = nuts_posterior.sampler_stats["n_steps"]  # (n_chains, n_draws)
 _at_cap = float(jnp.mean(_n_steps >= 2**MAX_NUM_DOUBLINGS - 1))
 print(
     f"  Leapfrog steps/sample: mean {float(jnp.mean(_n_steps)):.0f}, "
@@ -592,6 +598,7 @@ fields = WPPMCovarianceField(posterior=nuts_posterior)  # every stored sample
 covs_samples = fields(ref_points)
 # every k-th sample, so the plot shows n_ensemble contours from all chains
 n_ensemble = N_ENSEMBLE
+# (n_ensemble, n_ref, 2, 2)
 covs_ensemble = covs_samples[:: fields.n_samples // n_ensemble]
 # --8<-- [end:posterior_samples]
 
@@ -677,8 +684,8 @@ band = fields.credible_band(ref_points, ci_prob=CI_PROB)
 
 r_truth = contour_radii(covs_truth, band.directions)  # (n_ref, n_directions)
 
-_u = jax.device_get(band.directions)
-_refs = jax.device_get(ref_points)
+_u = jax.device_get(band.directions)  # (n_directions, 2)
+_refs = jax.device_get(ref_points)  # (n_ref, 2)
 _lo, _med, _hi, _truth = (
     jax.device_get(band.lower),
     jax.device_get(band.median),
@@ -688,7 +695,7 @@ _lo, _med, _hi, _truth = (
 
 fig, ax = plt.subplots(figsize=(7, 7))
 for k in range(_refs.shape[0]):
-    outer = _refs[k] + ELLIPSE_SCALE * _hi[k][:, None] * _u
+    outer = _refs[k] + ELLIPSE_SCALE * _hi[k][:, None] * _u  # (n_directions, 2)
     inner = _refs[k] + ELLIPSE_SCALE * _lo[k][:, None] * _u
     # One path, inner contour reversed: nonzero winding leaves the hole unfilled,
     # so the fill is an annulus between the two quantile contours.
@@ -739,10 +746,11 @@ nested = fields.credible_band(ref_points, ci_prob=[0.5, 0.8, 0.95])
 
 # Show one reference point, the least constrained one, so the three levels are
 # far enough apart to tell apart by eye.
+# (n_ref, n_directions)
 _rel_width = (nested.upper[-1] - nested.lower[-1]) / nested.median[-1]
 _k = int(jnp.argmax(jnp.mean(_rel_width, axis=1)))  # widest band, (n_ref,) -> index
 
-_ref_k = jax.device_get(ref_points[_k])
+_ref_k = jax.device_get(ref_points[_k])  # (2,)
 _dirs = jax.device_get(nested.directions)  # (n_directions, 2)
 fig, ax = plt.subplots(figsize=(5.5, 5.5))
 # Widest level first so the narrower fills draw on top of it.
@@ -759,8 +767,8 @@ for level in reversed(range(len(nested.ci_prob))):
         linewidth=0,
         label=f"{nested.ci_prob[level]:.0%} CI",
     )
-_med_k = jax.device_get(nested.median[0][_k])
-_truth_k = jax.device_get(r_truth[_k])
+_med_k = jax.device_get(nested.median[0][_k])  # (n_directions,)
+_truth_k = jax.device_get(r_truth[_k])  # (n_directions,)
 for r, color, lab in (
     (_med_k, "C0", "Posterior median"),
     (_truth_k, "k", "Ground truth"),
@@ -858,7 +866,7 @@ configs = [
     ),
 ]
 # the ensemble from section 5, reused by the NUTS panel below
-ensemble = jax.device_get(covs_ensemble)
+ensemble = jax.device_get(covs_ensemble)  # (n_ensemble, n_ref, 2, 2)
 
 for ax, (covs, color, label, with_ensemble) in zip(axes, configs):
     if with_ensemble:
