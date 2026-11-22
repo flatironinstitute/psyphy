@@ -89,8 +89,16 @@ posteriori (MAP) point estimate $W_\text{MAP}$.
 
 ## Step 5: Inspect the fitted covariance ellipse
 
-`WPPMCovarianceField` binds a `(model, params)` pair into a single callable
-that returns $\Sigma(x)$ for any stimulus `x`:
+[`WPPMCovarianceField`](../../reference/model.md#psyphy.model.WPPMCovarianceField) builds
+a callable from a fit, and the callable returns $\Sigma(x)$ for any stimulus `x`. We pass
+it the posterior. For a parameter set with no fit, like the ground truth and the prior
+sample here, there's `WPPMCovarianceField.from_params(model, params)`.
+
+A MAP fit is 1 parameter set, so the field holds 1 sample (`n_samples` is 1) and every
+result starts with a sample axis of length 1. `[0]` drops it. The posterior stores
+$W_\text{MAP}$ the way an MCMC fit stores its samples, with `n_chains` and `n_draws` both
+equal to 1. No sampler ran. It's just the layout, and it lets the same line work after
+either fit:
 
 ```python title="Evaluate covariance fields"
 --8<-- "docs/examples/wppm/quick_start.py:cov_fields"

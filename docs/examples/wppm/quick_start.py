@@ -136,8 +136,8 @@ key = jr.PRNGKey(seed)
 refs = jnp.repeat(ref_point, repeats=NUM_TRIALS, axis=0)  # (NUM_TRIALS, 2)
 
 # Evaluate Σ at the reference point.
-truth_field = WPPMCovarianceField(model=truth_model, params=truth_params)
-Sigmas_ref = truth_field(refs)  # (NUM_TRIALS, 2, 2)
+truth_field = WPPMCovarianceField.from_params(model=truth_model, params=truth_params)
+Sigmas_ref = truth_field(refs)[0]  # (NUM_TRIALS, 2, 2), [0] picks the 1 parameter set
 
 # Sample unit directions and build covariance-scaled probe displacements.
 k_dir, k_sim = jr.split(key)
@@ -191,9 +191,9 @@ model = WPPM(
 init_params = model.init_params(
     jax.random.PRNGKey(42)
 )  # intitialize with a draw from the prior
-prior_field = WPPMCovarianceField(model, init_params)
+prior_field = WPPMCovarianceField.from_params(model, init_params)
 # Evaluate prior covariance at the reference point
-covs_prior = prior_field(ref_point)  # (1, 2, 2)
+covs_prior = prior_field(ref_point)[0]  # (n_points=1, 2, 2) for the 1 parameter set
 # --8<-- [end:prior]
 print(f"  shape of covs_prior: {covs_prior.shape}")
 
@@ -215,8 +215,8 @@ map_estimate = inference.fit(model=model, data=data, init_params=init_params, se
 # Protocol: ParameterPosterior, here point estimate
 
 # optional: for visualization:
-map_cov_field = WPPMCovarianceField(model, map_estimate.params)
-# OUTPUT: Covariance Matrices (N, 2, 2) for plotting
+map_cov_field = WPPMCovarianceField(posterior=map_estimate)
+# 1 parameter set, so map_cov_field.n_samples == 1
 # --8<-- [end:fit_map]
 
 # ---------------------------------------------------------------------------
@@ -227,10 +227,11 @@ print("[4/5] Plotting covariance ellipses ...")
 
 # --8<-- [start:cov_fields]
 # Evaluate any covariance-field object at a single point or a batch of points.
-covs_truth = truth_field(ref_point)  # (N, 2, 2)
-covs_prior = prior_field(ref_point)  # (N, 2, 2)
-covs_map = map_cov_field(ref_point)  # (N, 2, 2)
-# here: N=1 for fast computation
+# The sample axis comes first: (n_samples=1, n_points=1, 2, 2), and [0] drops it
+covs_truth = truth_field(ref_point)[0]  # (n_points, 2, 2)
+covs_prior = prior_field(ref_point)[0]  # (n_points, 2, 2)
+covs_map = map_cov_field(ref_point)[0]  # (n_points, 2, 2)
+# here: n_points=1 for fast computation
 # --8<-- [end:cov_fields]
 
 fig, ax = plt.subplots(figsize=(6, 6))
