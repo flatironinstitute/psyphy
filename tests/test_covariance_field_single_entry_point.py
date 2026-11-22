@@ -1,10 +1,9 @@
 """
-Tests for single entry point to covariance field API with automatic batch handling.
+Tests for field(x) on any batch of points, with 1 parameter set.
 
-This test suite validates the single entry point design where field(x)
-automatically dispatches based on input shape:
-- Single point: x.ndim == 1 -> direct evaluation
-- Any batch: x.ndim >= 2 -> flatten -> vmap -> reshape
+field(x) takes one point or any batch of them, and puts the sample axis first:
+- Single point: x of shape (d,) -> (1, d, d)
+- Any batch: x of shape (..., d) -> (1, ..., d, d)
 
 Key convention: Last axis must be input_dim.
 """
@@ -30,7 +29,7 @@ def wishart_field():
         likelihood=OddityTask(),
     )
     key = jr.PRNGKey(123)
-    return WPPMCovarianceField.from_prior(model, key)
+    return WPPMCovarianceField.from_prior(model, n_samples=1, key=key)
 
 
 @pytest.fixture
@@ -41,7 +40,7 @@ def field_3d():
         likelihood=OddityTask(),
     )
     key = jr.PRNGKey(456)
-    return WPPMCovarianceField.from_prior(model, key)
+    return WPPMCovarianceField.from_prior(model, n_samples=1, key=key)
 
 
 # ==============================================================================
@@ -58,8 +57,8 @@ class TestSinglePointDispatch:
 
         Sigma = wishart_field(x)
 
-        assert Sigma.shape == (2, 2)
-        eigvals = jnp.linalg.eigvalsh(Sigma)
+        assert Sigma.shape == (1, 2, 2)  # (n_samples, d, d)
+        eigvals = jnp.linalg.eigvalsh(Sigma[0])
         assert jnp.all(eigvals > 0)
 
     def test_single_point_3d(self, field_3d):
@@ -68,8 +67,8 @@ class TestSinglePointDispatch:
 
         Sigma = field_3d(x)
 
-        assert Sigma.shape == (3, 3)
-        eigvals = jnp.linalg.eigvalsh(Sigma)
+        assert Sigma.shape == (1, 3, 3)
+        eigvals = jnp.linalg.eigvalsh(Sigma[0])
         assert jnp.all(eigvals > 0)
 
 
@@ -85,7 +84,7 @@ class TestOneDimensionalBatch:
         """field(X) handles 1D batch."""
         X = jnp.array([[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]])
 
-        Sigmas = wishart_field(X)
+        Sigmas = wishart_field(X)[0]  # (n_points, d, d) for the 1 sample
 
         assert Sigmas.shape == (3, 2, 2)
         # Should vary spatially (Wishart)
@@ -108,7 +107,7 @@ class TestTwoDimensionalGrid:
         y_vals = jnp.linspace(0, 1, 10)
         X_grid = jnp.stack(jnp.meshgrid(x_vals, y_vals, indexing="ij"), axis=-1)
 
-        Sigmas = wishart_field(X_grid)
+        Sigmas = wishart_field(X_grid)[0]  # (10, 10, d, d) for the 1 sample
 
         assert Sigmas.shape == (10, 10, 2, 2)
         # Check a few points are positive definite
@@ -122,7 +121,7 @@ class TestTwoDimensionalGrid:
 
         Sigmas = wishart_field(X_grid)
 
-        assert Sigmas.shape == (50, 50, 2, 2)
+        assert Sigmas.shape == (1, 50, 50, 2, 2)
 
 
 # ==============================================================================
@@ -140,7 +139,7 @@ class TestHigherDimensionalBatches:
 
         Sigmas = wishart_field(X_3d)
 
-        assert Sigmas.shape == (5, 10, 10, 2, 2)
+        assert Sigmas.shape == (1, 5, 10, 10, 2, 2)
 
     def test_4d_batch(self, wishart_field):
         """field(X) handles 4D batches."""
@@ -148,7 +147,7 @@ class TestHigherDimensionalBatches:
 
         Sigmas = wishart_field(X_4d)
 
-        assert Sigmas.shape == (2, 3, 5, 5, 2, 2)
+        assert Sigmas.shape == (1, 2, 3, 5, 5, 2, 2)
 
     def test_3d_input_space(self, field_3d):
         """field(X) works with 3D input space."""
@@ -156,7 +155,7 @@ class TestHigherDimensionalBatches:
 
         Sigmas = field_3d(X)
 
-        assert Sigmas.shape == (10, 3, 3)
+        assert Sigmas.shape == (1, 10, 3, 3)
 
 
 # ==============================================================================
@@ -186,11 +185,11 @@ class TestArbitraryBatchDimensions:
         if len(batch_shape) == 0:
             # Single point
             input_shape = (input_dim,)
-            expected_output_shape = (input_dim, input_dim)
+            expected_output_shape = (1, input_dim, input_dim)
         else:
             # Batch
             input_shape = batch_shape + (input_dim,)
-            expected_output_shape = batch_shape + (input_dim, input_dim)
+            expected_output_shape = (1,) + batch_shape + (input_dim, input_dim)
 
         X = jnp.ones(input_shape) * 0.5
         Sigmas = wishart_field(X)
@@ -235,29 +234,35 @@ class TestInputValidation:
 
 
 class TestEquivalenceToVmap:
-    """Test that field(X) gives same result as manual vmap."""
+    """jax.vmap(field) gives the same numbers as field(X), with the points first."""
 
     def test_1d_batch_equivalent_to_vmap(self, wishart_field):
-        """field(X) equivalent to jax.vmap(field)(X) for 1D batch."""
+        """jax.vmap(field)(X) is field(X) with the sample axis moved after the points."""
         X = jnp.array([[0.1, 0.2], [0.5, 0.5], [0.9, 0.8]])
 
-        Sigmas_direct = wishart_field(X)
-        Sigmas_vmap = jax.vmap(wishart_field)(X)
+        Sigmas_direct = wishart_field(X)  # (n_samples=1, n_points=3, d, d)
+        Sigmas_vmap = jax.vmap(wishart_field)(X)  # (n_points=3, n_samples=1, d, d)
 
-        assert jnp.allclose(Sigmas_direct, Sigmas_vmap, rtol=5e-3, atol=1e-3)
+        assert Sigmas_direct.shape == (1, 3, 2, 2)
+        assert Sigmas_vmap.shape == (3, 1, 2, 2)
+        assert jnp.allclose(
+            jnp.moveaxis(Sigmas_direct, 0, 1), Sigmas_vmap, rtol=5e-3, atol=1e-3
+        )
 
     def test_2d_grid_equivalent_to_nested_vmap(self, wishart_field):
-        """field(X_grid) equivalent to nested vmap for 2D grid."""
+        """Nested vmap over a grid puts the sample axis after both grid axes."""
         X_grid = jnp.ones((5, 5, 2)) * 0.5
 
-        Sigmas_direct = wishart_field(X_grid)
+        Sigmas_direct = wishart_field(X_grid)  # (1, 5, 5, d, d)
 
         # Manual nested vmap
         vmap_inner = jax.vmap(wishart_field)
         vmap_outer = jax.vmap(vmap_inner)
-        Sigmas_nested = vmap_outer(X_grid)
+        Sigmas_nested = vmap_outer(X_grid)  # (5, 5, 1, d, d)
 
-        assert jnp.allclose(Sigmas_direct, Sigmas_nested, rtol=5e-4, atol=1e-4)
+        assert jnp.allclose(
+            jnp.moveaxis(Sigmas_direct, 0, 2), Sigmas_nested, rtol=5e-4, atol=1e-4
+        )
 
 
 # ==============================================================================
@@ -313,7 +318,7 @@ class TestEdgeCases:
 
         Sigmas = wishart_field(X)
 
-        assert Sigmas.shape == (1, 2, 2)
+        assert Sigmas.shape == (1, 1, 2, 2)  # (n_samples, n_points, d, d)
 
     @pytest.mark.skip(reason="Wishart process only supports input_dim >= 2")
     def test_1d_input_space_single_point(self):
@@ -322,13 +327,13 @@ class TestEdgeCases:
             prior=Prior(input_dim=1, basis_degree=2),
             likelihood=OddityTask(),
         )
-        field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(789))
+        field = WPPMCovarianceField.from_prior(model, n_samples=1, key=jr.PRNGKey(789))
 
         x = jnp.array([0.5])  # Shape (1,) - single point
 
         Sigma = field(x)
 
-        assert Sigma.shape == (1, 1)
+        assert Sigma.shape == (1, 1, 1)
 
     @pytest.mark.skip(reason="Wishart process only supports input_dim >= 2")
     def test_1d_input_space_batch(self):
@@ -337,10 +342,10 @@ class TestEdgeCases:
             prior=Prior(input_dim=1, basis_degree=2),
             likelihood=OddityTask(),
         )
-        field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(789))
+        field = WPPMCovarianceField.from_prior(model, n_samples=1, key=jr.PRNGKey(789))
 
         X = jnp.array([[0.1], [0.5], [0.9]])  # Shape (3, 1) - batch
 
         Sigmas = field(X)
 
-        assert Sigmas.shape == (3, 1, 1)
+        assert Sigmas.shape == (1, 3, 1, 1)

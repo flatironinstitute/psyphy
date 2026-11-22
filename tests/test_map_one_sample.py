@@ -2,16 +2,14 @@
 tests/test_map_one_sample.py
 ----------------------------
 
-Tests for 1 parameter set in WPPMCovarianceFieldSamples: a MAP fit, a ground
-truth or a published W, held as a field with a sample axis of length 1.
+Tests for 1 parameter set in WPPMCovarianceField: a MAP fit, a ground truth or
+a published W, held as a field with a sample axis of length 1.
 
 - MAPPosterior stores its 1 sample the way an MCMCPosterior stores its chains,
-  so WPPMCovarianceFieldSamples(map_post) needs no n_samples and no key
-- WPPMCovarianceFieldSamples.from_params(model, params) takes 1 parameter set
-  with no leading axis
+  so WPPMCovarianceField(map_post) needs no n_samples and no key
+- WPPMCovarianceField.from_params(model, params) takes 1 parameter set with no
+  leading axis
 - credible_band raises for 1 sample, since a band of zero width reads as certainty
-- WPPMCovarianceField.from_posterior warns only when the posterior stores more
-  than 1 sample
 
 Every check compares 2 routes to the same numbers, with W built from
 arithmetic, so no value here depends on jax.random.
@@ -24,10 +22,7 @@ import jax.numpy as jnp
 import pytest
 
 from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
-from psyphy.model.covariance_field import (
-    WPPMCovarianceField,
-    WPPMCovarianceFieldSamples,
-)
+from psyphy.model.covariance_field import WPPMCovarianceField
 from psyphy.model.likelihood import OddityTaskConfig
 from psyphy.posterior.mcmc_posterior import MCMCPosterior
 from psyphy.posterior.posterior import MAPPosterior
@@ -105,20 +100,20 @@ def test_map_posterior_samples_match_mcmc_layout(model, params, map_post):
 
 
 # ==============================================================================
-# WPPMCovarianceFieldSamples(map_post) needs no key
+# WPPMCovarianceField(map_post) needs no key
 # ==============================================================================
 
 
 def test_samples_from_map_posterior_needs_no_key(map_post):
-    fields = WPPMCovarianceFieldSamples(map_post)
+    fields = WPPMCovarianceField(map_post)
     assert fields.n_samples == 1
     assert fields.samples["W"].shape == (1, *W_SHAPE)
 
 
 def test_samples_from_map_posterior_mean_is_sigma_of_theta_map(model, map_post, X):
-    """The mean of 1 sample is Σ(θ_MAP), the single-set field of the same posterior."""
-    fields = WPPMCovarianceFieldSamples(map_post)
-    expected = WPPMCovarianceField(model, map_post.params)(X)  # (n_points, d, d)
+    """The mean of 1 sample is Σ(θ_MAP), as model.local_covariance gives it."""
+    fields = WPPMCovarianceField(map_post)
+    expected = _sigma_one_set(model, map_post.params, X)  # (n_points, d, d)
     assert fields(X).shape == (1, *expected.shape)
     assert jnp.allclose(fields.mean(X), expected, rtol=0, atol=1e-7)
     assert jnp.allclose(fields(X)[0], expected, rtol=0, atol=1e-7)
@@ -136,7 +131,7 @@ def test_posterior_storing_nothing_still_needs_n_samples(model, params):
             return jax.tree.map(lambda x: jnp.broadcast_to(x, (n, *x.shape)), params)
 
     with pytest.raises(ValueError, match="n_samples"):
-        WPPMCovarianceFieldSamples(SampleOnly(model, params))
+        WPPMCovarianceField(SampleOnly(model, params))
 
 
 # ==============================================================================
@@ -146,7 +141,7 @@ def test_posterior_storing_nothing_still_needs_n_samples(model, params):
 
 def test_from_params_matches_local_covariance(model, params, X):
     """fields(X)[0] is Σ from model.local_covariance at every point."""
-    fields = WPPMCovarianceFieldSamples.from_params(model, params)
+    fields = WPPMCovarianceField.from_params(model, params)
     expected = _sigma_one_set(model, params, X)  # (n_points, d, d)
     assert fields.n_samples == 1
     assert fields(X).shape == (1, 3, 2, 2)  # (n_samples, n_points, d, d)
@@ -154,25 +149,25 @@ def test_from_params_matches_local_covariance(model, params, X):
 
 
 def test_from_params_holds_the_set_with_a_leading_axis(model, params):
-    fields = WPPMCovarianceFieldSamples.from_params(model, params)
+    fields = WPPMCovarianceField.from_params(model, params)
     assert fields.samples["W"].shape == (1, *W_SHAPE)
     assert jnp.array_equal(fields.samples["W"][0], params["W"])
 
 
 def test_from_params_matches_map_posterior(model, params, X):
     """Both routes to 1 parameter set give the same field."""
-    a = WPPMCovarianceFieldSamples.from_params(model, params)(X)
-    b = WPPMCovarianceFieldSamples(MAPPosterior(model, params))(X)
+    a = WPPMCovarianceField.from_params(model, params)(X)
+    b = WPPMCovarianceField(MAPPosterior(model, params))(X)
     assert jnp.array_equal(a, b)
 
 
 def test_from_params_swapped_raises(model, params):
     with pytest.raises(TypeError, match=r"from_params\(model, params\)"):
-        WPPMCovarianceFieldSamples.from_params(params, model)
+        WPPMCovarianceField.from_params(params, model)
 
 
 def test_from_params_model_is_kept(model, params):
-    assert WPPMCovarianceFieldSamples.from_params(model, params).model is model
+    assert WPPMCovarianceField.from_params(model, params).model is model
 
 
 # ==============================================================================
@@ -181,43 +176,19 @@ def test_from_params_model_is_kept(model, params):
 
 
 def test_credible_band_raises_for_one_sample(model, params, X):
-    fields = WPPMCovarianceFieldSamples.from_params(model, params)
+    fields = WPPMCovarianceField.from_params(model, params)
     with pytest.raises(ValueError, match="MCMC"):
         fields.credible_band(X)
 
 
 def test_credible_band_raises_for_map_posterior(map_post, X):
     with pytest.raises(ValueError, match="1 parameter set"):
-        WPPMCovarianceFieldSamples(map_post).credible_band(X)
+        WPPMCovarianceField(map_post).credible_band(X)
 
 
 def test_credible_band_runs_for_two_samples(model, X):
     """2 distinct sets have a spread, so the band is defined."""
     W = jnp.stack([_W(), _W(offset=1.0)])  # (2, 2, 2, 2, 3)
-    fields = WPPMCovarianceFieldSamples(MCMCPosterior(model, {"W": W[None]}))
+    fields = WPPMCovarianceField(MCMCPosterior(model, {"W": W[None]}))
     band = fields.credible_band(X, n_directions=19)
     assert band.lower.shape == (3, 19)  # (n_points, n_directions)
-
-
-# ==============================================================================
-# from_posterior warns for more than 1 stored sample
-# ==============================================================================
-
-
-def test_from_posterior_silent_for_map_posterior_with_n_draws(map_post, recwarn):
-    """A MAP fit now has n_draws = 1, and Σ(θ_MAP) is still the right field."""
-    WPPMCovarianceField.from_posterior(map_post)
-    assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
-
-
-def test_from_posterior_silent_for_one_stored_mcmc_sample(model, params, recwarn):
-    """The mean of 1 stored sample is that sample, so Σ(E[W]) is exact."""
-    post = MCMCPosterior(model, {"W": params["W"][None, None]})  # (1, 1, *W_SHAPE)
-    WPPMCovarianceField.from_posterior(post)
-    assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
-
-
-def test_from_posterior_warns_for_two_samples_in_one_chain(model):
-    W = jnp.stack([_W(), _W(offset=1.0)])[None]  # (1 chain, 2 samples, *W_SHAPE)
-    with pytest.warns(UserWarning, match="E\\[W\\]"):
-        WPPMCovarianceField.from_posterior(MCMCPosterior(model, {"W": W}))

@@ -186,10 +186,10 @@ def test_stimulus_subspace_positive_definite():
     )
 
     key = jr.PRNGKey(42)
-    field = WPPMCovarianceField.from_prior(model, key)
+    field = WPPMCovarianceField.from_prior(model, n_samples=1, key=key)
 
     x = jnp.array([0.5, 0.5])
-    Sigma_stim = field(x)
+    Sigma_stim = field(x)[0]  # (d, d)
 
     # Check positive definiteness
     eigvals = jnp.linalg.eigvalsh(Sigma_stim)

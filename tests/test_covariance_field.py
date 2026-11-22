@@ -2,24 +2,25 @@
 test_covariance_field.py
 ------------------------
 
-Tests for CovarianceField abstraction
+Tests for WPPMCovarianceField built from 1 parameter set: from the prior with
+n_samples=1, from_params, and a MAP fit. Every result keeps the sample axis of 1.
 
-1. Protocol conformance
-2. Construction methods (from_prior, from_posterior, from_params)
-3. Evaluation methods (field(x), sqrt_cov)
-4. Covariance varies with x and is positive definite
-5. Rectangular U (extra embedding dims)
-6. Integration with posteriors
+1. Construction (from_prior, from_params, a MAP posterior)
+2. Evaluation (field(x), sqrt_cov)
+3. Covariance varies with x and is positive definite
+4. Rectangular U (extra embedding dims)
+5. Read-only attributes
 
 """
 
+import jax
 import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
 from psyphy.data import ResponseData
 from psyphy.inference import MAPOptimizer
-from psyphy.model import WPPM, Prior
+from psyphy.model import WPPM, Prior, WPPMCovarianceField
 from psyphy.model.likelihood import OddityTask
 from psyphy.model.noise import GaussianNoise
 
@@ -61,223 +62,118 @@ def sample_data():
     return data
 
 
-# ==============================================================================
-# Test 1: CovarianceField protocol exists
-# ==============================================================================
-
-
-def test_covariance_field_protocol_exists():
-    """Test that CovarianceField protocol is defined."""
-    from psyphy.model.covariance_field import CovarianceField
-
-    # the protocol declares these two; hasattr would also see object.__call__
-    assert "__call__" in CovarianceField.__dict__
-    assert "sqrt_cov" in CovarianceField.__dict__
+def _sigma(model, params, X):
+    """Σ at every row of X with model.local_covariance, (n_points, d, d)."""
+    return jax.vmap(lambda x: model.local_covariance(params, x))(X)
 
 
 # ==============================================================================
-# Test 2: WPPMCovarianceField construction methods
+# Construction
 # ==============================================================================
 
 
-def test_from_prior_wishart(wishart_model):
-    """Test from_prior construction."""
-    from psyphy.model.covariance_field import WPPMCovarianceField
-
-    key = jr.PRNGKey(456)
-    field = WPPMCovarianceField.from_prior(wishart_model, key)
-
-    # Should have W parameters
+def test_from_prior_with_one_sample(wishart_model):
+    """from_prior with n_samples=1 holds 1 parameter set, with the sample axis kept."""
+    field = WPPMCovarianceField.from_prior(
+        wishart_model, n_samples=1, key=jr.PRNGKey(456)
+    )
     assert field.model is wishart_model
-    assert "W" in field.params
-    # W shape (rectangular design): (degree+1, degree+1, input_dim, embedding_dim)
-    # For input_dim=2, basis_degree=3, extra_dims=1:
-    #   degree+1 = 4, input_dim = 2, embedding_dim = 3
-    # Shape: (4, 4, 2, 3)
-    assert field.params["W"].shape == (4, 4, 2, 3)
+    assert field.n_samples == 1
+    # (n_samples=1, degree+1=4, degree+1=4, d=2, m=3), m = input_dim + extra_dims
+    assert field.samples["W"].shape == (1, 4, 4, 2, 3)
+
+
+def test_from_params_matches_the_model(wishart_model):
+    """from_params(model, p)(X)[0] is the model's own Σ at every point."""
+    params = wishart_model.init_params(jr.PRNGKey(0))
+    X = jnp.array([[0.1, 0.2], [0.5, 0.4], [0.9, 0.8]])  # (n_points=3, d=2)
+    field = WPPMCovarianceField.from_params(wishart_model, params)
+    Sigmas = field(X)  # (1, n_points, d, d): 1 parameter set
+    assert Sigmas.shape == (1, 3, 2, 2)
+    # the 2 paths differ by up to 4e-9 (float32), Σ entries run to 0.04
+    assert jnp.allclose(
+        Sigmas[0], _sigma(wishart_model, params, X), rtol=0.0, atol=1e-7
+    )
+
+
+def test_map_fit_holds_theta_map(wishart_model, sample_data):
+    """A MAP posterior gives 1 sample, θ_MAP, with no key."""
+    posterior = MAPOptimizer(steps=10).fit(wishart_model, sample_data)
+    field = WPPMCovarianceField(posterior)
+    assert field.n_samples == 1
+
+    x = jnp.array([0.5, 0.5])
+    Sigma = field(x)  # (1, d, d)
+    U = field.sqrt_cov(x)  # (1, d, m)
+    assert Sigma.shape == (1, 2, 2)
+    assert U.shape == (1, 2, 3)
+    expected = wishart_model.local_covariance(posterior.params, x)  # (d, d)
+    assert jnp.allclose(Sigma[0], expected, rtol=0.0, atol=1e-7)
+    # the mean over 1 sample is that sample
+    assert jnp.allclose(field.mean(x), Sigma[0], rtol=0.0, atol=1e-7)
 
 
 # ==============================================================================
-# Test  Evaluation methods - WPPM
+# Evaluation
 # ==============================================================================
 
 
 def test_cov_wishart_varies(wishart_model):
-    """Test that Wishart covariance varies across space."""
-    from psyphy.model.covariance_field import WPPMCovarianceField
+    """Σ differs between 2 points and is positive definite at both."""
+    field = WPPMCovarianceField.from_prior(
+        wishart_model, n_samples=1, key=jr.PRNGKey(444)
+    )
+    Sigma1 = field(jnp.array([0.2, 0.3]))[0]  # (d, d)
+    Sigma2 = field(jnp.array([0.8, 0.7]))[0]
 
-    key = jr.PRNGKey(444)
-    field = WPPMCovarianceField.from_prior(wishart_model, key)
-
-    # Evaluate at different points
-    x1 = jnp.array([0.2, 0.3])
-    x2 = jnp.array([0.8, 0.7])
-
-    Sigma1 = field(x1)
-    Sigma2 = field(x2)
-
-    # Should be different (Wishart varies with x)
     assert not jnp.allclose(Sigma1, Sigma2, atol=1e-6)
-
-    # Both should be positive definite
     assert jnp.all(jnp.linalg.eigvalsh(Sigma1) > 0)
     assert jnp.all(jnp.linalg.eigvalsh(Sigma2) > 0)
 
 
 def test_sqrt_cov_wishart(wishart_model):
-    """Test sqrt_cov with rectangular U."""
-    from psyphy.model.covariance_field import WPPMCovarianceField
-
-    key = jr.PRNGKey(555)
-    field = WPPMCovarianceField.from_prior(wishart_model, key)
-
+    """sqrt_cov gives the rectangular U, and U U^T + diag_term * I is the field."""
+    field = WPPMCovarianceField.from_prior(
+        wishart_model, n_samples=1, key=jr.PRNGKey(555)
+    )
     x = jnp.array([0.5, 0.5])
-    U = field.sqrt_cov(x)
-
-    # Check shape: (input_dim, embedding_dim) with rectangular design
-    # input_dim = 2, embedding_dim = input_dim + extra_dims = 3
+    U = field.sqrt_cov(x)[0]  # (d=2, m=3)
     assert U.shape == (2, 3)
 
-    # Verify that Σ = U @ U^T + diag_term * I
     Sigma_from_U = U @ U.T + wishart_model.diag_term * jnp.eye(2)
-    Sigma_direct = field(x)
-
-    assert jnp.allclose(Sigma_from_U, Sigma_direct, rtol=1e-5)
+    assert jnp.allclose(Sigma_from_U, field(x)[0], rtol=1e-5)
 
 
 def test_batch_eval_wishart(wishart_model):
-    """Test vectorized evaluation with rectangular U."""
-    from psyphy.model.covariance_field import WPPMCovarianceField
-
-    key = jr.PRNGKey(666)
-    field = WPPMCovarianceField.from_prior(wishart_model, key)
-
-    # Create grid of points
-    X_grid = jnp.array(
-        [
-            [0.1, 0.1],
-            [0.5, 0.5],
-            [0.9, 0.9],
-        ]
+    """A batch of points gives 1 matrix per point after the sample axis."""
+    field = WPPMCovarianceField.from_prior(
+        wishart_model, n_samples=1, key=jr.PRNGKey(666)
     )
+    X_grid = jnp.array([[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]])  # (n_points=3, d=2)
+    Sigmas = field(X_grid)  # (1, n_points, d, d)
+    assert Sigmas.shape == (1, 3, 2, 2)
 
-    Sigmas = field(X_grid)
-
-    # Check shape - should be (n_points, input_dim, input_dim) with rectangular U
-    assert Sigmas.shape == (3, 2, 2)
-
-    # Should NOT all be identical (Wishart varies)
-    assert not jnp.allclose(Sigmas[0], Sigmas[1], atol=1e-6)
-    assert not jnp.allclose(Sigmas[1], Sigmas[2], atol=1e-6)
-
-    # All should be positive definite
-    for i in range(3):
-        eigvals = jnp.linalg.eigvalsh(Sigmas[i])
-        assert jnp.all(eigvals > 0)
+    assert not jnp.allclose(Sigmas[0, 0], Sigmas[0, 1], atol=1e-6)
+    assert not jnp.allclose(Sigmas[0, 1], Sigmas[0, 2], atol=1e-6)
+    assert jnp.all(jnp.linalg.eigvalsh(Sigmas[0]) > 0)
 
 
-def test_sqrt_cov_batch_wishart(wishart_model):
-    """Test vectorized sqrt_cov with rectangular U."""
-    from psyphy.model.covariance_field import WPPMCovarianceField
-
-    key = jr.PRNGKey(777)
-    field = WPPMCovarianceField.from_prior(wishart_model, key)
-
-    X_grid = jnp.array(
-        [
-            [0.2, 0.3],
-            [0.5, 0.5],
-            [0.8, 0.7],
-        ]
+def test_vmap_over_points_moves_the_sample_axis(wishart_model):
+    """jax.vmap(field)(X) puts the points first; field(X) puts the samples first."""
+    field = WPPMCovarianceField.from_prior(
+        wishart_model, n_samples=1, key=jr.PRNGKey(0)
     )
-
-    U_batch = field.sqrt_cov_batch(X_grid)
-
-    # Check shape - (n_points, input_dim, embedding_dim) with rectangular U
-    # input_dim = 2, embedding_dim = 3
-    assert U_batch.shape == (3, 2, 3)
-
-    # Verify consistency with cov
-    for i in range(3):
-        Sigma_from_U = U_batch[i] @ U_batch[i].T + wishart_model.diag_term * jnp.eye(2)
-        Sigma_direct = field(X_grid[i])
-        assert jnp.allclose(Sigma_from_U, Sigma_direct, rtol=5e-2, atol=1e-6)
-
-
-# ==============================================================================
-# Test  Integration with posterior
-# ==============================================================================
-
-
-def test_posterior_get_covariance_field_wishart(wishart_model, sample_data):
-    """Test posterior.get_covariance_field() with rectangular U.
-
-    API Design Note
-    ---------------
-    this demonstrates the
-    BoTorch-style two-step pattern. The covariance field will reflect the
-    spatially-varying structure learned during fitting.
-    """
-    # Fit model using the functional API
-    optimizer = MAPOptimizer(steps=10)
-    posterior = optimizer.fit(wishart_model, sample_data)
-
-    # Get field directly from the model using the fitted parameters
-    from psyphy.model.covariance_field import WPPMCovarianceField
-
-    field = WPPMCovarianceField.from_params(wishart_model, posterior.params)
-
-    # Basic shape tests
-    x = jnp.array([0.5, 0.5])
-    Sigma = field(x)
-    U = field.sqrt_cov(x)
-
-    # Rectangular U design: Σ is stimulus size, U is rectangular
-    assert Sigma.shape == (2, 2)  # input_dim = 2
-    assert U.shape == (2, 3)  # input_dim × embedding_dim = 2×3
-
-    # Check positive definiteness if not NaN (optimization might fail with minimal data)
-    # This tests the API works, not the optimization quality
-    if not jnp.any(jnp.isnan(Sigma)):
-        assert jnp.all(jnp.linalg.eigvalsh(Sigma) > 0)
-
-
-# ==============================================================================
-# Test  Protocol conformance
-# ==============================================================================
-
-
-def test_protocol_conformance_wishart(wishart_model):
-    """Test protocol conformance."""
-    from psyphy.model.covariance_field import CovarianceField, WPPMCovarianceField
-
-    key = jr.PRNGKey(999)
-    field = WPPMCovarianceField.from_prior(wishart_model, key)
-
-    # Check protocol conformance
-    assert isinstance(field, CovarianceField)
-
-
-# ==============================================================================
-# Test Comparison with direct model calls
-# ==============================================================================
+    X = jnp.array([[0.1, 0.2], [0.5, 0.4]])  # (n_points=2, d=2)
+    assert field(X).shape == (1, 2, 2, 2)  # (n_samples, n_points, d, d)
+    assert jax.vmap(field)(X).shape == (2, 1, 2, 2)  # (n_points, n_samples, d, d)
 
 
 def test_consistency_with_model_compute_sqrt(wishart_model):
-    """Test that field.sqrt_cov() matches model._compute_sqrt()."""
-    from psyphy.model.covariance_field import WPPMCovarianceField
-
-    key = jr.PRNGKey(1515)
-    params = wishart_model.init_params(key)
+    """field.sqrt_cov(x)[0] is model._compute_sqrt(params, x)."""
+    params = wishart_model.init_params(jr.PRNGKey(1515))
     field = WPPMCovarianceField.from_params(wishart_model, params)
-
     x = jnp.array([0.5, 0.5])
-
-    # Compare field vs direct model call
-    U_field = field.sqrt_cov(x)
-    U_model = wishart_model._compute_sqrt(params, x)
-
-    assert jnp.allclose(U_field, U_model)
+    assert jnp.allclose(field.sqrt_cov(x)[0], wishart_model._compute_sqrt(params, x))
 
 
 # ==============================================================================
@@ -285,50 +181,13 @@ def test_consistency_with_model_compute_sqrt(wishart_model):
 # ==============================================================================
 
 
-@pytest.mark.parametrize("name", ["params", "model"])
-def test_field_attributes_refuse_assignment(wishart_model, name):
-    """Assigning to a fixed attribute raises, so a batch call can't go stale silently."""
-    from psyphy.model import WPPMCovarianceField
-
-    field = WPPMCovarianceField.from_prior(wishart_model, jr.PRNGKey(0))
-    with pytest.raises(AttributeError, match="Build a new one"):
-        setattr(field, name, getattr(field, name))
-
-
-def test_field_params_item_assignment_changes_nothing(wishart_model):
-    """Replacing an item of the returned dict can't reach the stored parameters."""
-    from psyphy.model import WPPMCovarianceField
-
-    field = WPPMCovarianceField.from_prior(wishart_model, jr.PRNGKey(0))
-    X = jnp.array([[0.1, 0.2], [0.5, 0.4]])  # (n_points=2, d=2)
-    before = field(X)  # (n_points, d, d)
-    field.params["W"] = jnp.zeros_like(field.params["W"])
-    assert jnp.array_equal(field(X), before)
-    # compiled and uncompiled paths differ by about 1e-8 here, so atol=1e-6 has 100x headroom
-    assert jnp.allclose(field(X[0]), before[0], rtol=0.0, atol=1e-6)
-    assert field.params["W"].any()
-
-
-def test_field_params_read_back(wishart_model):
-    """Reading params returns the dict the field was built with."""
-    from psyphy.model import WPPMCovarianceField
-
-    params = wishart_model.init_params(jr.PRNGKey(0))
-    field = WPPMCovarianceField(wishart_model, params)
-    assert field.model is wishart_model
-    assert set(field.params) == set(params)
-    assert jnp.array_equal(field.params["W"], params["W"])
-
-
 def test_field_ignores_changes_to_the_dict_it_was_built_from(wishart_model):
-    """Replacing an item of the dict passed to the constructor changes no later result."""
-    from psyphy.model import WPPMCovarianceField
-
+    """Replacing an item of the dict passed to from_params changes no later result."""
     params = wishart_model.init_params(jr.PRNGKey(0))
-    field = WPPMCovarianceField(wishart_model, params)
+    field = WPPMCovarianceField.from_params(wishart_model, params)
     X = jnp.array([[0.1, 0.2], [0.5, 0.4]])  # (n_points=2, d=2)
-    before = field(X)  # (n_points, d, d)
+    before = field(X)  # (1, n_points, d, d)
     params["W"] = jnp.zeros_like(params["W"])
     assert jnp.array_equal(field(X), before)
     # compiled and uncompiled paths differ by about 1e-8 here, so atol=1e-6 has 100x headroom
-    assert jnp.allclose(field(X[0]), before[0], rtol=0.0, atol=1e-6)
+    assert jnp.allclose(field(X[0]), before[:, 0], rtol=0.0, atol=1e-6)

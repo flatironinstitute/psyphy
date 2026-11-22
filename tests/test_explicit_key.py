@@ -6,7 +6,7 @@ What these pin:
 1. `MCMCPosterior.sample` and `MAPPosterior.sample` require both `n` and `key`.
    Omitting either is a TypeError, so no result carries a seed the call site does
    not show.
-2. `WPPMCovarianceFieldSamples(posterior)` returns the same numbers
+2. `WPPMCovarianceField(posterior)` returns the same numbers
    its reductions returned when they routed through `posterior.sample`. Pooling the
    stored draws in order replaces a permutation of the same draws.
 3. That entry point needs no key for every stored draw, and still accepts one when
@@ -17,7 +17,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import pytest
 
-from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
 from psyphy.posterior import MAPPosterior, MCMCPosterior
 
 
@@ -97,7 +97,7 @@ class TestAllDrawsPathIsUnchanged:
         summation over 200 matrices depends on the order the terms arrive in, and
         the residue is about 4e-9 against entries of order 1e-2.
         """
-        pooled = WPPMCovarianceFieldSamples(posterior).mean(ref_points)
+        pooled = WPPMCovarianceField(posterior).mean(ref_points)
 
         resampled = posterior.sample(200, key=jr.PRNGKey(0))["W"]
         by_hand = jnp.mean(
@@ -119,10 +119,8 @@ class TestAllDrawsPathIsUnchanged:
 
     def test_band_matches_the_subsample_path(self, posterior, ref_points):
         """Quantiles sort their input, so the band is exactly order-invariant."""
-        pooled = WPPMCovarianceFieldSamples(posterior).credible_band(
-            ref_points, ci_prob=0.89
-        )
-        subsampled = WPPMCovarianceFieldSamples(
+        pooled = WPPMCovarianceField(posterior).credible_band(ref_points, ci_prob=0.89)
+        subsampled = WPPMCovarianceField(
             posterior, n_samples=200, key=jr.PRNGKey(0)
         ).credible_band(ref_points, ci_prob=0.89)
 
@@ -131,18 +129,18 @@ class TestAllDrawsPathIsUnchanged:
         assert jnp.array_equal(pooled.upper, subsampled.upper)
 
     def test_fields_use_every_stored_draw(self, posterior, ref_points):
-        fields = WPPMCovarianceFieldSamples(posterior)
+        fields = WPPMCovarianceField(posterior)
 
         assert fields.n_samples == 200  # n_chains * n_draws
 
     def test_mean_needs_no_key(self, posterior, ref_points):
         """The common call keeps working: no key, no n_samples."""
-        fields = WPPMCovarianceFieldSamples(posterior)
+        fields = WPPMCovarianceField(posterior)
 
         assert fields.mean(ref_points).shape == (3, 2, 2)
 
     def test_band_needs_no_key(self, posterior, ref_points):
-        fields = WPPMCovarianceFieldSamples(posterior)
+        fields = WPPMCovarianceField(posterior)
         band = fields.credible_band(ref_points, ci_prob=0.89)
 
         assert band.lower.shape == (3, 181)
@@ -150,8 +148,8 @@ class TestAllDrawsPathIsUnchanged:
     def test_repeated_evaluation_agrees(self, posterior, ref_points):
         """Two fields over the same posterior give the same answer, with no key
         passed to either."""
-        a = WPPMCovarianceFieldSamples(posterior).mean(ref_points)
-        b = WPPMCovarianceFieldSamples(posterior).mean(ref_points)
+        a = WPPMCovarianceField(posterior).mean(ref_points)
+        b = WPPMCovarianceField(posterior).mean(ref_points)
 
         assert jnp.array_equal(a, b)
 
@@ -167,15 +165,15 @@ class TestSubsamplingStillTakesAKey:
     def test_subsample_needs_a_key(self, posterior, ref_points):
         """One check at construction now covers the mean and the band both."""
         with pytest.raises(ValueError, match="pass key="):
-            WPPMCovarianceFieldSamples(posterior, n_samples=50)
+            WPPMCovarianceField(posterior, n_samples=50)
 
     def test_different_keys_give_different_subsamples(self, posterior, ref_points):
-        a = WPPMCovarianceFieldSamples(posterior, n_samples=50, key=jr.PRNGKey(0)).mean(
+        a = WPPMCovarianceField(posterior, n_samples=50, key=jr.PRNGKey(0)).mean(
             ref_points
         )
-        b = WPPMCovarianceFieldSamples(
-            posterior, n_samples=50, key=jr.PRNGKey(12345)
-        ).mean(ref_points)
+        b = WPPMCovarianceField(posterior, n_samples=50, key=jr.PRNGKey(12345)).mean(
+            ref_points
+        )
 
         assert not jnp.allclose(a, b, atol=1e-6)
 
@@ -185,4 +183,4 @@ class TestSubsamplingStillTakesAKey:
             params=model.init_params(jr.PRNGKey(0)), model=model
         )
 
-        assert WPPMCovarianceFieldSamples(map_posterior).n_samples == 1
+        assert WPPMCovarianceField(map_posterior).n_samples == 1

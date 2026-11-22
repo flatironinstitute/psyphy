@@ -178,7 +178,7 @@ class TestThresholdSweepUsesTheKey:
 
 
 class TestCovFieldRemoved:
-    """One path to E[Sigma(x)]: WPPMCovarianceFieldSamples.mean."""
+    """One path to E[Sigma(x)]: WPPMCovarianceField.mean."""
 
     def test_the_method_is_gone(self, posterior, X_paired):
         p = WPPMPredictivePosterior(posterior, X_paired, n_samples=8, key=jr.PRNGKey(0))
