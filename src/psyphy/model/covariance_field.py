@@ -470,9 +470,23 @@ class WPPMCovarianceField:
     contour, and :meth:`sqrt_cov` for :math:`U(x)`.
 
     The sample axis comes first in every call that keeps it, N = 1 included.
+    It's the leading axis of a result, with 1 entry per parameter set. In the
+    shapes in this class:
+
+    - ``N`` (``n_samples``): parameter sets held, 1 after a MAP fit
+    - ``x``: one stimulus location, shape ``(d,)``
+    - ``X``: the stimulus locations at which we evaluate the field, shape
+      ``(n_points, d)`` or any batch ``(..., d)``
+    - ``d``: stimulus dimensions, the model's ``input_dim``
+    - ``m``: columns of :math:`U(x)`, ``input_dim + extra_embedding_dims``
+
     After a MAP fit ``fields(x)`` has shape ``(1, d, d)``, and ``fields(x)[0]``
-    is the matrix. Pass a batch of points directly. ``jax.vmap(fields)(X)``
-    puts the points first, ``(n_points, N, d, d)``.
+    is the matrix. Index the sample axis before using a result as 1 matrix per
+    point. ``jnp.trace(fields(x))`` returns the first row of :math:`\Sigma(x)`
+    with no error, and ``jnp.trace(fields(x)[0])`` is the trace.
+
+    Pass ``X`` to ``fields`` directly. ``jax.vmap(fields)(X)`` evaluates the
+    points one at a time and puts them first, ``(n_points, N, d, d)``.
 
     :meth:`mean` averages :math:`\Sigma` over the samples. A field built from
     the averaged parameters gives contours several times too small, because
@@ -674,19 +688,21 @@ class WPPMCovarianceField:
 
     def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
-        Evaluate Σ(x) for every draw.
+        Evaluate Σ(x) for every sample.
 
         Parameters
         ----------
         x : jnp.ndarray, shape (d,) or (..., d)
-            One stimulus location, or any batch of them. The last axis must
-            have size ``input_dim``.
+            The stimulus location at which we evaluate Σ, or any batch of them,
+            such as points ``(n_points, d)`` or a grid ``(n_rows, n_cols, d)``.
+            The last axis must have size ``input_dim``.
 
         Returns
         -------
         Sigma : jnp.ndarray, shape (n_samples, d, d) or (n_samples, ..., d, d)
-            One covariance matrix per draw per location. The draws come first,
-            which is the stacking :func:`psyphy.viz.plot_ellipses` takes.
+            One covariance matrix per sample per location, the samples first.
+            After a MAP fit ``n_samples`` is 1, and ``fields(x)[0]`` is Σ(x).
+            :func:`psyphy.viz.plot_ellipses` takes this stacking.
 
         Notes
         -----
@@ -703,7 +719,7 @@ class WPPMCovarianceField:
         r"""
         Posterior mean of the covariance field, :math:`\mathbb{E}[\Sigma(x)]`.
 
-        Evaluates :math:`\Sigma(x)` for every draw and averages the resulting
+        Evaluates :math:`\Sigma(x)` for every sample and averages the resulting
         matrices. Averaging the parameters first instead gives contours several
         times too small, because :math:`\Sigma` is nonlinear in :math:`W`.
 
@@ -715,7 +731,8 @@ class WPPMCovarianceField:
         Returns
         -------
         Sigma : jnp.ndarray, shape (d, d) or (..., d, d)
-            The mean matrix per location, with no draws axis.
+            The mean matrix per location, with no sample axis. After a MAP
+            fit it equals ``fields(x)[0]``.
 
         Examples
         --------
@@ -736,18 +753,19 @@ class WPPMCovarianceField:
 
     def sqrt_cov(self, x: jnp.ndarray) -> jnp.ndarray:
         r"""
-        Evaluate the square root :math:`U(x)` for every draw.
+        Evaluate the square root :math:`U(x)` for every sample.
 
         Parameters
         ----------
         x : jnp.ndarray, shape (d,) or (..., d)
-            One stimulus location, or any batch of them. The last axis must
-            have size ``input_dim``.
+            The stimulus location at which we evaluate U, or any batch of them.
+            The last axis must have size ``input_dim``.
 
         Returns
         -------
         U : jnp.ndarray, shape (n_samples, d, m) or (n_samples, ..., d, m)
-            One matrix per draw per location, ``m`` the embedding dimension.
+            One matrix per sample per location, the samples first. ``d`` is
+            ``input_dim`` and ``m`` is ``input_dim + extra_embedding_dims``.
             :math:`U U^\top + \lambda I` is the matching matrix of ``fields(x)``,
             with :math:`\lambda` the model's ``diag_term``.
 
@@ -912,14 +930,15 @@ class WPPMCovarianceField:
             )
 
     def _eval_batch_impl(self, X: jnp.ndarray) -> jnp.ndarray:
-        """Σ at every location for every draw: (n_samples, ..., d, d)."""
-        # vmap over the leading draw axis of every leaf of self.samples
+        """Σ at every location for every sample: (n_samples, ..., d, d)."""
+        # X (..., d) -> (n_samples, ..., d, d). vmap over the leading sample axis of
+        # every leaf of self.samples puts that axis first, length 1 for 1 parameter set
         return jax.vmap(lambda params: _sigma(self.model, params, X))(self.samples)
 
     def _mean_single(self, x: jnp.ndarray) -> jnp.ndarray:
-        """E[Σ(x)] at one location: Σ for every draw, THEN the mean."""
+        """E[Σ(x)] at one location: Σ for every sample, then the mean."""
         per_draw = self._eval_batch_impl(x)  # (n_samples, d, d)
-        return jnp.mean(per_draw, axis=0)  # (d, d)
+        return jnp.mean(per_draw, axis=0)  # (d, d): the sample axis averaged away
 
     def _mean_batch_impl(self, X: jnp.ndarray) -> jnp.ndarray:
         """Flatten -> vmap -> reshape: E[Σ] at every location, (..., d, d)."""
