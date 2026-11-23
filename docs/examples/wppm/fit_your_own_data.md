@@ -120,28 +120,18 @@ ellipsoid in 3-D).
     much as 16). It needs at least $d(d+1)/2$.
 
 [`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) draws 2-D
-ellipses. In 3-D we show the plane $x_3 = 0$ and cut each ellipsoid with it:
+ellipses. For 3-D stimuli, pick the view you need.
 
-```python title="Plot, in 2-D or in the plane x3 = 0"
+```python title="Plot"
 --8<-- "docs/examples/wppm/fit_your_own_data.py:plot"
 ```
 
-```python title="Cut a 3-D ellipsoid with a plane"
---8<-- "docs/examples/wppm/fit_your_own_data.py:plane_section"
-```
-
-The cut is the threshold for comparisons that stay in the plane. `covs[:, :2, :2]` is a
-different ellipse: the ellipsoid's shadow on the plane, which is larger whenever the
-ellipsoid is tilted out of it.
-
 <div align="center">
   <img src="../plots/own_data_thresholds.png" width="440"/>
-  <p><em>Threshold contours at 66.7% correct (<code>thresholds</code> above), not the noise
-  field <code>covs</code>, on a 7 x 7 grid of reference points. Solid: fit from seed 0.
-  Dashed: fit from seed 1. The 2 fits agree in the upper half and on the right. In the
-  lower left (<i>x</i><sub>1</sub> &lt; 0, <i>x</i><sub>2</sub> &lt; -0.25) the contours of seed 1 are larger and longer, so
-  there the 2 fits found different fields. <a href="#checks-with-no-ground-truth">Check
-  (a)</a> shows why.</em></p>
+  <p><em>Threshold contours at 66.7% correct (<code>thresholds</code> above) (not the noise
+  field!) <code>covs</code>, on a 7 x 7 grid of reference points. Solid blue: fit from seed 0.
+  Dashed orange: fit from seed 1. The 2 fits agree pretty much everywhere but in the lower left quadrant. The contours of seed 1 (orange) are larger and longer and differently angled. So here,
+  the 2 fits found different fields. <a href="#checks-with-no-ground-truth">The loss curves </a> give insights as to why.</em></p>
 </div>
 
 ## Checks with no ground truth
@@ -156,9 +146,9 @@ A curve that still trends down needs more steps, and spikes mean the fit hasn't 
   <p><em>The loss <code>MAPOptimizer</code> minimizes, at each step: the negative log
   posterior divided by the number of trials N, i.e. the negative log likelihood plus the
   negative log prior, per trial. One line per fit. Both drop within the first 50 steps
-  and flatten near 0.51. Each spike is a step that jumped away from the plateau, and the
-  loss comes back down after it. The last spike of seed 1, at ca. step 1,470, hasn't come
-  back down by the final step.</em></p>
+  and flatten near 0.5. Each spike is a step that jumped away from the plateau, and the
+  loss comes back down after it. The last spike of seed 1 (orange), at ca. step 1,500, hasn't come
+  back down by the final step, explaining potentially the misalignment in the lower left quadrant in the figure above.</em></p>
 </div>
 
 `MAPOptimizer` returns the parameters of the final step. A curve that ends on a spike
@@ -195,7 +185,7 @@ correct responses in it:
 </div>
 
 The dots should lie on the diagonal, within their error bars. Dots above it mean the fit
-predicts too few correct responses, dots below too many.
+predicts too few correct responses and dots below too many.
 
 !!! note "If you simulated your data"
     With a known field, compare the fit with it directly. Here we use Hong et al.'s
