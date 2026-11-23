@@ -86,7 +86,7 @@ sample of the prior, picked by `seed`. We fit twice, from 2 prior samples (blue 
 | mode | steps | Monte Carlo samples per trial: fit, predictions | time for both fits |
 |---|---|---|---|
 | `quick` | 300 | 20, 200 | 10 s, laptop CPU |
-| `full` | 1,500 | 2,000, 2,000 | <!-- CLUSTER: time on 1 GPU --> |
+| `full` | 1,500 | 2,000, 2,000 | ca. 3 min, 1 GPU |
 
 ## Results
 
@@ -120,10 +120,11 @@ ellipsoid in 3-D).
     much as 16). It needs at least $d(d+1)/2$.
 
 [`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) draws 2-D
-ellipses. For 3-D stimuli, pick the view you need.
+ellipses.
 
 ```python title="Plot"
 --8<-- "docs/examples/wppm/fit_your_own_data.py:plot"
+```
 
 <div align="center">
   <img src="../plots/own_data_thresholds.png" width="440"/>
