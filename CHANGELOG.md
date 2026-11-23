@@ -8,12 +8,14 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-11-23
+
 ### Breaking
 
-- **One covariance field class, `WPPMCovarianceField`, where the sample axis is always first in every result.** `WPPMCovarianceFieldSamples` is renamed `WPPMCovarianceField`. The single-set
-  `WPPMCovarianceField`, the `CovarianceField` protocol, `sqrt_cov_batch` and
-  `from_posterior` are gone, and `psyphy.model` no longer exports `CovarianceField` or
-  `WPPMCovarianceFieldSamples`.
+- **One covariance field class, `WPPMCovarianceField`, holds N parameter sets, and the sample axis is always first in every result.** The constructor takes a posterior, and
+  `WPPMCovarianceField.from_params(model, params)` builds one from a ground truth or a
+  published $W$. `from_posterior`, `sqrt_cov_batch` and the `CovarianceField` protocol are
+  gone, and `psyphy.model` no longer exports `CovarianceField`.
 
   The sample axis is the leading axis of a result, with 1 entry per parameter set. An MCMC
   fit has 1 per sample. A MAP fit, a ground truth or a published $W$ is 1 parameter set,
@@ -49,7 +51,6 @@ breaking changes are called out below but do not force a minor-version bump.
   field = WPPMCovarianceField(model, map_posterior.params)        # or .from_posterior(map_posterior)
   truth = WPPMCovarianceField(model, truth_params)
   prior = WPPMCovarianceField.from_prior(model, key)
-  fields = WPPMCovarianceFieldSamples(nuts_posterior)
   field(x)              # (d, d)
   field.sqrt_cov_batch(X)
 
@@ -57,14 +58,29 @@ breaking changes are called out below but do not force a minor-version bump.
   field = WPPMCovarianceField(map_posterior)                     # no key
   truth = WPPMCovarianceField.from_params(model, truth_params)
   prior = WPPMCovarianceField.from_prior(model, n_samples=1, key=key)
-  fields = WPPMCovarianceField(nuts_posterior)
   field(x)[0]           # (d, d); field(x) is (1, d, d)
   field.sqrt_cov(X)[0]  # (n_points, d, m)
   ```
 
   `from_prior(model, n_samples=1, key=key)` splits the key, so it draws a different sample
   than the old `from_prior(model, key)`. For the old draw, use
-  `from_params(model, model.init_params(key))`.
+  `from_params(model, model.init_params(key))`. `n_samples` and `key` are keyword-only in
+  the constructor and in `from_prior`.
+
+- **`cov()` and `cov_batch()` are gone from `WPPMCovarianceField`.** Both raised
+  `DeprecationWarning` in v0.0.5, and `field(x)` replaces both.
+
+  ```python
+  # before
+  field.cov(jnp.array([0.5, 0.3]))        # (2, 2), single point only
+  field.cov_batch(jnp.zeros((10, 2)))     # (10, 2, 2), batch only
+
+  # now
+  field(jnp.array([0.5, 0.3]))[0]         # (2, 2)
+  field(jnp.zeros((10, 2)))[0]            # (10, 2, 2)
+  ```
+
+  The numbers are unchanged: `cov()` forwarded to the same evaluation `field(x)` uses.
 
 - **A Bernoulli task's `predict` returns `(log_p, log_1mp)`, not `(p_correct,)`.** These
   are log p(correct) and log p(incorrect) for one trial. `loglik` takes one of the 2 by the
@@ -89,33 +105,28 @@ breaking changes are called out below but do not force a minor-version bump.
   `predict` returns log-probabilities, not probabilities. For p(correct), take
   `jnp.exp(predict(...)[0])` or call `model.predict_prob`.
 
-- **The attributes of the covariance field classes are read-only.** These are `params` and
-  `model` on `WPPMCovarianceField`, and `samples`, `n_samples` and `model` on
-  `WPPMCovarianceFieldSamples`.
+- **`model`, `samples` and `n_samples` on `WPPMCovarianceField` are read-only.**
 
-  Before, assigning to one was accepted without an error. After a batch call, `field(X)`,
-  `fields(X)` and `fields.mean(X)` kept returning the old values, while `field(x)` and
-  `fields.credible_band` used the new ones. One object gave 2 different answers, and
-  `fields.n_samples` stayed at the old count. A loop that refits and assigns new samples
+  Before, `params` and `model` were plain attributes. After a batch call, `field(X)` kept
+  returning the values from its first call, while `field(x)` used the reassigned ones.
+  One object gave 2 different answers, and a loop that refits and assigns new parameters
   got stale results from every batch call.
 
-  Now, assigning to one raises an `AttributeError`. `params` and `samples` return a copy,
-  so `fields.samples["W"] = ...` changes nothing either.
-  `WPPMCovarianceField(model, params)` copies `params` too, so `params["W"] = ...` on the dict
-  you passed in changes nothing.
+  Now, assigning to one raises an `AttributeError`. `samples` returns a copy, so
+  `field.samples["W"] = ...` changes nothing either. `from_params(model, params)` copies
+  `params` too, so `params["W"] = ...` on the dict you passed in changes nothing.
 
   ```python
   # before
-  fields.samples = new_samples  # accepted, then batch calls returned the old values
+  field.params = new_params  # accepted, then field(X) returned the old values
 
   # now
-  fields.samples = new_samples  # raises AttributeError
-  fields = WPPMCovarianceFieldSamples(new_posterior)  # build a new object instead
+  field.samples = new_samples  # raises AttributeError
+  field = WPPMCovarianceField.from_params(model, new_params)  # build a new object instead
   ```
 
 - **`Prior(basis_degree=None)` raises `ValueError`.** `basis_degree` must be an int of 0 or
-  more. The old `None` was accepted. Instead, we now reject it
-  at construction.
+  more. v0.0.5 accepted `None`.
 
   ```python
   # before
@@ -126,11 +137,11 @@ breaking changes are called out below but do not force a minor-version bump.
   ```
 
 - **`WPPM` no longer takes `input_dim`, `extra_dims`, `variance_scale` or `decay_rate`.**
-  They were duplicated on `Prior`, and nothing read 2 of the 4 copies on `WPPM`:
-  `variance_scale` and `decay_rate` were stored and never used, and `extra_dims` fed only
-  `embedding_dim`, silently disagreeing with the parameter shape when it differed from
-  `Prior.extra_embedding_dims`. `WPPM.input_dim`, `.embedding_dim`, `.variance_scale` and
-  `.decay_rate` are now read-only properties that read `self.prior`:
+  `Prior` takes them instead. `WPPM` stored `variance_scale` and `decay_rate` and never
+  read them, and `extra_dims` fed only `embedding_dim`, so it disagreed with the parameter
+  shape without an error whenever it differed from `Prior.extra_embedding_dims`.
+  `WPPM.input_dim`, `.embedding_dim`, `.variance_scale` and `.decay_rate` are now
+  read-only properties that read `self.prior`:
 
   ```python
   # before
@@ -141,58 +152,14 @@ breaking changes are called out below but do not force a minor-version bump.
   WPPM(prior, likelihood)
   ```
 
-  Passing any of the 4 names to `WPPM` now raises `TypeError` and says to pass them to
-  `Prior` instead. `diag_term` is unchanged: it is a numerical-stability term in
-  Sigma(x) = U(x) U(x)^T + diag_term * I, not a property of the prior distribution.
+  Passing any of the 4 names to `WPPM` raises `TypeError` and says to pass them to `Prior`.
+  `diag_term` is unchanged.
 
-- **`ThresholdConfig.target_pc` is now `target_prob_correct` (cleanup only, no behavior change).**
+- **`ThresholdConfig.target_pc` is now `target_prob_correct`.** The default stays 2/3.
 
-  ```python
-  # before
-  ThresholdConfig(n_theta=16, n_length=1000, target_pc=2 / 3)
-
-  # now
-  ThresholdConfig(n_theta=16, n_length=1000, target_prob_correct=2 / 3)
-  ```
-
-  The default is unchanged at 2/3, the oddity task's criterion, so a
-  caller relying on the default needs no edit.
-
-- **`PosteriorMeanCovarianceField` and `contour_band` are gone, and their reductions are
-  methods on the new `WPPMCovarianceFieldSamples`.** The draws are taken once, when the
-  object is built, so the ensemble, the mean and the band describe one sample of the
-  posterior:
-
-  ```python
-  # before
-  mean_field = PosteriorMeanCovarianceField(posterior)
-  covs = mean_field(ref_points)
-  band = contour_band(posterior, ref_points, ci_prob=0.89, n_samples=400, key=key)
-
-  # now
-  fields = WPPMCovarianceFieldSamples(posterior)
-  covs = fields.mean(ref_points)
-  band = WPPMCovarianceFieldSamples(posterior, n_samples=400, key=key).credible_band(
-      ref_points, ci_prob=0.89
-  )
-  ```
-
-  `fields(ref_points)` gives Σ for every draw, `(n_samples, n_points, d, d)`, which
-  replaces a Python loop over `posterior.sample`. `fields.samples` is the draws pytree, for
-  a per-draw quantity psyphy does not ship. `WPPMCovarianceFieldSamples.from_prior(model,
-  n_samples=..., key=...)` is the same object from a prior. Both take `n_samples` and `key`
-  as keywords.
-
-  `n_samples` and `key` move from the call to the construction, so one check covers every
-  reduction. There is no `sqrt_cov`: an average of U Uᵀ is not U Uᵀ for any single U. Instad, use
-  `jnp.linalg.cholesky(fields.mean(x))` to get the 'square root' of the mean matrix, or
-  `WPPMCovarianceField` for one parameter set. The numbers are unchanged: the mean and the
-  band reproduce what the removed entry points returned.
-
-- **`WPPMPredictivePosterior` takes a required `key`, and `cov_field` is gone.**
-  `mean` and `variance` are properties, so the constructor is the only place their
-  randomness can enter. The key is split once into a key for drawing parameters and a key
-  for the threshold sweep:
+- **`WPPMPredictivePosterior` takes a required `key`, and `cov_field` is gone.** The
+  constructor splits the key once, into a key for drawing parameters and a key for the
+  threshold sweep:
 
   ```python
   # before
@@ -202,142 +169,102 @@ breaking changes are called out below but do not force a minor-version bump.
   WPPMPredictivePosterior(posterior, X, n_samples=100, key=key)
   ```
 
-  This removed 2 hardcoded keys, at `predictive_posterior.py:414` It computed `PosteriorMeanCovarianceField`'s quantity at
-  a different default under its own key, so there were 2 public paths to
-  E[Σ(X) | data] returning numbers up to a few percent apart. Use
-  `WPPMCovarianceFieldSamples(posterior).mean(x)`. A model with no
-  covariance field can now satisfy `PredictivePosterior`.
+  Before, both keys were fixed inside the class, so no key you chose could change the
+  result. `cov_field(X)` also computed E[Σ(X) | data] under a fixed key. Use
+  `WPPMCovarianceField(posterior).mean(x)`. `PredictivePosterior` no longer has a
+  `cov_field` member, so a model with no covariance field can satisfy it.
 
-
-- **Drawing parameters now names its key** `MCMCPosterior.sample` and `MAPPosterior.sample`
-  require both `n` and `key`! `MCMCPosterior.sample` used to fall back to
-  `jax.random.PRNGKey(0)` and `MAPPosterior.sample` used to default `n=1`, so, the 3
-  implementations now match the `ParameterSource` protocol they claim:
+- **`MAPPosterior.sample` requires `n` and `key`, and `key` can be passed positionally.**
+  Before, `n` defaulted to 1 and `key` was keyword-only and optional. The signature now
+  matches the `ParameterSource` protocol. `key` is also accepted positionally by
+  `WPPM.log_likelihood_from_data`, `WPPM.log_posterior_from_data`, and `loglik`,
+  `simulate` and `predict` on the task likelihoods. Calls that name it still work.
 
   ```python
   # before
-  posterior.sample(100)             # seeded PRNGKey(0) somewhere you could not see
   map_posterior.sample()            # one draw
 
   # now
-  posterior.sample(100, key=key)
   map_posterior.sample(1, key=key)  # the key goes unread for a point mass
+  map_posterior.sample(1, key)      # also accepted
   ```
 
-- **`MCMCPosterior.params` raises, and `mean_params` is the mean of the samples.** A
-  NUTS or MALA fit holds samples, not 1 parameter set. `params` used to return the mean
-  of the samples, which has the shape of 1 parameter set, `{"W": (3, 3, 2, 3)}` for
-  degree 0 to 2 in $x_1$, the same in $x_2$, $d = 2$ stimulus dimensions and $m = 3$
-  embedding dimensions. Every function accepted it, so
-  `WPPMCovarianceField.from_params(model, nuts_posterior.params)` ran with no error and
-  gave contours several times too small.
-
-  `params` now raises an `AttributeError` that names both routes. `mean_params` returns
-  the mean. `params` also leaves the `ParameterPosterior` protocol, which now holds `model`
-  and `sample`. `MAPPosterior.params` is unchanged.
-
-  ```python
-  # before
-  init = nuts_posterior.params                              # mean of the samples
-  WPPMCovarianceField.from_params(model, nuts_posterior.params)  # runs, contours too small
-
-  # now
-  init = nuts_posterior.mean_params
-  WPPMCovarianceField(nuts_posterior)                       # the field
-  nuts_posterior.params                                     # AttributeError
-  ```
-
-### Changed
-
-- **`WPPMCovarianceFieldSamples.credible_band` raises `ValueError` for 1 sample.** Before,
-  it returned a band of zero width, with `lower`, `median` and `upper` equal. A plot of it
-  read as certainty.
-
-  ```python
-  WPPMCovarianceFieldSamples(map_posterior).credible_band(points)  # raises ValueError
-  WPPMCovarianceFieldSamples(mcmc_posterior).credible_band(points)  # unchanged
-  ```
-
-- **`WPPMCovarianceField.from_posterior` warns only for more than 1 stored sample.** Before,
-  it warned for any posterior with an `n_draws`, which now includes `MAPPosterior`.
-
-- **The model comes first in `MAPPosterior` and `MCMCPosterior`.** Both now match
-  `WPPMCovarianceField(model, params)`, `from_prior(model, key)` and `fit(model, data)`.
-  Calls that name the arguments still work.
+- **The model comes first in `MAPPosterior`.** It now matches `fit(model, data)` and
+  `WPPMCovarianceField.from_params(model, params)`. `MCMCPosterior(model, samples)` takes
+  the same order. Calls that name the arguments still work.
 
   ```python
   MAPPosterior(model, params)      # was MAPPosterior(params, model)
-  MCMCPosterior(model, samples)    # was MCMCPosterior(samples, model)
   MAPPosterior(params=params, model=model)  # unchanged
   ```
 
-  The old order, and the swapped order in `WPPMCovarianceField(params, model)`, raises a
-  `TypeError` when the object is built. Before, it built and failed at the first
-  evaluation with `AttributeError: 'dict' object has no attribute 'input_dim'`.
-
-- **`key` can be passed positionally** to `Prior.sample`, `ParameterSource.sample`,
-  `MAPPosterior.sample`, `MCMCPosterior.sample`, `WPPM.log_likelihood_from_data`,
-  `WPPM.log_posterior_from_data`, and `loglik`, `simulate` and `predict` on the task
-  likelihoods. Calls that name it still work.
-
-  ```python
-  posterior.sample(100, key=key)  # unchanged
-  posterior.sample(100, key)      # now also accepted
-  ```
-
-  `key` stays keyword-only in `WPPMCovarianceFieldSamples(...)` and `.from_prior`,
-  `WPPMPredictivePosterior(...)` and both `rsample` methods. Pass `n_samples` and `key`
-  by name to `WPPMCovarianceFieldSamples`.
-
-- **The every-stored-sample path no longer subsamples.** `PosteriorMeanCovarianceField(posterior)`
-  and `contour_band(posterior, points)` pool the stored samples in order instead of asking
-  `posterior.sample` for a full-size draw. Both keep their current call shape and need no
-  key, and the numbers are unchanged, because a full-size draw without replacement is a
-  permutation (neither a mean nor a quantile depends on order).
-
-  A key is now required when `n_samples` is given, since that genuinely subsamples:
-
-  ```python
-  PosteriorMeanCovarianceField(posterior)                             # unchanged
-  PosteriorMeanCovarianceField(posterior, n_samples=100, key=key)     # key now required
-  ```
-
-  This also drops a `jax.random.choice` and a gather over every stored sample, run before
-  only to shuffle something about to be averaged.
+  The old order raises a `TypeError` when the object is built. Before, it built and failed
+  at the first evaluation with `AttributeError: 'dict' object has no attribute 'input_dim'`.
 
 ### Added
 
-- **`MAPPosterior` stores its 1 sample**, as `samples`, `n_chains` and `n_draws`, in the
-  layout `MCMCPosterior` uses. So `WPPMCovarianceFieldSamples(map_posterior)` takes a MAP
-  fit with no `n_samples` and no key:
+- **`WPPMCovarianceField(posterior)` evaluates the covariance field for every sample.**
+  `field(x)` returns Σ for each sample, `(N, d, d)` for one point or `(N, ..., d, d)` for a
+  batch. `field.mean(x)` returns the mean matrix E[Σ(x)] over the samples, with no sample
+  axis. `field.sqrt_cov(x)` returns the square root `U` for every sample, `(N, d, m)`, and
+  `U U^T + diag_term * I` equals `field(x)[i]` for each `i`:
+
+  ```python
+  fields = WPPMCovarianceField(posterior)
+  covs = fields.mean(ref_points)  # (n_points, d, d)
+  U = fields.sqrt_cov(x)          # (N, d, m)
+  ```
+
+  To compute something per sample that psyphy has no method for, read the samples from
+  `fields.samples`. `from_params` takes the model first, and `from_params(params, model)`
+  raises `TypeError`.
+
+- **`MAPPosterior` stores its 1 sample**, as `samples`, `n_chains` and `n_draws`, with
+  chains first and then samples. So `WPPMCovarianceField(map_posterior)` takes a MAP fit
+  with no `n_samples` and no key:
 
   ```python
   map_posterior.samples["W"].shape  # (1, 1, 3, 3, 2, 3): 1 chain, 1 sample, then W
   map_posterior.n_chains, map_posterior.n_draws  # (1, 1)
 
-  # before
-  WPPMCovarianceFieldSamples(map_posterior, n_samples=1, key=key)
-  # now
-  WPPMCovarianceFieldSamples(map_posterior)  # n_samples == 1
+  WPPMCovarianceField(map_posterior)  # n_samples == 1
   ```
 
   A posterior with no `samples`, `n_chains` and `n_draws` still raises and asks for
   `n_samples` and a key.
 
-- **`WPPMCovarianceFieldSamples.from_params(model, params)`** holds 1 parameter set, such
-  as a ground truth or a published `W`, with no key. `params` has no leading sample axis.
+- **`NUTSSampler` in `psyphy.inference`, `MCMCPosterior` in `psyphy.posterior`, and
+  `covariance_to_arviz` in `psyphy.model`.** `NUTSSampler` runs the No-U-Turn Sampler
+  (NUTS) from BlackJAX, a Markov chain Monte Carlo (MCMC) method. Its `fit` returns an
+  `MCMCPosterior`, which holds the samples of every chain:
 
   ```python
-  fields = WPPMCovarianceFieldSamples.from_params(model, params)  # n_samples == 1
-  fields(x)[0]  # (d, d), the same as model.local_covariance(params, x)
+  sampler = NUTSSampler(num_warmup=500, num_samples=1000, num_chains=4)
+  posterior = sampler.fit(model, data, init_params=map_posterior.params)
+  posterior.samples["W"].shape  # (4, 1000, 3, 3, 2, 3): 4 chains, 1000 samples each, then W
+  fields = WPPMCovarianceField(posterior)
   ```
 
-  A swapped call, `from_params(params, model)`, raises `TypeError`.
+  `mean_params` is the mean of the samples, for example to start another fit. `MCMCPosterior`
+  has no `params`. `sampler_stats` holds `acceptance_rate`, `diverging`, `energy` and
+  `n_steps` per sample.
 
-- **`MALASampler` in `psyphy.inference`**, a second MCMC engine. It runs the
+  `covariance_to_arviz(posterior, points)` returns Σ(x) at the points you choose, for every
+  sample, as an ArviZ `DataTree`. Use it for convergence diagnostics such as R-hat and the
+  effective sample size (ESS), not `posterior.to_arviz()`, which reads $W$.
+
+  3 new extras:
+
+  ```bash
+  pip install 'psyphy[sampling]'     # BlackJAX, Python 3.11 or later
+  pip install 'psyphy[diagnostics]'  # ArviZ 1.x, Python 3.12 or later
+  pip install 'psyphy[progress]'     # tqdm; without it show_progress=True prints nothing
+  ```
+
+- **`MALASampler` in `psyphy.inference`**, an MCMC engine. It runs the
   Metropolis-adjusted Langevin algorithm from BlackJAX, with one gradient per step and a
   fixed step size. It returns an `MCMCPosterior` with the same layout as `NUTSSampler`, so
-  `covariance_to_arviz`, `WPPMCovarianceFieldSamples` and `plot_ellipses` take either.
+  `covariance_to_arviz` and `WPPMCovarianceField` take either.
 
   ```python
   sampler = MALASampler(num_warmup=2000, num_samples=2000, step_size=1e-4)
@@ -351,11 +278,11 @@ breaking changes are called out below but do not force a minor-version bump.
 - **`ParameterSource` in `psyphy.posterior`**, a one-method protocol for anything we can
   draw parameters from: `sample(n, *, key)` returning a PyTree with a leading axis of `n`.
   `Prior`, `MAPPosterior` and `MCMCPosterior` all satisfy it, and `ParameterPosterior` now
-  extends it with `params` and `model`.
+  extends it with `model`.
 
   A function that only calls `sample` on a `ParameterSource` works on a prior and on a
-  fitted posterior. Chain structure and a density stay off it: `sample` pools the chains, and `MCMCPosterior`
-  has no `log_prob`.
+  fitted posterior. Chain structure and a density stay off it: `sample` pools the chains,
+  and `MCMCPosterior` has no `log_prob`.
 
 - **`Prior.sample(n, *, key)`**, the vectorized form of `sample_params`. Draw `i` equals
   `sample_params(jax.random.split(key, n)[i])`, so a prior ensemble matches the Python loop
@@ -369,92 +296,24 @@ breaking changes are called out below but do not force a minor-version bump.
   prior.sample(100, key=key)["W"]     # (100, 3, 3, 2, 3)
   ```
 
-  `sample_params(key)` keeps its single-draw signature, because `model.init_params` is on
-  the inference path and wants one unbatched draw rather than a batch of 1 to index.
-
-- **`WPPMCovarianceFieldSamples.sqrt_cov(x)`** returns the square root `U` for every
-  sample, shape `(N, d, m)` for one point or `(N, ..., d, m)` for a batch. `U U^T +
-  diag_term * I` equals `fields(x)[i]` for each `i`:
-
-  ```python
-  fields = WPPMCovarianceFieldSamples(posterior)
-  U = fields.sqrt_cov(x)   # (N, d, m)
-  ```
-
-  `isinstance(fields, CovarianceField)` is now `True`, since the check reads member names.
-  Its outputs still carry the leading `N` axis.
-
-### Breaking
-
-- **`cov()` and `cov_batch()` are gone from the covariance fields.** Both methods have
-  raised `DeprecationWarning` since the single entry point was introduced, and `field(x)` replaces
-  both.
-
-  ```python
-  # before
-  field.cov(jnp.array([0.5, 0.3]))        # (2, 2), single point only
-  field.cov_batch(jnp.zeros((10, 2)))     # (10, 2, 2), batch only
-
-  # now
-  field(jnp.array([0.5, 0.3]))            # (2, 2)
-  field(jnp.zeros((10, 2)))               # (10, 2, 2)
-  ```
-
-  The removal covers `WPPMCovarianceField`, `PosteriorMeanCovarianceField` and the
-  `CovarianceField` `Protocol`, which now states `__call__` and `sqrt_cov`. The numbers are
-  unchanged: `cov()` forwarded to the same evaluation `field(x)` uses. `sqrt_cov` and
-  `sqrt_cov_batch` are untouched
-
-### Added
+  `sample_params(key)` is unchanged and returns 1 unbatched draw.
 
 - **Credible bands on the contour radii**: `contour_radii`,
-  `WPPMCovarianceFieldSamples.credible_band` and `CredibleBand` in `psyphy.model`.
-  `contour_radii` gives the radius of a covariance's
-  one-standard-deviation ellipse (Mahalanobis-1 contour) per direction; for the oddity
-  task that radius is the discrimination threshold. `credible_band` reduces those radii
-  over the stored posterior samples to a pointwise credible interval.
+  `WPPMCovarianceField.credible_band` and `CredibleBand` in `psyphy.model`.
+  `contour_radii` gives the radius of a covariance's one-standard-deviation ellipse
+  (Mahalanobis-1 contour) per direction. For the oddity task that radius is the
+  discrimination threshold. `credible_band` reduces those radii over the samples to a
+  pointwise credible interval. With 1 sample, as after a MAP fit, it raises `ValueError`,
+  because a band of zero width reads as certainty.
 
-  These names replace `threshold_radii`, `threshold_band` and `ThresholdBand`, which were
-  never released: they compute a property of any covariance matrix, so the names no longer
-  say "threshold". Nothing in `0.0.5` or earlier exposed them, so no installed version
-  breaks. `threshold_pred` and `ThresholdConfig` in `psyphy.posterior` keep their names,
-  because the contour they recover is defined by a target probability correct.
+  ```python
+  WPPMCovarianceField(map_posterior).credible_band(points)   # raises ValueError
+  WPPMCovarianceField(mcmc_posterior).credible_band(points)  # the band
+  ```
 
-- **A page, *Fit your own data*** (`docs/examples/wppm/fit_your_own_data.md`), replaces
-  `usage.md` in the nav. It reads trials from a CSV into a `TrialData`, fits a `WPPM` and
-  checks the fit with no ground truth. Its script takes the number of stimulus dimensions
-  from the data, so it fits 2-D and 3-D stimuli. The `ThresholdConfig.n_theta` docstring now
-  says to raise it as the dimension grows: 16 is enough in 2-D, use 64 in 3-D.
-
-### Fixed
-
-- **`WPPMCovarianceField.from_posterior` accepts any `ParameterPosterior`.** It read the
-  private `posterior._model`, so a posterior class with `params`, `model` and `sample`
-  passed `isinstance(posterior, ParameterPosterior)` and then raised `AttributeError`. It
-  now reads `posterior.model`. Nothing changes for `MAPPosterior` or `MCMCPosterior`.
-- **`OddityTask.predict` declared the wrong return type.** It was annotated
-  `-> jnp.ndarray` while `TaskLikelihood.predict` specifies `-> tuple[jnp.ndarray, ...]`,
-  and its helper `_simulate_trial_mc` was annotated the same way. Both already returned
-  the one-tuple `(p_correct,)` that the base class documents, so **behavior is
-  unchanged**; only the declarations were wrong.
-- **`PredictivePosterior.mean` and `.variance` looked like they could return `None`.**
-  The lazy cache they read is initialized to `None` and populated by
-  `_ensure_computed()`; it is now annotated and the invariant is asserted
-- 3 `list[np.array]` annotations in `psyphy.data.dataset` used the `np.array`
-  *function* in type position instead of `np.ndarray`
-
-### Internal
-
-- **mypy now means 1 thing.** The commit hook, CI and local runs previously used three
-  different mypy configurations that disagreed with each other. CI now runs the same
-  pre-commit hook a developer runs, mypy is pinned to one version in both
-  `.pre-commit-config.yaml` and the `dev` extra, and the hook checks the whole project
-  rather than only staged files.
-- **The commit hook can now see JAX.** It ran with `--no-site-packages`, under which every
-  `jnp.ndarray` annotation in psyphy resolved to `Any`; array types were effectively
-  unchecked by the only gate that blocked a commit.
-- **The mypy CI job no longer carries `continue-on-error: true`.** It reported 19 errors
-  on every run and failed nothing. Those are fixed and the gate is live.
+- **New pages:** *Fit Your Own Data*, which replaces the Quickstart (`usage.md`) in the
+  nav, *Sampling the Posterior with NUTS*, *Checking MCMC Samples with ArviZ*, and
+  *Developer Notes*. The API design document is no longer in the nav.
 
 ## [0.0.5] - 2026-10-09
 
@@ -566,6 +425,8 @@ First release published to PyPI. Full initial module set: `psyphy.model` (WPPM, 
 noise models, the oddity task), `psyphy.inference` (MAP optimizer), `psyphy.posterior`,
  `psyphy.data`,  `psyphy.utils`.
 
+[Unreleased]: https://github.com/flatironinstitute/psyphy/compare/v0.0.6...HEAD
+[0.0.6]: https://github.com/flatironinstitute/psyphy/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/flatironinstitute/psyphy/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/flatironinstitute/psyphy/compare/v0.0.2...v0.0.4
 [0.0.2]: https://github.com/flatironinstitute/psyphy/releases/tag/v0.0.2
