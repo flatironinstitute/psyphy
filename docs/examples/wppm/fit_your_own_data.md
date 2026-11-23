@@ -30,9 +30,8 @@ The figures come from `--mode full`, Hong et al.'s Monte Carlo settings, run on 
 
 psyphy keeps trials in a [`TrialData`](../../reference/data.md#psyphy.data.TrialData):
 
-- `stimuli`, shape `(N, 2, d)`: $N$ trials, 2 stimuli per trial, $d$ stimulus dimensions.
-  Slot 0 is the reference, slot 1 the comparison. The oddity task shows the reference twice,
-  but psyphy stores it once
+- `stimuli`, shape `(N, 2, d)`: $N$ trials, 2 _distinct_ stimuli per trial, $d$ stimulus dimensions.
+  Slot 0 is the reference, slot 1 the comparison. Note that while, in total, the Hong et al paper shows 3 stimui, the oddity task shows the reference twice (a copy) and psyphy stores it once, hence psyphy only stores the number of _distinct_ stimuli per trial
 - `responses`, shape `(N, 1)`: 1 for a correct response, 0 for an incorrect one
 
 Every coordinate must lie in $[-1, 1]$, the domain of the Chebyshev basis. Rescale first, e.g.
@@ -65,19 +64,19 @@ the `TrialData` in one call.
 --8<-- "docs/examples/wppm/fit_your_own_data.py:model"
 ```
 
-The prior settings are Hong et al.'s. For 3-D stimuli nothing in this code changes: `d` is
+The prior settings are Hong et al.'s. For 3-D stimuli, nothing in this code would change: `d` is
 3, and the weights `W` get shape `(5, 5, 5, 3, 4)` instead of `(5, 5, 2, 3)`. That is
 Chebyshev degree 0 to 4 in each of the $d$ stimulus dimensions, then $d$, then $d + 1$
 embedding dimensions.
 
 [`GaussianNoise`](../../reference/model.md#psyphy.model.GaussianNoise) is required.
 [`WPPM`](../../reference/model.md#psyphy.model.WPPM) builds without it, but the fit then
-raises an `AttributeError` that doesn't say what to pass.
+raises an `AttributeError` (that doesn't say what to pass at the moment).
 
 ## Fit
 
 [`MAPOptimizer`](../../reference/inference.md#psyphy.inference.MAPOptimizer) starts from a
-sample of the prior, picked by `seed`. We fit twice, from 2 prior samples, for
+sample of the prior, picked by `seed`. We fit twice, from 2 prior samples (blue and orange in the figures below), for
 [check (b)](#checks-with-no-ground-truth).
 
 ```python title="Fit from 2 prior samples"
