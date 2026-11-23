@@ -309,11 +309,9 @@ breaking changes are called out below but do not force a minor-version bump.
   WPPMCovarianceField(mcmc_posterior).credible_band(points)  # the band
   ```
 
-- **A page, *Fit your own data*** (`docs/examples/wppm/fit_your_own_data.md`), replaces
-  `usage.md` in the nav. It reads trials from a CSV into a `TrialData`, fits a `WPPM` and
-  checks the fit with no ground truth. Its script takes the number of stimulus dimensions
-  from the data, so it fits 2-D and 3-D stimuli. The `ThresholdConfig.n_theta` docstring now
-  says to raise it as the dimension grows: 16 is enough in 2-D, use 64 in 3-D.
+- **New pages:** *Fit Your Own Data*, which replaces the Quickstart (`usage.md`) in the
+  nav, *Sampling the Posterior with NUTS*, *Checking MCMC Samples with ArviZ*, and
+  *Developer Notes*. The API design document is no longer in the nav.
 
 ## [0.0.5] - 2026-10-09
 
