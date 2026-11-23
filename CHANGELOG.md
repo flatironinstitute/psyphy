@@ -187,32 +187,6 @@ breaking changes are called out below but do not force a minor-version bump.
   map_posterior.sample(1, key)      # also accepted
   ```
 
-- **`MCMCPosterior.params` raises, and `mean_params` is the mean of the samples.** A
-  NUTS or MALA fit holds samples, not 1 parameter set. `params` used to return the mean
-  of the samples, which has the shape of 1 parameter set, `{"W": (3, 3, 2, 3)}` for
-  degree 0 to 2 in $x_1$, the same in $x_2$, $d = 2$ stimulus dimensions and $m = 3$
-  embedding dimensions. Every function accepted it, so
-  `WPPMCovarianceField.from_params(model, nuts_posterior.params)` ran with no error and
-  gave contours several times too small, because the model is nonlinear in its
-  parameters.
-
-  `params` now raises an `AttributeError` that names both routes. `mean_params` returns
-  the mean. `params` also leaves the `ParameterPosterior` protocol, which now holds `model`
-  and `sample`. `MAPPosterior.params` is unchanged.
-
-  ```python
-  # before
-  init = nuts_posterior.params                              # mean of the samples
-  WPPMCovarianceField.from_params(model, nuts_posterior.params)  # runs, contours too small
-
-  # now
-  init = nuts_posterior.mean_params
-  WPPMCovarianceField(nuts_posterior)                       # the field
-  nuts_posterior.params                                     # AttributeError
-  ```
-
-### Changed
-
 - **The model comes first in `MAPPosterior`.** It now matches `fit(model, data)` and
   `WPPMCovarianceField.from_params(model, params)`. `MCMCPosterior(model, samples)` takes
   the same order. Calls that name the arguments still work.
@@ -257,10 +231,38 @@ breaking changes are called out below but do not force a minor-version bump.
   A posterior with no `samples`, `n_chains` and `n_draws` still raises and asks for
   `n_samples` and a key.
 
+- **`NUTSSampler` in `psyphy.inference`, `MCMCPosterior` in `psyphy.posterior`, and
+  `covariance_to_arviz` in `psyphy.model`.** `NUTSSampler` runs the No-U-Turn Sampler
+  (NUTS) from BlackJAX, a Markov chain Monte Carlo (MCMC) method. Its `fit` returns an
+  `MCMCPosterior`, which holds the samples of every chain:
+
+  ```python
+  sampler = NUTSSampler(num_warmup=500, num_samples=1000, num_chains=4)
+  posterior = sampler.fit(model, data, init_params=map_posterior.params)
+  posterior.samples["W"].shape  # (4, 1000, 3, 3, 2, 3): 4 chains, 1000 samples each, then W
+  fields = WPPMCovarianceField(posterior)
+  ```
+
+  `mean_params` is the mean of the samples, for example to start another fit. `MCMCPosterior`
+  has no `params`. `sampler_stats` holds `acceptance_rate`, `diverging`, `energy` and
+  `n_steps` per sample.
+
+  `covariance_to_arviz(posterior, points)` returns Σ(x) at the points you choose, for every
+  sample, as an ArviZ `DataTree`. Use it for convergence diagnostics such as R-hat and the
+  effective sample size (ESS), not `posterior.to_arviz()`, which reads $W$.
+
+  3 new extras:
+
+  ```bash
+  pip install 'psyphy[sampling]'     # BlackJAX, Python 3.11 or later
+  pip install 'psyphy[diagnostics]'  # ArviZ 1.x, Python 3.12 or later
+  pip install 'psyphy[progress]'     # tqdm; without it show_progress=True prints nothing
+  ```
+
 - **`MALASampler` in `psyphy.inference`**, an MCMC engine. It runs the
   Metropolis-adjusted Langevin algorithm from BlackJAX, with one gradient per step and a
   fixed step size. It returns an `MCMCPosterior` with the same layout as `NUTSSampler`, so
-  `covariance_to_arviz`, `WPPMCovarianceField` and `plot_ellipses` take either.
+  `covariance_to_arviz` and `WPPMCovarianceField` take either.
 
   ```python
   sampler = MALASampler(num_warmup=2000, num_samples=2000, step_size=1e-4)
