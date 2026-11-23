@@ -8,6 +8,8 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-11-23
+
 ### Breaking
 
 - **One covariance field class, `WPPMCovarianceField`, holds N parameter sets, and the sample axis is always first in every result.** The constructor takes a posterior, and
@@ -423,6 +425,8 @@ First release published to PyPI. Full initial module set: `psyphy.model` (WPPM, 
 noise models, the oddity task), `psyphy.inference` (MAP optimizer), `psyphy.posterior`,
  `psyphy.data`,  `psyphy.utils`.
 
+[Unreleased]: https://github.com/flatironinstitute/psyphy/compare/v0.0.6...HEAD
+[0.0.6]: https://github.com/flatironinstitute/psyphy/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/flatironinstitute/psyphy/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/flatironinstitute/psyphy/compare/v0.0.2...v0.0.4
 [0.0.2]: https://github.com/flatironinstitute/psyphy/releases/tag/v0.0.2
