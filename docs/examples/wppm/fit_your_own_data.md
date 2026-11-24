@@ -80,7 +80,7 @@ raises an `AttributeError` (that doesn't say what to pass at the moment).
 [`MAPOptimizer`](../../reference/inference.md#psyphy.inference.MAPOptimizer) starts from a
 sample of the prior, picked by `seed`. We fit twice, from 2 prior samples (blue and orange in the figures below), for
 [check (b)](#checks-with-no-ground-truth). The loss can have more than one local minimum, and
-a fit stops in the one it reaches first. So we start from at least 2 points and keep the
+a fit stops in the one it reaches first. So we start from at least 2 points (seed 0 and 1) and keep the
 better fit.
 
 ```python title="Fit from 2 prior samples"
@@ -120,7 +120,7 @@ ellipsoid in 3-D).
     In 2-D, 16 directions are enough, evenly spaced around the reference. From 3-D on, psyphy
     picks the directions at random, and with 16 the ellipsoid misses the 66.7% contour in some
     directions: P(correct) on it ranged from 0.48 to 0.97 in our check. With 64 it stayed
-    between 0.54 and 0.72. So raise `n_theta` as $d$ grows (64 in 3-D costs ca. 4 times as
+    between 0.5 and 0.7. So raise `n_theta` as $d$ grows (64 in 3-D costs ca. 4 times as
     much as 16). It needs at least $d(d+1)/2$.
 
 [`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) draws 2-D
@@ -183,9 +183,8 @@ correct responses in it:
   <img src="../plots/own_data_held_out.png" width="360"/>
   <p><em>Fit from seed 0, on the 6,000 held-out trials. One dot per bin of 600 trials,
   with 2 standard errors. Gray: perfect prediction. The dots follow the diagonal from a
-  predicted P(correct) of 0.35 to 1, and the error bars of most bins cross it, so the fit
-  predicts trials it wasn't fitted on. 2 bins, near 0.58 and 0.84, sit just above
-  it.</em></p>
+  predicted P(correct) of 0.3 to 1, and the error bars of most bins cross it, so the fit
+  predicts trials it wasn't fitted on pretty well! Only 2 bins, near 0.6 and 0.6, sit just above the gray perfect prediction baseline, meaning the model predicted too few correct responses.</em></p>
 </div>
 
 The dots should lie on the diagonal, within their error bars. Dots above it mean the fit
