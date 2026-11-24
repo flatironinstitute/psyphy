@@ -66,7 +66,7 @@ the `TrialData` in one call out of the box.
 --8<-- "docs/examples/wppm/fit_your_own_data.py:model"
 ```
 
-The prior settings are Hong et al.'s. For 3-D stimuli, nothing in this code would change: `d` is
+For the prior, we use the same that Hong et al used. For 3-D stimuli, nothing in this code would change: `d` is
 3, and the weights `W` get shape `(5, 5, 5, 3, 4)` instead of `(5, 5, 2, 3)`. That is
 Chebyshev degree 0 to 4 in each of the $d$ stimulus dimensions, then $d$, then $d + 1$
 embedding dimensions.
@@ -79,7 +79,8 @@ raises an `AttributeError` (that doesn't say what to pass at the moment).
 
 [`MAPOptimizer`](../../reference/inference.md#psyphy.inference.MAPOptimizer) starts from a
 sample of the prior, picked by `seed`. We fit twice, from 2 prior samples (blue and orange in the figures below), for
-[check (b)](#checks-with-no-ground-truth).
+[check (b)](#checks-with-no-ground-truth). The loss has more than one minimum, so a single fit
+can stop in a worse one and nothing in its output says so. A second start shows it.
 
 ```python title="Fit from 2 prior samples"
 --8<-- "docs/examples/wppm/fit_your_own_data.py:fit"
