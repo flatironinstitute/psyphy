@@ -44,7 +44,6 @@ import numpy as np  # noqa: E402
 
 from psyphy import (  # noqa: E402
     WPPM,
-    GaussianNoise,
     MAPOptimizer,
     OddityTask,
     OddityTaskConfig,
@@ -81,12 +80,12 @@ def main(mode: str) -> None:
     cfg = MODES[mode]
     print(f"mode={mode} {cfg}, device {jax.devices()[0]}")
     PLOTS_DIR.mkdir(exist_ok=True)
-    paths = hong2025.fetch(subject=1)  # cached after the first call
-    csv_path = paths["trials"]
 
     # ---- 1. Data ----
     # --8<-- [start:load_csv]
-    # columns TrialType, xref, x1, y; a coordinate is one quoted field: "0.62,-0.67"
+    paths = hong2025.fetch(subject=1)  # downloads from OSF once, then reads the cache
+    csv_path = paths["trials"]
+    # columns TrialType, xref, x1, y; a coordinate is 1 quoted field, e.g. "0.63,-0.67"
     rows = np.loadtxt(csv_path, dtype=str, delimiter=",", quotechar='"', skiprows=1)
     ref = np.array([s.split(",") for s in rows[:, 1]], dtype=float)  # (N, d)
     comparison = np.array([s.split(",") for s in rows[:, 2]], dtype=float)  # (N, d)
@@ -104,7 +103,7 @@ def main(mode: str) -> None:
         )
 
     data = to_trial_data(~held_out)  # the AEPsych trials, which Hong et al. fitted
-    test = to_trial_data(held_out)  # the MOCS trials
+    test = to_trial_data(held_out)  # the MOCS trials (held out data, not fitted)
     assert np.abs(data.stimuli).max() <= 1, "rescale the stimuli to [-1, 1] first"
     # --8<-- [end:trial_data]
     print(f"fit on {data.num_trials} trials, hold out {test.num_trials}")
@@ -137,7 +136,6 @@ def main(mode: str) -> None:
         losses.append(
             np.array(optimizer.get_history()[1])
         )  # per-trial loss at each step
-    posterior = posteriors[0]
     # --8<-- [end:fit]
     print(f"fit: {cfg['steps']} steps x 2 fits, {time.time() - t0:.0f} s")
     for seed, loss in zip((0, 1), losses):
@@ -147,17 +145,12 @@ def main(mode: str) -> None:
         )
 
     # ---- 4. Results ----
-    # --8<-- [start:field]
+    # --8<-- [start:refs]
     g = np.linspace(-0.7, 0.7, 7)
     refs = np.stack(np.meshgrid(*[g] * d, indexing="ij"), axis=-1).reshape(
         -1, d
     )  # (7**d, d)
-    field = WPPMCovarianceField(posterior)
-    # field(refs): (1, 7**d, d, d), 1 parameter set after a MAP fit; [0] drops that axis
-    covs = np.asarray(
-        field(jnp.asarray(refs))[0]
-    )  # (7**d, d, d): Sigma(x) at each reference
-    # --8<-- [end:field]
+    # --8<-- [end:refs]
 
     # More MC samples for predictions than for the fit: less noise in P(correct)
     # --8<-- [start:eval_model]
@@ -166,7 +159,6 @@ def main(mode: str) -> None:
         likelihood=OddityTask(
             config=OddityTaskConfig(num_samples=cfg["mc_eval"], bandwidth=5e-3)
         ),
-        noise=GaussianNoise(),
     )
     fits = [MAPPosterior(model=eval_model, params=p.params) for p in posteriors]
     # --8<-- [end:eval_model]
@@ -213,6 +205,10 @@ def main(mode: str) -> None:
 
     # ---- Box: compare with a known field ----
     # --8<-- [start:truth]
+    field = WPPMCovarianceField(posteriors[0])  # the fit from seed 0
+    # field(refs): (1, n_refs, d, d), 1 parameter set after a MAP fit; [0] drops that axis
+    # covs: (n_refs, d, d), Sigma(x) at each reference
+    covs = np.asarray(field(jnp.asarray(refs))[0])
     W_published = hong2025.load_reference_W(paths["weights"])  # (5, 5, 2, 3)
     covs_published = np.asarray(
         WPPMCovarianceField.from_params(model, {"W": W_published})(jnp.asarray(refs))[0]
@@ -233,7 +229,6 @@ def main(mode: str) -> None:
     fig.tight_layout()
     fig.savefig(PLOTS_DIR / "own_data_learning_curve.png", dpi=150)
 
-    # --8<-- [start:plot]
     fig, ax = plt.subplots(figsize=(4.6, 4.6))
     plot_ellipses(
         refs,  # (n_refs, 2)
@@ -243,7 +238,6 @@ def main(mode: str) -> None:
         linestyles=["-", "--"],
         labels=["threshold, fit from seed 0", "threshold, fit from seed 1"],
     )
-    # --8<-- [end:plot]
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=1, frameon=False)
     ax.set_aspect("equal")
     ax.set_xlabel("$x_1$")
