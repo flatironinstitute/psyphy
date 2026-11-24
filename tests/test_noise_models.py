@@ -103,3 +103,38 @@ class TestNoiseModels:
 
         assert jnp.isfinite(ll)
         assert ll <= 0.0
+
+
+def test_wppm_default_noise_is_gaussian():
+    from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
+
+    a = WPPM(prior=Prior(input_dim=2, basis_degree=3), likelihood=OddityTask())
+    b = WPPM(prior=Prior(input_dim=2, basis_degree=3), likelihood=OddityTask())
+    assert isinstance(a.noise, GaussianNoise)
+    assert a.noise is not b.noise
+
+
+def test_default_noise_loglik_matches_explicit_gaussian():
+    import jax.numpy as jnp
+    import jax.random as jr
+
+    from psyphy.data import TrialData
+    from psyphy.model import WPPM, GaussianNoise, OddityTask, Prior
+
+    prior = Prior(input_dim=2, basis_degree=3)
+    default = WPPM(prior=prior, likelihood=OddityTask())
+    explicit = WPPM(prior=prior, likelihood=OddityTask(), noise=GaussianNoise())
+    params = default.init_params(jr.PRNGKey(42))
+    refs = jnp.array([[0.0, 0.0]])  # (1, d=2)
+    comparisons = jnp.array([[0.2, 0.1]])  # (1, d=2)
+    data = TrialData(
+        stimuli=jnp.stack([refs, comparisons], axis=1),  # (1, 2, d=2)
+        responses=jnp.array([1], dtype=jnp.int32),  # (1,)
+    )
+    ll_default = default.likelihood.loglik(
+        params=params, data=data, model=default, key=jr.PRNGKey(0)
+    )
+    ll_explicit = explicit.likelihood.loglik(
+        params=params, data=data, model=explicit, key=jr.PRNGKey(0)
+    )
+    assert jnp.array_equal(ll_default, ll_explicit)
