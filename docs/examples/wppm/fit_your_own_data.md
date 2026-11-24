@@ -79,8 +79,9 @@ raises an `AttributeError` (that doesn't say what to pass at the moment).
 
 [`MAPOptimizer`](../../reference/inference.md#psyphy.inference.MAPOptimizer) starts from a
 sample of the prior, picked by `seed`. We fit twice, from 2 prior samples (blue and orange in the figures below), for
-[check (b)](#checks-with-no-ground-truth). The loss has more than one minimum, so a single fit
-can stop in a worse one and nothing in its output says so. A second start shows it.
+[check (b)](#checks-with-no-ground-truth). The loss can have more than one local minimum, and
+a fit stops in the one it reaches first. So we start from at least 2 points and keep the
+better fit.
 
 ```python title="Fit from 2 prior samples"
 --8<-- "docs/examples/wppm/fit_your_own_data.py:fit"
