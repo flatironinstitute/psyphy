@@ -8,6 +8,18 @@ breaking changes are called out below but do not force a minor-version bump.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`WPPM` without `noise` now uses `GaussianNoise()`.** Before, the model built and
+  `fit` raised `AttributeError: 'NoneType' object has no attribute 'sample_standard'`.
+
+  ```python
+  # before
+  model = WPPM(prior=prior, likelihood=OddityTask())  # fit(...) raised AttributeError
+  # after
+  model = WPPM(prior=prior, likelihood=OddityTask())  # model.noise is GaussianNoise()
+  ```
+
 ## [0.0.6] - 2026-11-23
 
 ### Breaking
