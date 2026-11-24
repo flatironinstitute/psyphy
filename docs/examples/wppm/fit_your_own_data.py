@@ -229,15 +229,17 @@ def main(mode: str) -> None:
     fig.tight_layout()
     fig.savefig(PLOTS_DIR / "own_data_learning_curve.png", dpi=150)
 
+    # --8<-- [start:plot]
     fig, ax = plt.subplots(figsize=(4.6, 4.6))
     plot_ellipses(
-        refs,  # (n_refs, 2)
-        thresholds,  # 2 fits, each (n_refs, 2, 2)
+        centers=refs,  # (n_refs, 2)
+        covs=thresholds,  # 2 fits, each (n_refs, 2, 2)
         ax=ax,
         colors=["C0", "C1"],
         linestyles=["-", "--"],
         labels=["threshold, fit from seed 0", "threshold, fit from seed 1"],
     )
+    # --8<-- [end:plot]
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=1, frameon=False)
     ax.set_aspect("equal")
     ax.set_xlabel("$x_1$")
