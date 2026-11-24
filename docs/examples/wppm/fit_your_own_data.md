@@ -72,10 +72,6 @@ For the prior, we use the same that Hong et al used. For 3-D stimuli, nothing in
 Chebyshev degree 0 to 4 in each of the $d$ stimulus dimensions, then $d$, then $d + 1$
 embedding dimensions.
 
-[`GaussianNoise`](../../reference/model.md#psyphy.model.GaussianNoise) is required.
-[`WPPM`](../../reference/model.md#psyphy.model.WPPM) builds without it, but the fit then
-raises an `AttributeError` (that doesn't say what to pass at the moment).
-
 ## Fit
 
 [`MAPOptimizer`](../../reference/inference.md#psyphy.inference.MAPOptimizer) starts from a
