@@ -8,14 +8,14 @@ explained in the [WPPM tutorial](full_wppm_fit_example.md).
 We use one observer's published trials from
 [Hong et al.](https://doi.org/10.7554/eLife.108943.2): 12,000 oddity-task trials in a 2-D
 color plane. The script reads the number of stimulus dimensions from the data directly, so the same
-code fits 3-D stimuli.
+code would work on 3-D stimuli, for example.
 
 The companion script to this tutorial is
 [`fit_your_own_data.py`](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/fit_your_own_data.py).
 
 The figures here come from `--mode full`, which require a GPU:
 
-??? note "How to run the script"
+??? note "How to run the script and compute settings"
 
     ```bash
     pip install 'psyphy[viz]'
@@ -40,8 +40,9 @@ Every coordinate must lie in $[-1, 1]$, the domain of the Chebyshev basis. Resca
 !!! warning "No check for the wrong domain"
     Currently, psyphy's fit doesn't check this. It would return a wrong field with no error.
 
-Hong et al.'s file has one row per trial and the columns `TrialType`, `xref`, `x1` and `y`.
-We read it with numpy:
+[`hong2025.fetch`](../../reference/data.md#psyphy.data.published.hong2025.fetch) downloads
+Hong et al.'s CSV file from OSF. It has one row per trial and the columns `TrialType`, `xref`,
+`x1` and `y`. We read it with numpy, then put the arrays into a `TrialData`:
 
 ```python title="Read the CSV"
 --8<-- "docs/examples/wppm/fit_your_own_data.py:load_csv"
@@ -94,10 +95,10 @@ better fit.
 
 ## Results
 
-The covariance field $\Sigma(x)$ at the reference points we choose, here a 7 x 7 grid:
+We look at the fits on a 7 x 7 grid of reference points:
 
-```python title="The field at your reference points"
---8<-- "docs/examples/wppm/fit_your_own_data.py:field"
+```python title="Reference points"
+--8<-- "docs/examples/wppm/fit_your_own_data.py:refs"
 ```
 
 For thresholds we predict with more Monte Carlo samples than we fit with. This is because the
@@ -123,17 +124,14 @@ ellipsoid in 3-D).
     between 0.5 and 0.7. So raise `n_theta` as $d$ grows (64 in 3-D costs ca. 4 times as
     much as 16). It needs at least $d(d+1)/2$.
 
-[`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) draws 2-D
-ellipses.
-
-```python title="Plot"
---8<-- "docs/examples/wppm/fit_your_own_data.py:plot"
-```
+We draw them with
+[`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) (2-D only). The
+[ellipse plotting tutorial](../viz/ellipse_plots.md) shows how to call it.
 
 <div align="center">
   <img src="../plots/own_data_thresholds.png" width="440"/>
   <p><em>Threshold contours at 66.7% correct (<code>thresholds</code> above) (not the noise
-  field!) <code>covs</code>, on a 7 x 7 grid of reference points. Solid blue: fit from seed 0.
+  field!), on a 7 x 7 grid of reference points. Solid blue: fit from seed 0.
   Dashed orange: fit from seed 1. The 2 fits agree pretty much everywhere but in the lower left quadrant. The contours of seed 1 (orange) are larger and longer and differently angled. So here,
   the 2 fits found different fields. <a href="#checks-with-no-ground-truth">The loss curves </a> give insights as to why.</em></p>
 </div>
@@ -193,7 +191,10 @@ predicts too few correct responses and dots below too many.
 !!! note "If you simulated your data"
     With a known field, compare the fit with it directly. Here we use Hong et al.'s
     published fit in place of a ground truth, loaded with
-    [`load_reference_W`](../../reference/data.md#psyphy.data.published.hong2025.load_reference_W):
+    [`load_reference_W`](../../reference/data.md#psyphy.data.published.hong2025.load_reference_W).
+    [`WPPMCovarianceField`](../../reference/model.md#psyphy.model.WPPMCovarianceField) turns
+    each set of weights into the covariance field $\Sigma(x)$, and we compare the 2 at the
+    reference points:
 
     ```python title="Compare with a known field"
     --8<-- "docs/examples/wppm/fit_your_own_data.py:truth"
