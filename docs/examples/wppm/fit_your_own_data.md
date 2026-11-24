@@ -124,9 +124,13 @@ ellipsoid in 3-D).
     between 0.5 and 0.7. So raise `n_theta` as $d$ grows (64 in 3-D costs ca. 4 times as
     much as 16). It needs at least $d(d+1)/2$.
 
-We draw them with
-[`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) (2-D only). The
-[ellipse plotting tutorial](../viz/ellipse_plots.md) shows how to call it.
+We draw them with psyphy's
+[`plot_ellipses`](../../reference/viz.md#psyphy.viz.ellipses.plot_ellipses) (2-D only; more
+options in the [ellipse plotting tutorial](../viz/ellipse_plots.md)):
+
+```python title="Plot"
+--8<-- "docs/examples/wppm/fit_your_own_data.py:plot"
+```
 
 <div align="center">
   <img src="../plots/own_data_thresholds.png" width="440"/>
@@ -138,7 +142,7 @@ We draw them with
 
 ## Checks with no ground truth
 
-With your own data there's no true field to compare with. We check 3 things instead.
+With your own data there's no true field to compare with. Instead, we can check these 3 things:
 
 **(a) The learning curve has flattened.** The loss drops, then flattens into a noisy plateau.
 A curve that still trends down needs more steps, and spikes mean the fit hasn't settled.
