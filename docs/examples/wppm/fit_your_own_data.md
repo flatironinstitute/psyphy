@@ -7,13 +7,13 @@ explained in the [WPPM tutorial](full_wppm_fit_example.md).
 
 We use one observer's published trials from
 [Hong et al.](https://doi.org/10.7554/eLife.108943.2): 12,000 oddity-task trials in a 2-D
-color plane. The script reads the number of stimulus dimensions from the data, so the same
+color plane. The script reads the number of stimulus dimensions from the data directly, so the same
 code fits 3-D stimuli.
 
-The companion script is
+The companion script to this tutorial is
 [`fit_your_own_data.py`](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/fit_your_own_data.py).
 
-The figures come from `--mode full`, Hong et al.'s Monte Carlo settings, run on 1 GPU.
+The figures here come from `--mode full`, which require a GPU:
 
 ??? note "How to run the script"
 
@@ -26,17 +26,19 @@ The figures come from `--mode full`, Hong et al.'s Monte Carlo settings, run on 
     The script downloads the trials from OSF the first time it runs (about 1 MB). We found no
     setting that converges within 10 min on a laptop CPU, so for your own data plan on a GPU.
 
-## Data in psyphy
+## Data representation in psyphy
 
-psyphy keeps trials in a [`TrialData`](../../reference/data.md#psyphy.data.TrialData):
+psyphy stores trials in a [`TrialData`](../../reference/data.md#psyphy.data.TrialData) container:
 
 - `stimuli`, shape `(N, 2, d)`: $N$ trials, 2 _distinct_ stimuli per trial, $d$ stimulus dimensions.
   Slot 0 is the reference, slot 1 the comparison. Note that while, in total, the Hong et al paper shows 3 stimui, the oddity task shows the reference twice (a copy) and psyphy stores it once, hence psyphy only stores the number of _distinct_ stimuli per trial
 - `responses`, shape `(N, 1)`: 1 for a correct response, 0 for an incorrect one
 
 Every coordinate must lie in $[-1, 1]$, the domain of the Chebyshev basis. Rescale first, e.g.
-`2 * (x - lo) / (hi - lo) - 1`. A fit doesn't check this. It returns a wrong field with no
-error.
+`2 * (x - lo) / (hi - lo) - 1`.
+
+!!! warning "No check for the wrong domain"
+    Currently, psyphy's fit doesn't check this. It would return a wrong field with no error.
 
 Hong et al.'s file has one row per trial and the columns `TrialType`, `xref`, `x1` and `y`.
 We read it with numpy:
@@ -45,7 +47,7 @@ We read it with numpy:
 --8<-- "docs/examples/wppm/fit_your_own_data.py:load_csv"
 ```
 
-The `MOCS` rows are trials at fixed comparison levels that Hong et al. didn't fit. We hold
+The `MOCS` rows are held-out trials and are trials at fixed comparison levels that Hong et al. didn't fit. We hold
 them out for [check (c)](#checks-with-no-ground-truth). With your own data, hold out a random
 subset instead, e.g. a fifth of the trials.
 
@@ -56,7 +58,7 @@ subset instead, e.g. a fifth of the trials.
 If your file has the columns `ref`, `probe` and `response`, with each stimulus written as a
 list (`"[0.1, -0.2]"`),
 [`load_responses_csv`](../../reference/data.md#psyphy.data.io.load_responses_csv) returns
-the `TrialData` in one call.
+the `TrialData` in one call out of the box.
 
 ## Model
 

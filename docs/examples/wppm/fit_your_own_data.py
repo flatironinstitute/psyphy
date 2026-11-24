@@ -124,7 +124,6 @@ def main(mode: str) -> None:
         likelihood=OddityTask(
             config=OddityTaskConfig(num_samples=cfg["mc_fit"], bandwidth=5e-3)
         ),
-        noise=GaussianNoise(),  # required: without it, fit raises
     )
     # --8<-- [end:model]
 
