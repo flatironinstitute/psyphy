@@ -110,7 +110,8 @@ class PredictivePosterior(Protocol):
     """
     Protocol for predictive distributions p(f(X*) | data) at test stimuli.
 
-    Returned by Model.posterior(X) for use in acquisition functions.
+    Build one with ``WPPMPredictivePosterior(posterior, X, key=key)``, where
+    ``posterior = engine.fit(model, data)``. Acquisition functions consume it.
     """
 
     @property
