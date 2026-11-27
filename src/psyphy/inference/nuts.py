@@ -28,7 +28,7 @@ addressed here:
    until the first mass-matrix update ~100 steps in.
    Fix: *prior preconditioning*. The sampler works in z = W / prior_std,
    where every coordinate is O(1) a priori. This is the same as starting
-   adaptation from inverse_mass_matrix = prior variance, but needs no
+   adaptation from inverse_mass_matrix = prior variance, but doesn't need a
    BlackJAX-version-specific keyword. Draws are mapped back to W before
    they are returned. See ``prior_preconditioning``.
 2. Unbounded tree depth. Even with a good metric, a stiff region can push

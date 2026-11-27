@@ -26,6 +26,7 @@ WORDS = {
     r"\b(crucially|worth internalising|the whole point)\b": (
         "announced significance, really necessary? cut it?"
     ),
+    r"\b[Nn]eeds? no\b": 'write "doesn\'t need any", unless "no" is exact?',
 }
 
 # term -> plain phrase to lead with. The term may appear once per file inside
