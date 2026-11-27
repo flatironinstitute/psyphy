@@ -4,8 +4,8 @@ tests/test_mcmc_chain_loop.py
 
 Tests for ``_fit_chains``, the part of a fit that every MCMC engine shares.
 
-A stub replaces the BlackJAX sampler, so these tests need no blackjax and run no
-chains. The stub records what the shared loop hands an engine and returns the
+A stub replaces the BlackJAX sampler, so these tests don't need blackjax and run
+no chains. The stub records what the shared loop hands an engine and returns the
 starting point as every draw. That pins the prior preconditioning on both sides:
 the engine sees z = W / prior_std, and the posterior holds W again.
 """

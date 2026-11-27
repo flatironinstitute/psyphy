@@ -3,7 +3,7 @@
 Two clearly separated halves:
 
 1. **Parsing tests** run everywhere. They use small synthetic CSVs written to
-   ``tmp_path`` that mimic the published layout, so CI needs no network and no
+   ``tmp_path`` that mimic the published layout, so CI doesn't need a network or
    third-party data.
 
 2. **The external-validity test** is skipped unless the real OSF data has been
