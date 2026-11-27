@@ -7,8 +7,8 @@ Protocols for things we can draw model parameters from.
 2 of them, one nested in the other:
 - ParameterSource: anything that hands back n parameter draws. A Prior is one,
   and so is every posterior
-- ParameterPosterior: a source that ALSO carries a point estimate and the model
-  it was fitted to, representing p(θ | data)
+- ParameterPosterior: a source that ALSO carries the model it was fitted to,
+  representing p(θ | data)
 
 Design
 ------
@@ -81,27 +81,13 @@ class ParameterPosterior(ParameterSource, Protocol):
     Returned by InferenceEngine.fit(model, data).
     Used for diagnostics, parameter sampling, uncertainty.
 
-    A :class:`ParameterSource` that also carries `params` and `model`.
+    A :class:`ParameterSource` that also carries `model`.
+
+    Notes
+    -----
+    `MAPPosterior.params` is the fitted parameter set. `MCMCPosterior` has no
+    `params`; its `mean_params` is the mean of the samples.
     """
-
-    @property
-    def params(self) -> dict:
-        """
-        Point estimate or posterior mean parameters.
-
-        Returns
-        -------
-        dict
-            Parameter PyTree (e.g., {"W": jnp.ndarray})
-
-        Notes
-        -----
-        - MAP: θ_MAP
-        - MCMC: posterior mean of the parameter samples. This is a parameter
-          average, not an average of model outputs: for WPPM, Σ(params) is not
-          the posterior mean covariance (use WPPMCovarianceFieldSamples).
-        """
-        ...
 
     @property
     def model(self):

@@ -60,7 +60,8 @@ basis functions) and sample a covariance field from the prior:
 - `basis_degree=4` is set on the `Prior`, and the WPPM takes it from there.
 - `extra_dims=1` adds one embedding dimension, so $U(x)$ has shape `(2, 3)`.
 - `variance_scale=0.03` and `decay_rate=0.3` set how smooth the field is.
-- `field(x)` returns $\Sigma(x)$, shape `(2, 2)`.
+- `field(x)` returns $\Sigma(x)$ with the sample axis first, shape `(1, 2, 2)` for our 1 prior
+  sample. `[0]` gives the matrix.
 
 ### Plotting one ellipse
 
@@ -89,8 +90,9 @@ call:
 --8<-- "docs/examples/covariance_field/covariance_field_demo.py:grid_points"
 ```
 
-`field(X)` with `X` of shape `(n, 2)` returns `(n, 2, 2)`. `jax.vmap(field)(X)` gives the
-same result.
+`field(X)` with `X` of shape `(n, 2)` returns `(1, n, 2, 2)`, since the sample axis comes
+first in every call. `jax.vmap(field)(X)` gives the same values with the points first,
+`(n, 1, 2, 2)`. So we pass the batch to `field` directly.
 
 ### Plotting the field
 
@@ -109,7 +111,9 @@ same result.
 
 ### Sampling a different field
 
-A different key gives a different field from the same prior:
+A different key gives a different field from the same prior. This time we draw the
+parameters ourselves and pass them to `from_params`, as we would a ground truth or a
+published $W$:
 
 ```python title="Custom Field from Different Prior Sample"
 --8<-- "docs/examples/covariance_field/covariance_field_demo.py:custom"
@@ -135,42 +139,41 @@ A different key gives a different field from the same prior:
 
 | Method | Description | Use Case |
 |--------|-------------|----------|
-| `from_prior(model, key)` | Sample from prior | Initialization, visualization |
-| `from_posterior(posterior)` | Extract fitted field | Analysis after fitting |
-| `from_params(model, params)` | Any parameter set | tests, or fitted parameters saved earlier, e.g. from another subject |
-| `WPPMCovarianceFieldSamples.from_params(model, params)` | 1 parameter set, with a sample axis of length 1 | a ground truth or a published $W$, in the same shape as the samples of a fit |
+| `WPPMCovarianceField(posterior)` | every stored sample of a fit | after a maximum a posteriori (MAP) fit, 1 sample, or an MCMC fit |
+| `from_prior(model, n_samples=n, key=key)` | `n` samples from the prior | initialization, visualization |
+| `from_params(model, params)` | 1 parameter set, with a sample axis of length 1 | a ground truth, a published $W$, or fitted parameters saved earlier |
 
-`from_posterior` builds the field from `posterior.params`, a single parameter set. For a
-maximum a posteriori (MAP) fit that is $W_\text{MAP}$, which is what you want. For a
-sample-based posterior, for example from
-[`NUTSSampler`](../../reference/inference.md#psyphy.inference.NUTSSampler), `params` is the
-mean parameter $\mathbb{E}[W]$. The field built from it is too small, so `from_posterior`
-warns. Use `WPPMCovarianceFieldSamples(posterior).mean(x)` instead. It
-evaluates $\Sigma$ for every posterior draw and averages the matrices, giving
+After a sample-based fit, for example from
+[`NUTSSampler`](../../reference/inference.md#psyphy.inference.NUTSSampler),
+`field.mean(x)` evaluates $\Sigma$ for every sample and averages the matrices, giving
 $\mathbb{E}[\Sigma(x)]$. See
 [Step 5 of the NUTS tutorial](../wppm/nuts_inference_example.md#step-5-plotting-posterior-samples-and-credible-intervals).
+Don't pass that fit's `posterior.mean_params` to `from_params`. It's the mean parameter
+$\mathbb{E}[W]$, and the field built from it is too small. `posterior.params` raises.
 
-`WPPMCovarianceFieldSamples(posterior).sqrt_cov(x)` returns $U(x)$ for every draw, shape
-`(n_samples, d, m)` for one point, with $m$ the embedding dimension.
+`field.sqrt_cov(x)` returns $U(x)$ for every sample, shape `(n_samples, d, m)` for one point,
+with $m$ the embedding dimension.
 
 ### Evaluation
 
 | Method | Input Shape | Output Shape | Description |
 |--------|-------------|--------------|-------------|
-| `field(x)` | `(d,)` | `(d, d)` | one point |
-| `field(X)` | `(n, d)` | `(n, d, d)` | a batch of points |
-| `jax.vmap(field)(X)` | `(n, d)` | `(n, d, d)` | same as `field(X)` |
-| `field.sqrt_cov(x)` | `(d,)` | `(d, d + extra_dims)` | $U(x)$ |
+| `field(x)` | `(d,)` | `(n_samples, d, d)` | one point |
+| `field(X)` | `(n, d)` | `(n_samples, n, d, d)` | a batch of points |
+| `field.mean(X)` | `(n, d)` | `(n, d, d)` | $\mathbb{E}[\Sigma(x)]$ over the samples |
+| `jax.vmap(field)(X)` | `(n, d)` | `(n, n_samples, d, d)` | the points first; pass the batch to `field` instead |
+| `field.sqrt_cov(x)` | `(d,)` | `(n_samples, d, d + extra_dims)` | $U(x)$ |
 
-`d` is `input_dim` and `n` the number of points. `field.cov` and `field.cov_batch` still
-work but are deprecated in favor of `field(x)`.
+`d` is `input_dim`, `n` the number of points, and `n_samples` is 1 after a MAP fit or for a
+single parameter set.
 
 ### Properties
 
 | Property | Returns | Description |
 |----------|---------|-------------|
 | `field.model` | `WPPM` | Associated model |
-| `field.params` | `dict` | Parameter dictionary |
+| `field.samples` | `dict` | The parameter sets, leading axis `n_samples` |
+| `field.n_samples` | `int` | How many parameter sets the field holds |
 
 ---
 
@@ -186,12 +189,12 @@ from psyphy.viz import plot_ellipses
 model = WPPM(prior=Prior(input_dim=2, basis_degree=4), likelihood=OddityTask(), noise=GaussianNoise())
 
 # the prior, before any data
-prior_field = WPPMCovarianceField.from_prior(model, jr.PRNGKey(0))
-plot_ellipses(grid_points, prior_field(grid_points), scale="auto")
+prior_field = WPPMCovarianceField.from_prior(model, n_samples=1, key=jr.PRNGKey(0))
+plot_ellipses(grid_points, prior_field(grid_points), scale="auto")  # (1, n, 2, 2): 1 field
 
 # fit, then the fitted field
 map_posterior = MAPOptimizer(steps=500).fit(model, data)
-fitted_field = WPPMCovarianceField.from_posterior(map_posterior)
+fitted_field = WPPMCovarianceField(map_posterior)
 plot_ellipses(grid_points, fitted_field(grid_points), scale="auto")
 ```
 
@@ -202,7 +205,7 @@ plot_ellipses(grid_points, fitted_field(grid_points), scale="auto")
 Pass the whole batch in one call rather than looping over points:
 
 ```python
-Sigmas = field(X_grid)  # (n, 2, 2), one call
+Sigmas = field(X_grid)  # (n_samples, n, 2, 2), one call
 
 for x in X_grid:  # n separate calls, much slower
     Sigma = field(x)

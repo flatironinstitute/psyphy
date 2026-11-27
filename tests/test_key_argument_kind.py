@@ -14,7 +14,7 @@ import inspect
 import jax.random as jr
 import pytest
 
-from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceFieldSamples
+from psyphy.model import WPPM, OddityTask, Prior, WPPMCovarianceField
 from psyphy.model.likelihood import (
     BernoulliTaskLikelihood,
     GaussianTaskLikelihood,
@@ -46,8 +46,8 @@ POSITIONAL = [
 ]
 
 KEYWORD_ONLY = [
-    WPPMCovarianceFieldSamples.from_prior,  # same kind as __init__
-    WPPMCovarianceFieldSamples.__init__,  # (post, k) would bind k to n_samples
+    WPPMCovarianceField.from_prior,  # same kind as __init__
+    WPPMCovarianceField.__init__,  # (post, k) would bind k to n_samples
     WPPMPredictivePosterior.__init__,  # required key after optional arguments
     PredictivePosterior.rsample,
     WPPMPredictivePosterior.rsample,

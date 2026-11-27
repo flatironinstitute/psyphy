@@ -39,8 +39,8 @@ def test_mcmc_posterior_model_first(model, samples):
     new = MCMCPosterior(model, samples)
     kw = MCMCPosterior(samples=samples, model=model)
     assert new.model is model
-    assert jnp.array_equal(new.params["W"], kw.params["W"])
-    assert jnp.array_equal(new.params["W"], samples["W"].mean(axis=(0, 1)))
+    assert jnp.array_equal(new.mean_params["W"], kw.mean_params["W"])
+    assert jnp.array_equal(new.mean_params["W"], samples["W"].mean(axis=(0, 1)))
 
 
 def test_mcmc_posterior_sampler_stats_stays_keyword_only(model, samples):
@@ -51,9 +51,9 @@ def test_mcmc_posterior_sampler_stats_stays_keyword_only(model, samples):
 
 
 def test_field_model_first_unchanged(model, params):
-    field = WPPMCovarianceField(model, params)
+    field = WPPMCovarianceField.from_params(model, params)
     assert field.model is model
-    assert field(jnp.array([0.5, 0.3])).shape == (2, 2)
+    assert field(jnp.array([0.5, 0.3])).shape == (1, 2, 2)  # (n_samples=1, d, d)
 
 
 def test_old_order_map_posterior_raises(model, params):
@@ -67,8 +67,8 @@ def test_old_order_mcmc_posterior_raises(model, samples):
 
 
 def test_old_order_field_raises(model, params):
-    with pytest.raises(TypeError, match=r"WPPMCovarianceField\(model, params\)"):
-        WPPMCovarianceField(params, model)
+    with pytest.raises(TypeError, match=r"from_params\(model, params\)"):
+        WPPMCovarianceField.from_params(params, model)
 
 
 def test_non_mapping_params_raises(model):
@@ -76,5 +76,5 @@ def test_non_mapping_params_raises(model):
         MAPPosterior(model, jnp.zeros(3))
     with pytest.raises(TypeError, match=r"MCMCPosterior\(model, samples\)"):
         MCMCPosterior(model, jnp.zeros(3))
-    with pytest.raises(TypeError, match=r"WPPMCovarianceField\(model, params\)"):
-        WPPMCovarianceField(model, jnp.zeros(3))
+    with pytest.raises(TypeError, match=r"from_params\(model, params\)"):
+        WPPMCovarianceField.from_params(model, jnp.zeros(3))

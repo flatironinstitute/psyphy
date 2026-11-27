@@ -108,8 +108,8 @@ def _simulate(n_trials: int = NUM_TRIALS):
     truth_params = truth_model.init_params(jr.PRNGKey(123))
 
     refs = jnp.repeat(REF_POINT, repeats=n_trials, axis=0)
-    truth_field = WPPMCovarianceField(truth_model, truth_params)
-    sigmas = truth_field(refs)
+    truth_field = WPPMCovarianceField.from_params(truth_model, truth_params)
+    sigmas = truth_field(refs)[0]  # (n_trials, 2, 2), sample axis of 1 dropped
 
     k_dir, k_sim = jr.split(jr.PRNGKey(3))
     angles = jr.uniform(k_dir, (n_trials,), minval=0.0, maxval=2 * jnp.pi)
@@ -136,11 +136,12 @@ def fit():
         log_every=1,
     )
     estimate = optimizer.fit(model, data, init_params=init_params, seed=4)
-    fitted = WPPMCovarianceField(model, estimate.params)(REF_POINT)[0]
+    # [0, 0]: sample 0 of 1, point 0 of 1 -> (2, 2)
+    fitted = WPPMCovarianceField(estimate)(REF_POINT)[0, 0]
     return {
-        "truth": truth_field(REF_POINT)[0],
+        "truth": truth_field(REF_POINT)[0, 0],
         "fitted": fitted,
-        "init": WPPMCovarianceField(model, init_params)(REF_POINT)[0],
+        "init": WPPMCovarianceField.from_params(model, init_params)(REF_POINT)[0, 0],
         "losses": optimizer.get_history()[1],
         "optimizer": optimizer,
     }

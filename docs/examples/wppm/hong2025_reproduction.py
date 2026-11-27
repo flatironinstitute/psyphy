@@ -186,7 +186,7 @@ THRESHOLD_SETTINGS = {
 # --8<-- [start:metrics]
 def _sqrtm_psd(M: np.ndarray) -> np.ndarray:
     """Matrix square root of a symmetric PSD matrix."""
-    vals, vecs = np.linalg.eigh(M)
+    vals, vecs = np.linalg.eigh(M)  # (2,) and (2, 2)
     return vecs @ np.diag(np.sqrt(np.clip(vals, 0.0, None))) @ vecs.T
 
 
@@ -208,6 +208,7 @@ def compare_fields(Sigma_fit: np.ndarray, Sigma_ref: np.ndarray) -> dict[str, fl
     unchanged and the prior is isotropic in the embedding axis, so the weights
     are not identifiable while the covariance field is.
     """
+    # rel_frob, area_ratio, d_ang and nbs are each (M,): 1 number per grid point
     rel_frob = np.linalg.norm(Sigma_fit - Sigma_ref, axis=(1, 2)) / np.linalg.norm(
         Sigma_ref, axis=(1, 2)
     )
@@ -215,7 +216,8 @@ def compare_fields(Sigma_fit: np.ndarray, Sigma_ref: np.ndarray) -> dict[str, fl
     area_ratio = np.sqrt(np.linalg.det(Sigma_fit) / np.linalg.det(Sigma_ref))
 
     def major_axis_angle(S: np.ndarray) -> np.ndarray:
-        vecs = np.linalg.eigh(S)[1][..., -1]  # eigh returns ascending eigenvalues
+        # (M, 2); eigh returns ascending eigenvalues
+        vecs = np.linalg.eigh(S)[1][..., -1]
         return np.arctan2(vecs[..., 1], vecs[..., 0])
 
     # Ellipse axes are undirected, so angle error lives on [0, 90] degrees.
@@ -431,11 +433,12 @@ def stage1_exact_check(paths: dict[str, Path]) -> None:
 
     # --8<-- [start:stage1]
     W_org = hong2025.load_reference_W(path=paths["weights"])  # (5, 5, 2, 3)
+    # coords (n_points, 2), sigma_published (n_points, 2, 2)
     coords, sigma_published = hong2025.load_sigma_table(path=paths["noise_ellipses"])
 
     model = hong2025.build_paper_model(mc_samples=1)  # MC unused: no likelihood here
-    field = WPPMCovarianceField(model=model, params={"W": W_org})
-    sigma_psyphy = np.asarray(field(jnp.asarray(coords)))
+    field = WPPMCovarianceField.from_params(model=model, params={"W": W_org})
+    sigma_psyphy = np.asarray(field(jnp.asarray(coords))[0])  # (n_points, 2, 2), 1 set
 
     max_abs = float(np.abs(sigma_psyphy - sigma_published).max())
     # --8<-- [end:stage1]
@@ -455,7 +458,8 @@ def stage2_thresholds(paths: dict[str, Path], thr: dict, subject: int) -> None:
     print("\n=== Stage 2: threshold contours (Figure 2B) from W_org ===")
     mc_samples, config = thr["mc_samples"], thr["config"]
 
-    W_org = hong2025.load_reference_W(paths["weights"])
+    W_org = hong2025.load_reference_W(paths["weights"])  # (5, 5, 2, 3)
+    # (49, 2), (49, 2, 2)
     coords, thres_published = hong2025.load_sigma_table(paths["thres_ellipses"])
     model = hong2025.build_paper_model(mc_samples=mc_samples)
     posterior = MAPPosterior(params={"W": W_org}, model=model)
@@ -477,9 +481,9 @@ def stage2_thresholds(paths: dict[str, Path], thr: dict, subject: int) -> None:
 
     # --8<-- [start:threshold_error]
     # Compare semi-axis lengths: sqrt of the covariance eigenvalues.
-    got = np.sqrt(np.linalg.eigvalsh(thres_psyphy))
+    got = np.sqrt(np.linalg.eigvalsh(thres_psyphy))  # (49, 2), 2 semi-axes per point
     want = np.sqrt(np.linalg.eigvalsh(thres_published))
-    rel_err = np.abs(got - want) / want
+    rel_err = np.abs(got - want) / want  # (49, 2)
     # --8<-- [end:threshold_error]
 
     print(f"  reference points : {len(coords)}")
@@ -538,14 +542,15 @@ def stage3_figure_from_fit(
 
     coords, _ = hong2025.load_sigma_table(paths["thres_ellipses"])
     W_org = hong2025.load_reference_W(paths["weights"])
-    W_fit = jnp.asarray(np.load(fit_path)["W"])
+    W_fit = jnp.asarray(np.load(fit_path)["W"])  # (5, 5, 2, 3)
 
     model = hong2025.build_paper_model(mc_samples=1)  # MC unused: no likelihood
+    # [0]: the 1 parameter set -> (n_points, 2, 2)
     Sigma_ref = np.asarray(
-        WPPMCovarianceField(model, {"W": W_org})(jnp.asarray(coords))
+        WPPMCovarianceField.from_params(model, {"W": W_org})(jnp.asarray(coords))[0]
     )
     Sigma_fit = np.asarray(
-        WPPMCovarianceField(model, {"W": W_fit})(jnp.asarray(coords))
+        WPPMCovarianceField.from_params(model, {"W": W_fit})(jnp.asarray(coords))[0]
     )
 
     for key, value in compare_fields(Sigma_fit, Sigma_ref).items():
@@ -599,6 +604,7 @@ def stage3_refit(
     best = None
     for r in range(cfg["restarts"]):
         t0 = time.time()
+        # {"W": (5, 5, 2, 3)}
         init = model.init_params(jax.random.PRNGKey(seed + 1000 * r))
         posterior = optimizer.fit(model=model, data=data, init_params=init)
         _, losses = optimizer.get_history()
@@ -643,10 +649,13 @@ def stage3_refit(
     coords, _ = hong2025.load_sigma_table(paths["thres_ellipses"])
     W_org = hong2025.load_reference_W(paths["weights"])  # original best fit Weights
 
+    # [0]: the 1 parameter set -> (n_points, 2, 2)
     Sigma_ref = np.asarray(
-        WPPMCovarianceField(model, {"W": W_org})(jnp.asarray(coords))
+        WPPMCovarianceField.from_params(model, {"W": W_org})(jnp.asarray(coords))[0]
     )
-    Sigma_fit = np.asarray(WPPMCovarianceField(model, params)(jnp.asarray(coords)))
+    Sigma_fit = np.asarray(
+        WPPMCovarianceField.from_params(model, params)(jnp.asarray(coords))[0]
+    )
     metrics = compare_fields(Sigma_fit, Sigma_ref)
     # --8<-- [end:compare]
 
@@ -664,7 +673,7 @@ def stage3_refit(
     )
 
     fig, ax = plt.subplots(figsize=(6, 4), dpi=150)
-    ax.plot(loss_hist, color="#4444aa")
+    ax.plot(loss_hist, color="C0")
     ax.set_xlabel("Step")
     ax.set_ylabel("Neg log posterior (per trial)")
     ax.set_title(f"Learning curve — mode={mode}, N={data.num_trials}", fontsize=9)
@@ -706,7 +715,7 @@ def stage4_end_to_end(
 
     # --8<-- [start:end_to_end]
     # The only line that differs from stage 2: the weights are ours.
-    W_fit = jnp.asarray(np.load(fit_path)["W"])
+    W_fit = jnp.asarray(np.load(fit_path)["W"])  # (5, 5, 2, 3)
 
     predictive = WPPMPredictivePosterior(
         MAPPosterior(model, {"W": W_fit}),  # <- before we passed W_org here
@@ -721,9 +730,9 @@ def stage4_end_to_end(
 
     # Same metric stage 2 reports, so the two numbers are directly comparable:
     # stage 2 isolates inversion error, this one carries fit error on top.
-    got = np.sqrt(np.linalg.eigvalsh(thres_fit))
+    got = np.sqrt(np.linalg.eigvalsh(thres_fit))  # (49, 2)
     want = np.sqrt(np.linalg.eigvalsh(thres_published))
-    rel_err = np.abs(got - want) / want
+    rel_err = np.abs(got - want) / want  # (49, 2)
 
     print(f"  reference points : {len(coords)}")
     print(
@@ -772,12 +781,13 @@ def _radii(Sigmas: np.ndarray, u: np.ndarray) -> np.ndarray:
     singular or indefinite Sigma, and ``np.linalg.inv`` would abort the whole
     stage -- an expensive way to fail, since this runs after the fit.
     """
-    S = np.asarray(Sigmas, dtype=float)
-    bad = np.linalg.eigvalsh(S)[..., 0] <= 0.0
+    S = np.asarray(Sigmas, dtype=float)  # (..., 2, 2)
+    bad = np.linalg.eigvalsh(S)[..., 0] <= 0.0  # (...,) True where not PD
+    # (..., 2, 2) precision
     P = np.linalg.inv(np.where(bad[..., None, None], np.eye(2), S))
     q = np.einsum("di,...ij,dj->...d", u, P, u)  # (..., n_dirs)
     with np.errstate(invalid="ignore", divide="ignore"):
-        r = 1.0 / np.sqrt(q)
+        r = 1.0 / np.sqrt(q)  # (..., n_dirs)
     return np.where(bad[..., None], np.nan, r)
 
 
@@ -830,9 +840,9 @@ def stage5_bootstrap_envelope(
     print(f"  bootstrap refits : {len(boots_all)} published, top {len(boots)} kept")
 
     # Our end-to-end contours, from the weights stage 3 fit.
-    W_fit = jnp.asarray(np.load(fit_path)["W"])
+    W_fit = jnp.asarray(np.load(fit_path)["W"])  # (5, 5, 2, 3)
     model = hong2025.build_paper_model(mc_samples=thr["mc_samples"])
-    thres_fit = np.asarray(
+    thres_fit = np.asarray(  # (49, 2, 2)
         WPPMPredictivePosterior(
             MAPPosterior(model, {"W": W_fit}),
             jnp.asarray(coords),
@@ -847,7 +857,7 @@ def stage5_bootstrap_envelope(
     # The paper's bound is the union and intersection of the retained contours.
     # Sampled radially: per reference point and direction, how far out does the
     # outermost retained fit reach, and the innermost?
-    theta = np.linspace(0.0, 2.0 * np.pi, n_dirs, endpoint=False)
+    theta = np.linspace(0.0, 2.0 * np.pi, n_dirs, endpoint=False)  # (n_dirs,) radians
     u = np.stack([np.cos(theta), np.sin(theta)], axis=1)  # (n_dirs, 2)
 
     r_boot = _radii(boots, u)  # (114, 49, n_dirs)

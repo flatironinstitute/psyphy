@@ -81,8 +81,8 @@ print("DEVICE USED:", jax.devices()[0])
 #     )
 
 
-_THETAS = jnp.linspace(0, 2 * jnp.pi, 100)
-_UNIT_CIRCLE = jnp.vstack([jnp.cos(_THETAS), jnp.sin(_THETAS)])
+_THETAS = jnp.linspace(0, 2 * jnp.pi, 100)  # (n_theta=100,) radians
+_UNIT_CIRCLE = jnp.vstack([jnp.cos(_THETAS), jnp.sin(_THETAS)])  # (2, n_theta)
 
 
 def _ellipse_segments_from_covs(
@@ -109,16 +109,16 @@ def _ellipse_segments_from_covs(
         Which centers were PD after jitter.
     """
     # Add a small diagonal jitter for plotting stability.
-    covs = covs + plot_jitter * jnp.eye(covs.shape[-1])
+    covs = covs + plot_jitter * jnp.eye(covs.shape[-1])  # (n_centers, 2, 2)
 
     # PD check: for a 2x2 SPD matrix, eigvalsh is cheap and reliable.
-    eigvals = jnp.linalg.eigvalsh(covs)
-    valid = jnp.all(eigvals > 0, axis=-1)
+    eigvals = jnp.linalg.eigvalsh(covs)  # (n_centers, 2)
+    valid = jnp.all(eigvals > 0, axis=-1)  # (n_centers,) True where PD
 
     # Cholesky is faster than eigen decomposition for SPD matrices.
     # we only use it for plotting ellipses (shape/orientation), not inference.
     def _cov_to_points(cov: jnp.ndarray, center: jnp.ndarray) -> jnp.ndarray:
-        L = jnp.linalg.cholesky(cov)
+        L = jnp.linalg.cholesky(cov)  # (2, 2), lower triangular
         pts = scale * (L @ unit_circle)  # (2, n_theta)
         return (center[:, None] + pts).T  # (n_theta, 2)
 
@@ -191,6 +191,7 @@ truth_model = WPPM(
 )
 
 # Sample ground-truth Wishart process weights
+# {"W": (5, 5, 2, 3)}: degree 0 to 4, d=2, m=3
 truth_params = truth_model.init_params(jax.random.PRNGKey(123))
 # --8<-- [end:truth_model]
 
@@ -210,7 +211,8 @@ truth_params = truth_model.init_params(jax.random.PRNGKey(123))
 ##### Simulate data
 num_trials_per_ref = NUM_TRIALS_Per_Ref  # (trials per reference point)
 n_ref_grid = 5  # NUM_GRID_PTS
-ref_grid = jnp.linspace(-1, 1, n_ref_grid)  # [-1,1] space
+ref_grid = jnp.linspace(-1, 1, n_ref_grid)  # [-1,1] space, (n_ref_grid,)
+# (n_ref=25, 2)
 ref_points = jnp.stack(jnp.meshgrid(ref_grid, ref_grid), axis=-1).reshape(-1, 2)
 
 # --- Stimulus design: covariance-scaled probe displacements ---
@@ -224,15 +226,18 @@ key = jr.PRNGKey(seed)
 
 # Build a batched reference list by repeating each grid point.
 n_ref = ref_points.shape[0]
-refs = jnp.repeat(ref_points, repeats=num_trials_per_ref, axis=0)  # (N, 2)
+# (N, 2), N = n_ref * num_trials_per_ref
+refs = jnp.repeat(ref_points, repeats=num_trials_per_ref, axis=0)
 num_trials_total = int(refs.shape[0])
 
 # Evaluate Σ(ref) in batch using the psyphy covariance-field wrapper.
-truth_field = WPPMCovarianceField(model=truth_model, params=truth_params)
-Sigmas_ref = truth_field(refs)  # (N, 2, 2)
+# 1 sample
+truth_field = WPPMCovarianceField.from_params(model=truth_model, params=truth_params)
+Sigmas_ref = truth_field(refs)[0]  # (N, 2, 2), [0] picks the 1 parameter set
 
 # Sample unit directions on the circle.
 k_dir, k_sim = jr.split(key)
+# (N,)
 angles = jr.uniform(k_dir, shape=(num_trials_total,), minval=0.0, maxval=2.0 * jnp.pi)
 unit_dirs = jnp.stack([jnp.cos(angles), jnp.sin(angles)], axis=1)  # (N, 2)
 
@@ -246,15 +251,18 @@ MAHAL_RADIUS = 2.8
 # Compute sqrt(Σ) via Cholesky (Σ should be SPD; diag_term/noise keep it stable).
 L = jnp.linalg.cholesky(Sigmas_ref)  # (N, 2, 2)
 deltas = MAHAL_RADIUS * jnp.einsum("nij,nj->ni", L, unit_dirs)  # (N, 2)
-comparisons = jnp.clip(refs + deltas, -1.0, 1.0)
+comparisons = jnp.clip(refs + deltas, -1.0, 1.0)  # (N, 2)
 
 # Stack refs and comparisons to form representation of all stimuli used in the task.
+# (N, K=2, d=2): slot 0 ref, slot 1 comparison
 stimuli = jnp.stack([refs, comparisons], axis=1)
 
 # --8<-- [start:simulate_data]
 # Simulate observed responses using the likelihood implied by the task.
+# ys (N,)
 ys, prob_params = task.simulate(truth_params, stimuli, truth_model, key=k_sim)
-p_correct = prob_params[0]  # <- for Bernoulli tasks, p_correct is the only prob_param
+# (N,) <- for Bernoulli tasks, p_correct is the only prob_param
+p_correct = prob_params[0]
 
 # Build the batched dataset for compute.
 #
@@ -296,10 +304,10 @@ model = WPPM(
 # 3.5) Prior
 # --8<-- [start:prior]
 # Initialize at prior sample
-init_params = model.init_params(jax.random.PRNGKey(42))
-init_field = WPPMCovarianceField(model, init_params)
+init_params = model.init_params(jax.random.PRNGKey(42))  # {"W": (5, 5, 2, 3)}
+init_field = WPPMCovarianceField.from_params(model, init_params)  # 1 sample
 # Prior over covariance field
-covs_prior = init_field(ref_points)  # (25, 2, 2)
+covs_prior = init_field(ref_points)[0]  # (25, 2, 2) for the 1 parameter set
 # --8<-- [end:prior]
 print(f"shape of covs_prior: {covs_prior.shape}")
 
@@ -351,8 +359,9 @@ _PLOT_JITTER_FIT = 0  # 1e-5
 
 # Grid for field visualization in [-1,1] space
 n_grid = 12
-grid_x = jnp.linspace(-1, 1, n_grid)
+grid_x = jnp.linspace(-1, 1, n_grid)  # (n_grid,)
 grid_y = jnp.linspace(-1, 1, n_grid)
+# (n_grid**2, 2)
 centers = jnp.stack(jnp.meshgrid(grid_x, grid_y), axis=-1).reshape(-1, 2)
 
 
@@ -362,20 +371,21 @@ centers = jnp.stack(jnp.meshgrid(grid_x, grid_y), axis=-1).reshape(-1, 2)
 # reuse the library abstraction `WPPMCovarianceField`.
 #
 # Why it's helpful here:
-#   - It *binds* a (model, params) pair into a single callable object, so we don't
-#     accidentally use truth_params with the fit model, or vice versa.
+#   - It *binds* a model and its parameters into a single callable object, so we
+#     don't accidentally use truth_params with the fit model, or vice versa.
 #   - It supports both single-point and batched evaluation via `field(x)` where
-#     x can be shape (d,) or (..., d).
+#     x can be shape (d,) or (..., d). The result starts with the sample axis,
+#     length 1 for every field here, and [0] drops it.
 #   - It uses a vmapped + jitted batch path internally, which is typically faster
 #     than a Python loop and stays efficient when you evaluate many points.
 
-truth_field = WPPMCovarianceField(truth_model, truth_params)
+truth_field = WPPMCovarianceField.from_params(truth_model, truth_params)  # 1 sample
 
 # --8<-- [start:cov_fields]
-map_field = WPPMCovarianceField(model, map_posterior.params)
+map_field = WPPMCovarianceField(posterior=map_posterior)  # 1 sample, W_MAP
 # evaluate any covariance field object like this at either a single point
 # or a batch of points
-covs_map = map_field(ref_points)  # to get the fitted covariances
+covs_map = map_field(ref_points)[0]  # (n_ref_points, 2, 2), the fitted covariances
 # --8<-- [end:cov_fields]
 
 # ---- Plot scaling (purely for visualization) ----
@@ -384,7 +394,8 @@ covs_map = map_field(ref_points)  # to get the fitted covariances
 #
 # gt_covs: stacked covariances Σ_truth(x) at each reference point.
 # Shape: (n_ref_points, 2, 2)
-gt_covs = truth_field(ref_points)
+# [0] drops the sample axis of (1, n_ref_points, 2, 2)
+gt_covs = truth_field(ref_points)[0]
 # gt_means: for each covariance matrix, compute the mean eigenvalue.
 # For a 2x2 SPD matrix this correlates with the "overall variance" (typical radius).
 # Shape: (n_ref_points,)
@@ -417,7 +428,7 @@ for i, (field, _params, color, label) in enumerate(
 
     # Batch-evaluate covariances at all reference points in one shot.
     # This is typically much faster than calling field(center) inside a Python loop.
-    covs = field(ref_points)  # (n_ref_points, 2, 2)
+    covs = field(ref_points)[0]  # (n_ref_points, 2, 2) for the 1 parameter set
 
     # Convert batched covariances into batched polyline segments.
     segments, valid = _ellipse_segments_from_covs(
@@ -431,7 +442,7 @@ for i, (field, _params, color, label) in enumerate(
 
     # Draw all ellipses for this layer as one artist. This reduces Matplotlib
     # overhead dramatically vs. one ax.plot() call per ellipse.
-    segments_np = jax.device_get(segments)
+    segments_np = jax.device_get(segments)  # (n_valid, n_theta, 2), as numpy
     lc = LineCollection(
         segments_np,
         colors=color,
@@ -475,10 +486,10 @@ fig.savefig(
 # This is a convenience plot to show what the *Prior hyperparameters* imply for
 # the covariance field before seeing any data.
 print("[4b/5] Plotting prior-only covariance field (fresh prior draw) ...")
-prior_only_params = model.init_params(jax.random.PRNGKey(7))
-prior_only_field = WPPMCovarianceField(model, prior_only_params)
+prior_only_params = model.init_params(jax.random.PRNGKey(7))  # {"W": (5, 5, 2, 3)}
+prior_only_field = WPPMCovarianceField.from_params(model, prior_only_params)  # 1 sample
 
-prior_covs = prior_only_field(ref_points)  # (n_ref_points, 2, 2)
+prior_covs = prior_only_field(ref_points)[0]  # (n_ref_points, 2, 2)
 prior_segments, prior_valid = _ellipse_segments_from_covs(
     ref_points,
     prior_covs,
@@ -527,7 +538,7 @@ fig_prior.savefig(
 # Learning curve
 print("[5/5] Plotting learning curve...")
 # --8<-- [start:plot_learning_curve]
-steps_hist, loss_hist = map_optimizer.get_history()
+steps_hist, loss_hist = map_optimizer.get_history()  # 2 lists, 1 entry per logged step
 # plotting code
 # --8<-- [end:plot_learning_curve]
 print(f"num steps: {len(steps_hist)}, num losses: {len(loss_hist)}")
@@ -537,7 +548,7 @@ if steps_hist:
 if steps_hist and loss_hist:
     fig2, ax2 = plt.subplots(figsize=(6, 4))
     ax2.set_xlim(steps_hist[0], steps_hist[-1])
-    ax2.plot(steps_hist, loss_hist, color="#4444aa")
+    ax2.plot(steps_hist, loss_hist, color="C0")
     ax2.set_title(
         f"Learning curve \n lr={lr}, steps={steps} - MC-samples={MC_SAMPLES}, num-trials-per-ref={num_trials_per_ref}"
     )

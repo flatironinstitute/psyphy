@@ -118,6 +118,7 @@ truth_model = WPPM(
 )
 
 # Sample ground-truth Wishart process weights
+# {"W": (5, 5, 2, 3)}: degree 0 to 4, d=2, m=3
 truth_params = truth_model.init_params(jax.random.PRNGKey(123))
 # --8<-- [end:truth_model]
 
@@ -136,11 +137,13 @@ key = jr.PRNGKey(seed)
 refs = jnp.repeat(ref_point, repeats=NUM_TRIALS, axis=0)  # (NUM_TRIALS, 2)
 
 # Evaluate Σ at the reference point.
-truth_field = WPPMCovarianceField(model=truth_model, params=truth_params)
-Sigmas_ref = truth_field(refs)  # (NUM_TRIALS, 2, 2)
+# 1 sample
+truth_field = WPPMCovarianceField.from_params(model=truth_model, params=truth_params)
+Sigmas_ref = truth_field(refs)[0]  # (NUM_TRIALS, 2, 2), [0] picks the 1 parameter set
 
 # Sample unit directions and build covariance-scaled probe displacements.
 k_dir, k_sim = jr.split(key)
+# (N,) radians
 angles = jr.uniform(k_dir, shape=(NUM_TRIALS,), minval=0.0, maxval=2.0 * jnp.pi)
 unit_dirs = jnp.stack([jnp.cos(angles), jnp.sin(angles)], axis=1)  # (N, 2)
 
@@ -149,15 +152,18 @@ MAHAL_RADIUS = 2.8
 L = jnp.linalg.cholesky(Sigmas_ref)  # (N, 2, 2)
 # location of comparisons = ref+delta
 deltas = MAHAL_RADIUS * jnp.einsum("nij,nj->ni", L, unit_dirs)  # (N, 2)
-comparisons = jnp.clip(refs + deltas, -1.0, 1.0)
+comparisons = jnp.clip(refs + deltas, -1.0, 1.0)  # (N, 2)
 
 # Stack refs and comparisons to form representation of all stimuli used in the task.
+# (N, K=2, d=2): slot 0 ref, slot 1 comparison
 stimuli = jnp.stack([refs, comparisons], axis=1)
 
 # --8<-- [start:simulate_data]
 # Simulate observed responses using the likelihood implied by the task
+# ys (N,) 0 or 1
 ys, prob_params = task.simulate(truth_params, stimuli, truth_model, key=k_sim)
-p_correct = prob_params[0]  # <- for Bernoulli tasks, p_correct is the only prob_param
+# (N,) <- for Bernoulli tasks, p_correct is the only prob_param
+p_correct = prob_params[0]
 # --8<-- [end:simulate_data]
 
 # --8<-- [start:data]
@@ -188,12 +194,11 @@ model = WPPM(
 
 # --8<-- [start:prior]
 # Initialize parameters at a sample from the prior
-init_params = model.init_params(
-    jax.random.PRNGKey(42)
-)  # intitialize with a draw from the prior
-prior_field = WPPMCovarianceField(model, init_params)
+# intitialize with a draw from the prior, {"W": (5, 5, 2, 3)}
+init_params = model.init_params(jax.random.PRNGKey(42))
+prior_field = WPPMCovarianceField.from_params(model, init_params)  # 1 sample
 # Evaluate prior covariance at the reference point
-covs_prior = prior_field(ref_point)  # (1, 2, 2)
+covs_prior = prior_field(ref_point)[0]  # (n_points=1, 2, 2) for the 1 parameter set
 # --8<-- [end:prior]
 print(f"  shape of covs_prior: {covs_prior.shape}")
 
@@ -215,8 +220,8 @@ map_estimate = inference.fit(model=model, data=data, init_params=init_params, se
 # Protocol: ParameterPosterior, here point estimate
 
 # optional: for visualization:
-map_cov_field = WPPMCovarianceField(model, map_estimate.params)
-# OUTPUT: Covariance Matrices (N, 2, 2) for plotting
+map_cov_field = WPPMCovarianceField(posterior=map_estimate)
+# 1 parameter set, so map_cov_field.n_samples == 1
 # --8<-- [end:fit_map]
 
 # ---------------------------------------------------------------------------
@@ -227,10 +232,11 @@ print("[4/5] Plotting covariance ellipses ...")
 
 # --8<-- [start:cov_fields]
 # Evaluate any covariance-field object at a single point or a batch of points.
-covs_truth = truth_field(ref_point)  # (N, 2, 2)
-covs_prior = prior_field(ref_point)  # (N, 2, 2)
-covs_map = map_cov_field(ref_point)  # (N, 2, 2)
-# here: N=1 for fast computation
+# The sample axis comes first: (n_samples=1, n_points=1, 2, 2), and [0] drops it
+covs_truth = truth_field(ref_point)[0]  # (n_points, 2, 2)
+covs_prior = prior_field(ref_point)[0]  # (n_points, 2, 2)
+covs_map = map_cov_field(ref_point)[0]  # (n_points, 2, 2)
+# here: n_points=1 for fast computation
 # --8<-- [end:cov_fields]
 
 fig, ax = plt.subplots(figsize=(6, 6))
@@ -280,7 +286,7 @@ print(f"  Saved -> {PLOTS_DIR}/quick_start_ellipses.png")
 print("[5/5] Plotting learning curve ...")
 
 # --8<-- [start:plot_learning_curve]
-steps_hist, loss_hist = inference.get_history()
+steps_hist, loss_hist = inference.get_history()  # 2 lists, 1 entry per logged step
 # --8<-- [end:plot_learning_curve]
 
 if steps_hist and loss_hist:

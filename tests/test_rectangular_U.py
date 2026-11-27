@@ -184,11 +184,11 @@ class TestParameterCount:
         # We save 864 parameters (25%)!
 
 
-class TestCovarianceFieldProtocol:
+class TestCovarianceFieldShapes:
     """Test that covariance field returns correct shapes."""
 
     def test_covariance_field_cov_shape(self):
-        """field(x) should return (input_dim, input_dim)."""
+        """field(x) should return (n_samples=1, input_dim, input_dim)."""
         from psyphy.model.covariance_field import WPPMCovarianceField
 
         prior = Prior(input_dim=2, basis_degree=5, extra_embedding_dims=1)
@@ -196,15 +196,15 @@ class TestCovarianceFieldProtocol:
         model = WPPM(prior=prior, likelihood=task)
 
         params = prior.sample_params(jr.PRNGKey(42))
-        field = WPPMCovarianceField(model, params)
+        field = WPPMCovarianceField.from_params(model, params)
 
         x = jnp.array([0.5, 0.5])
         Sigma = field(x)
 
-        assert Sigma.shape == (2, 2), f"Expected (2, 2), got {Sigma.shape}"
+        assert Sigma.shape == (1, 2, 2), f"Expected (1, 2, 2), got {Sigma.shape}"
 
     def test_sqrt_cov_shape(self):
-        """CovarianceField.sqrt_cov() should return (input_dim, embedding_dim)."""
+        """sqrt_cov() should return (n_samples=1, input_dim, embedding_dim)."""
         from psyphy.model.covariance_field import WPPMCovarianceField
 
         prior = Prior(input_dim=2, basis_degree=5, extra_embedding_dims=1)
@@ -212,13 +212,13 @@ class TestCovarianceFieldProtocol:
         model = WPPM(prior=prior, likelihood=task)
 
         params = prior.sample_params(jr.PRNGKey(42))
-        field = WPPMCovarianceField(model, params)
+        field = WPPMCovarianceField.from_params(model, params)
 
         x = jnp.array([0.5, 0.5])
         U = field.sqrt_cov(x)
 
-        # U should be rectangular: (input_dim, embedding_dim) = (2, 3)
-        assert U.shape == (2, 3), f"Expected (2, 3), got {U.shape}"
+        # U should be rectangular: (n_samples, input_dim, embedding_dim) = (1, 2, 3)
+        assert U.shape == (1, 2, 3), f"Expected (1, 2, 3), got {U.shape}"
 
     def test_no_cov_stimulus_method_needed(self):
         """cov_stimulus() should not exist: field(x) already returns stimulus size."""
@@ -229,7 +229,7 @@ class TestCovarianceFieldProtocol:
         model = WPPM(prior=prior, likelihood=task)
 
         params = prior.sample_params(jr.PRNGKey(42))
-        field = WPPMCovarianceField(model, params)
+        field = WPPMCovarianceField.from_params(model, params)
 
         # cov_stimulus should not exist in new design
         # (or if it exists, should just return field(x) unchanged)

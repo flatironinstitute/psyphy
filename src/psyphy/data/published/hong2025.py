@@ -785,9 +785,10 @@ def build_paper_model(
     Returns
     -------
     WPPM
-        Ready to fit, or to wrap in a
-        :class:`~psyphy.model.covariance_field.WPPMCovarianceField` for
-        evaluating covariances from published weights.
+        Ready to fit, or to pass with published weights to
+        ``from_params`` of
+        :class:`~psyphy.model.covariance_field.WPPMCovarianceField` for their
+        covariances.
 
     Notes
     -----

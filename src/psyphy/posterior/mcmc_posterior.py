@@ -31,10 +31,11 @@ class MCMCPosterior:
     Backend-agnostic container for MCMC posterior samples.
 
     Satisfies the ParameterPosterior protocol:
-    - ``params``: posterior mean *parameter* over all chains and draws (for
-      WPPM, do not turn this into a covariance field -- see ``params``)
     - ``model``: the fitted WPPM instance
     - ``sample(n, key)``: draw n parameter vectors from the chain pool
+
+    ``params`` raises ``AttributeError``, because the posterior holds samples and
+    not 1 parameter set. ``mean_params`` is the mean of the samples.
 
     Parameters
     ----------
@@ -89,39 +90,54 @@ class MCMCPosterior:
 
     @property
     def params(self) -> dict:
-        """Posterior mean of the parameters over all chains and draws.
+        """Not available: an MCMC posterior holds samples, not 1 parameter set.
+
+        Raises
+        ------
+        AttributeError
+            Always. For the covariance field pass the posterior to
+            ``WPPMCovarianceField(posterior)``. For the mean of the parameter
+            samples, read :attr:`mean_params`.
+        """
+        n = self.n_chains * self.n_draws
+        raise AttributeError(
+            f"MCMCPosterior holds {n} samples, not 1 parameter set. "
+            "For the covariance field, pass the posterior: "
+            "WPPMCovarianceField(posterior). "
+            "For the mean of the parameters, use posterior.mean_params."
+        )
+
+    @property
+    def mean_params(self) -> dict:
+        """Mean of the parameter samples over all chains and draws.
 
         Returns
         -------
         dict
-            Parameter PyTree with the same structure as a single draw.
-            For WPPM: ``{"W": ndarray of shape (*W_shape)}``.
-            e.g. {"W": (2, 2, 2, 3)}, mean over axes 0 (chains) and 1 (draws).
+            Parameter PyTree with the shape of one sample, so for WPPM
+            ``{"W": (*W_shape)}``, e.g. ``(3, 3, 2, 3)``: degree 0 to 2 in
+            :math:`x_1`, the same in :math:`x_2`, :math:`d = 2` stimulus
+            dimensions, :math:`m = 3` embedding dimensions.
 
         Warnings
         --------
-        For WPPM, do **not** build a covariance field from this, e.g.
-        ``WPPMCovarianceField(model, posterior.params)``. That gives Σ(E[W]),
-        which is not the posterior mean of Σ and is systematically too small:
+        Do not build a covariance field from this, e.g.
+        ``WPPMCovarianceField.from_params(model, posterior.mean_params)``. The
+        field is nonlinear in the parameters, so averaging :math:`W` first gives
+        contours several times too small. Use ``WPPMCovarianceField(posterior)``.
 
-        - Σ = U Uᵀ + λI is quadratic in W, so E[Σ] = Σ(E[W]) + Cov[U] and
-          averaging W first drops the (positive semidefinite) Cov[U] term.
-        - W is only identified up to an orthogonal rotation of its embedding
-          axis (W -> W R leaves Σ unchanged), so draws at different
-          orientations partly cancel in E[W], pulling Σ(E[W]) toward λI.
+        Notes
+        -----
+        Use it as ``init_params`` for another fit, e.g.
+        ``NUTSSampler().fit(model, data, init_params=posterior.mean_params)``.
 
-        For the posterior mean covariance field use
-        ``WPPMCovarianceFieldSamples(posterior).mean(x)``; for
-        individual covariance draws use ``sample(n)``. E[W] remains a valid parameter set, e.g. as
-        ``init_params`` for another fit.
+        The samples of :math:`W` are only determined up to a rotation of the
+        embedding axis, so draws at different rotations partly cancel in the
+        mean. Σ = U Uᵀ + λI is quadratic in :math:`W`, so E[Σ] = Σ(E[W]) +
+        Cov[U], and the mean drops the Cov[U] term.
         """
         # _samples["W"]: (n_chains, n_draws, *param_shape)
         # mean over (0, 1)  ->  (*param_shape)
-        # Kept as the plain parameter mean: the ParameterPosterior
-        # protocol requires params to be a parameter PyTree (NUTSSampler and
-        # MAPOptimizer accept it as init_params), and E[Σ] cannot be expressed
-        # as any single W. The fix for covariance summaries therefore lives in
-        # WPPMCovarianceFieldSamples, not here.
         return jax.tree.map(lambda x: jnp.mean(x, axis=(0, 1)), self._samples)
 
     @property
@@ -190,7 +206,7 @@ class MCMCPosterior:
         This is the raw posterior, not a summary: use it to persist a fit, to
         pass the draws to another library, or for any computation that needs
         the per-chain layout (diagnostics do). For a random subset of draws use
-        :meth:`sample`; for the posterior mean parameter use :attr:`params`.
+        :meth:`sample`; for the mean of the parameter samples use :attr:`mean_params`.
 
         The returned dict is a fresh mapping, so adding or removing keys does
         not affect the posterior, but the arrays themselves are shared (JAX

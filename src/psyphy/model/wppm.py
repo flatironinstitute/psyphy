@@ -26,6 +26,7 @@ from psyphy.utils.math import chebyshev_basis
 
 from .base import Model
 from .likelihood import BernoulliTaskLikelihood, TaskLikelihood
+from .noise import GaussianNoise
 from .prior import Prior
 
 # Type aliases for readability
@@ -49,7 +50,8 @@ class WPPM(Model):
         to p(correct) and how log-likelihood of responses is computed.
         (e.g., OddityTask)
     noise : Any, optional
-        Noise model describing internal representation noise (e.g., GaussianNoise).
+        Noise model for the internal representation. Defaults to `GaussianNoise()`.
+        `StudentTNoise` is the other option.
     diag_term : float, default=1e-6
         Small positive value added to the covariance diagonal for numerical
         stability: Sigma(x) = U(x) U(x)^T + diag_term * I. A WPPM setting, not a
@@ -102,7 +104,7 @@ class WPPM(Model):
         # --- core components ---
         self.prior = prior  # prior over parameter PyTree
         self.likelihood = likelihood  # task mapping and likelihood
-        self.noise = noise  # noise model
+        self.noise = GaussianNoise() if noise is None else noise  # noise model
         self.diag_term = float(diag_term)
 
     @property

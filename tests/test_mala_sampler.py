@@ -116,7 +116,7 @@ def test_same_seed_gives_same_draws(tiny_model, tiny_data, posterior):
 
 
 def test_downstream_path_end_to_end(posterior):
-    """fit -> covariance_to_arviz -> WPPMCovarianceFieldSamples -> plot_ellipses.
+    """fit -> covariance_to_arviz -> WPPMCovarianceField -> plot_ellipses.
 
     The same calls the NUTS tutorial makes on a NUTS posterior.
     """
@@ -124,7 +124,7 @@ def test_downstream_path_end_to_end(posterior):
     pytest.importorskip("matplotlib", reason="psyphy[viz] not installed")
     import matplotlib.pyplot as plt
 
-    from psyphy.model import WPPMCovarianceFieldSamples, covariance_to_arviz
+    from psyphy.model import WPPMCovarianceField, covariance_to_arviz
     from psyphy.viz import plot_ellipses
 
     points = jnp.array([[-0.3, -0.3], [0.0, 0.0], [0.3, 0.3]])  # (3, 2)
@@ -135,7 +135,7 @@ def test_downstream_path_end_to_end(posterior):
     assert sigma.shape[:3] == (NUM_CHAINS, NUM_SAMPLES, 3)
     assert "acceptance_rate" in dt["sample_stats"]
 
-    mean_covs = WPPMCovarianceFieldSamples(posterior).mean(points)  # (3, 2, 2)
+    mean_covs = WPPMCovarianceField(posterior).mean(points)  # (3, 2, 2)
     assert mean_covs.shape == (3, 2, 2)
 
     ax = plot_ellipses(np.asarray(points), np.asarray(mean_covs))

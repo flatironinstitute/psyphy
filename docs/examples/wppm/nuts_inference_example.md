@@ -188,23 +188,23 @@ What comes back is an `MCMCPosterior`. We use 2 things on it:
 
 | call | returns | used in |
 |---|---|---|
-| [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.credible_band(x)` for a credible band. Pass `n_samples` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
+| [`WPPMCovarianceField`](../../reference/model.md#psyphy.model.WPPMCovarianceField)`(nuts_posterior)` | every stored sample as a covariance field, with `.mean(x)` for $\mathbb{E}[\Sigma(x)]$ and `.credible_band(x)` for a credible band. Pass `n_samples` and `key` for a random subset | Step 5, the contour ensemble, the red contours and the band |
 | `covariance_to_arviz(nuts_posterior, points)` | $\Sigma$ at chosen points for every sample, in ArviZ's format | [the diagnostics page](mcmc_diagnostics.md) |
 
 One sample is one complete covariance field, so one threshold contour at every reference
 point. `MCMCPosterior` and [`MAPPosterior`](../../reference/posterior.md#psyphy.posterior.MAPPosterior) share this interface, so code written for a MAP
 fit, [`WPPMPredictivePosterior`](../../reference/posterior.md#psyphy.posterior.WPPMPredictivePosterior) for instance, takes a NUTS fit unchanged.
 
-!!! warning "Do not build a covariance field from `nuts_posterior.params`"
-    `nuts_posterior.params` is the mean *parameter* $\mathbb{E}[W]$. It is a valid parameter
-    set and works as `init_params`, but the model is nonlinear in its parameters, so
-    building a field from the mean parameter is not the same as averaging the fields.
-    [`WPPMCovarianceField`](../../reference/model.md#psyphy.model.WPPMCovarianceField)`(model, nuts_posterior.params)`
-    gives contours several times too small on a typical fit. Use
-    [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples)`.mean`
+!!! warning "`nuts_posterior.params` raises"
+    A NUTS fit holds samples, not 1 parameter set, so `nuts_posterior.params` raises an
+    `AttributeError` that names both routes. `nuts_posterior.mean_params` is the mean
+    parameter $\mathbb{E}[W]$. It works as `init_params`, but the model is nonlinear in its
+    parameters, so a field built from it is not the average of the fields.
+    `WPPMCovarianceField.from_params(model, nuts_posterior.mean_params)` gives contours
+    several times too small on a typical fit. Pass the posterior itself,
+    [`WPPMCovarianceField`](../../reference/model.md#psyphy.model.WPPMCovarianceField)`(nuts_posterior)`, and use its `.mean`
     ([Step 5](#step-5-plotting-posterior-samples-and-credible-intervals)), which averages
     $\Sigma$ rather than $W$. Its docstring has the detail.
-    `WPPMCovarianceField.from_posterior` warns when handed an MCMC posterior.
 
 ### Step 5: Plotting posterior samples and credible intervals
 
@@ -219,7 +219,7 @@ plot shows `n_ensemble` contours from all chains.
 
 For one summary field, `.mean` builds $\Sigma$ from each sample and averages the matrices.
 The other route,
-`WPPMCovarianceField(model, posterior.params)`, averages the samples of $W$ first and builds a
+`WPPMCovarianceField.from_params(model, posterior.mean_params)`, averages the samples of $W$ first and builds a
 single field from that mean parameter. The model is nonlinear in its parameters, so the two
 orders do not agree: averaging first drops the spread between samples. It reports contours
 several times too small at every reference point, and gives no sign that it has. The class
@@ -324,7 +324,7 @@ fit reports the same contours with no way to tell those two cases apart.
 - **Other samplers.** Nothing downstream of the sampler is NUTS-specific: any psyphy
   [`InferenceEngine`](../../reference/inference.md#psyphy.inference.InferenceEngine)
   returning an `MCMCPosterior` with samples shaped `(n_chains, n_draws, *W_shape)` works with
-  `covariance_to_arviz`, `WPPMCovarianceFieldSamples` and `WPPMPredictivePosterior`
+  `covariance_to_arviz`, `WPPMCovarianceField` and `WPPMPredictivePosterior`
   unchanged. Note that note all the diagnostics will carry over, since a sampler without trajectories has for example
   no divergences.
 
@@ -334,7 +334,7 @@ fit reports the same contours with no way to tell those two cases apart.
   [`InferenceEngine`](../../reference/inference.md#psyphy.inference.InferenceEngine),
   [`MCMCPosterior`](../../reference/posterior.md#psyphy.posterior.MCMCPosterior),
   [`covariance_to_arviz`](../../reference/model.md#psyphy.model.covariance_to_arviz),
-  [`WPPMCovarianceFieldSamples`](../../reference/model.md#psyphy.model.WPPMCovarianceFieldSamples),
+  [`WPPMCovarianceField`](../../reference/model.md#psyphy.model.WPPMCovarianceField),
   [`contour_radii`](../../reference/model.md#psyphy.model.contour_radii)
 - MAP fitting and the model in more depth:
   [full WPPM fit](full_wppm_fit_example.md).

@@ -98,7 +98,8 @@ def test_values_match_per_draw_sigma(model, points):
     sigma = covariance_to_arviz(posterior, points)["posterior"]["Sigma"].values
 
     c, s = 1, 2
-    S = np.asarray(WPPMCovarianceField(model, {"W": samples["W"][c, s]})(points))
+    field = WPPMCovarianceField.from_params(model, {"W": samples["W"][c, s]})
+    S = np.asarray(field(points)[0])  # (n_points, d, d)
     expected = np.stack(
         [
             np.log(S[:, 0, 0]),

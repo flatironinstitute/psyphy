@@ -150,8 +150,8 @@ Chebyshev weights $W$.
 
 ## Step 5: Read the recovered function three ways
 
-Bind the fitted parameters into a `WPPMCovarianceField` and evaluate $\Sigma(s)$ on a dense
-grid. From the single fitted function $\sqrt{\hat\Sigma(s)}$ we read three views. All
+Build a `WPPMCovarianceField` from the MAP posterior and evaluate $\Sigma(s)$ on a dense
+grid. Its first axis is the 1 parameter set of the fit, which `[0]` drops. From the single fitted function $\sqrt{\hat\Sigma(s)}$ we read three views. All
 three are the same fit, re-expressed.
 
 ```python title="Derived quantities: JND and Weber fraction"

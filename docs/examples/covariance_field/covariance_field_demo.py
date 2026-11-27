@@ -61,7 +61,8 @@ os.makedirs(PLOTS_DIR, exist_ok=True)
 # ============================================================================
 
 # Pre-compute unit circle for ellipse plotting
-_THETAS = jnp.linspace(0, 2 * jnp.pi, 100)
+_THETAS = jnp.linspace(0, 2 * jnp.pi, 100)  # (100,) radians
+# (2, 100): x row, y row
 _UNIT_CIRCLE = jnp.vstack([jnp.cos(_THETAS), jnp.sin(_THETAS)])
 
 
@@ -82,6 +83,7 @@ def matrix_sqrt(Sigma: jnp.ndarray) -> jnp.ndarray:
     jnp.ndarray, shape (2, 2)
         Matrix square root such that sqrt(Σ) @ sqrt(Σ)^T = Σ
     """
+    # (2,) and (2, 2), eigenvectors as columns
     eigvals, eigvecs = jnp.linalg.eigh(Sigma)
     sqrt_eigvals = jnp.sqrt(jnp.maximum(eigvals, 0))  # Ensure non-negative
     return eigvecs @ jnp.diag(sqrt_eigvals) @ eigvecs.T
@@ -127,14 +129,14 @@ def plot_ellipse_at_point(
 
     """
     # Get matrix square root of covariance
-    sqrt_Sigma = matrix_sqrt(Sigma)
+    sqrt_Sigma = matrix_sqrt(Sigma)  # (2, 2)
 
     # Transform unit circle: sqrt(Σ) @ unit_circle
-    ellipse_points = scale * (sqrt_Sigma @ _UNIT_CIRCLE)
+    ellipse_points = scale * (sqrt_Sigma @ _UNIT_CIRCLE)  # (2, 100)
 
     # Translate to center
-    x_coords = center[0] + np.array(ellipse_points[0])
-    y_coords = center[1] + np.array(ellipse_points[1])
+    x_coords = center[0] + np.array(ellipse_points[0])  # (100,)
+    y_coords = center[1] + np.array(ellipse_points[1])  # (100,)
 
     # Plot ellipse as a line (contour only)
     ax.plot(
@@ -157,7 +159,7 @@ def plot_ellipse_field(
     Parameters
     ----------
     field : WPPMCovarianceField
-        Covariance field to visualize
+        Covariance field to visualize. We plot its first sample
     grid_points : jnp.ndarray, shape (n, 2)
         Grid points at which to evaluate covariance
     scale : float
@@ -166,7 +168,8 @@ def plot_ellipse_field(
         Path to save figure
     """
     # Evaluate covariance at all grid points
-    Sigmas = field(grid_points)  # (n, 2, 2)
+    # (n, 2, 2): [0] picks the first sample of (n_samples, n, 2, 2)
+    Sigmas = field(grid_points)[0]
 
     # Plot
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -216,11 +219,12 @@ model = WPPM(
 
 # Sample covariance field from prior
 key = jr.PRNGKey(42)
-field = WPPMCovarianceField.from_prior(model=model, key=key)
+# 1 sample, W (5, 5, 2, 3)
+field = WPPMCovarianceField.from_prior(model=model, n_samples=1, key=key)
 
 # Evaluate at a single reference point
-x_ref = jnp.array([0.5, 0.5])
-Sigma_ref = field(x_ref)  # (2, 2)
+x_ref = jnp.array([0.5, 0.5])  # (d=2,), one stimulus location
+Sigma_ref = field(x_ref)[0]  # (2, 2); field(x_ref) is (n_samples=1, 2, 2)
 # --8<-- [end:single_point]
 print("\n[1.1] Covariance field created (Wishart mode)")
 print(f"\n[1.2] Reference point: {x_ref}")
@@ -265,21 +269,22 @@ print("=" * 70)
 # --8<-- [start:grid_points]
 # Create grid of reference points
 n_grid = 5
-x_vals = jnp.linspace(0.15, 0.85, n_grid)
+x_vals = jnp.linspace(0.15, 0.85, n_grid)  # (n_grid,)
 y_vals = jnp.linspace(0.15, 0.85, n_grid)
-X_grid, Y_grid = jnp.meshgrid(x_vals, y_vals)
-grid_points = jnp.stack([X_grid.ravel(), Y_grid.ravel()], axis=1)
+X_grid, Y_grid = jnp.meshgrid(x_vals, y_vals)  # each (n_grid, n_grid)
+grid_points = jnp.stack([X_grid.ravel(), Y_grid.ravel()], axis=1)  # (n_grid**2, d=2)
 
-# Evaluate covariance at all points in one call
-Sigmas_grid = field(grid_points)  # (n_grid**2, 2, 2)
+# Evaluate covariance at all points in one call. The sample axis comes first
+Sigmas_grid = field(grid_points)  # (n_samples=1, n_grid**2, 2, 2)
 
-# Also works with JAX vmap on the callable!
-Sigmas_vmap = jax.vmap(field)(grid_points)  # same result, via vmap
+# jax.vmap over the points gives the same values with the points first,
+# so we pass the whole batch to field instead
+Sigmas_vmap = jax.vmap(field)(grid_points)  # (n_grid**2, n_samples=1, 2, 2)
 # --8<-- [end:grid_points]
-assert jnp.allclose(Sigmas_grid, Sigmas_vmap)
+assert jnp.allclose(Sigmas_grid, jnp.moveaxis(Sigmas_vmap, 1, 0))
 print(f"\n[2.1] Created grid of {len(grid_points)} reference points")
 print(f"      Covariances shape: {Sigmas_grid.shape}")
-print("      field(X) == jax.vmap(field)(X)")
+print("      field(X) == jnp.moveaxis(jax.vmap(field)(X), 1, 0)")
 
 
 # Visualize ellipse grid
@@ -306,10 +311,12 @@ print("=" * 70)
 print("\n[3.1] Creating new covariance field from different prior sample...")
 # --8<-- [start:custom]
 key_custom = jr.PRNGKey(999)
-custom_field = WPPMCovarianceField.from_prior(model, key_custom)
+# {"W": (5, 5, 2, 3)}: degree 0 to 4, d=2, m=3
+custom_params = model.init_params(key_custom)
+custom_field = WPPMCovarianceField.from_params(model=model, params=custom_params)
 # Evaluate at center point
-x_center = jnp.array([0.5, 0.5])
-Sigma_custom = custom_field(x_center)  # (2, 2)
+x_center = jnp.array([0.5, 0.5])  # (d=2,)
+Sigma_custom = custom_field(x_center)[0]  # (2, 2), the 1 parameter set
 # --8<-- [end:custom]
 print("\n[3.2] Σ(0.5, 0.5) from custom field [2x2 block]:")
 
