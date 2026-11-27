@@ -232,6 +232,7 @@ def compare_fields(Sigma_fit: np.ndarray, Sigma_ref: np.ndarray) -> dict[str, fl
     )
     return {
         "rel_frobenius_median": float(np.median(rel_frob)),
+        "rel_frobenius_rms": float(np.sqrt(np.mean(rel_frob**2))),
         "rel_frobenius_max": float(rel_frob.max()),
         "area_ratio_median": float(np.median(area_ratio)),
         "angle_err_deg_median": float(np.median(d_ang)),
