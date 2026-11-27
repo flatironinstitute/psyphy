@@ -100,7 +100,7 @@ breaking changes are called out below but do not force a minor-version bump.
   ```
 
   The default is unchanged at 2/3, the oddity task's criterion, so a
-  caller relying on the default needs no edit.
+  caller relying on the default doesn't need to edit anything.
 
 - **`PosteriorMeanCovarianceField` and `contour_band` are gone, and their reductions are
   methods on the new `WPPMCovarianceFieldSamples`.** The draws are taken once, when the
