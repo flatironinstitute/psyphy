@@ -23,7 +23,7 @@
 
 Below is the minimal end-to-end workflow: simulate 1,000 oddity-task trials at a single
 reference point, fit the Wishart Process Psychophysical Model (WPPM) by maximum a posteriori
-(MAP) optimization, and plot the result. It needs no GPU and runs in under a minute on CPU.
+(MAP) optimization, and plot the result. It doesn't need a GPU and runs in under a minute on CPU.
 
 > The complete runnable script is
 > [`quick_start.py`](https://github.com/flatironinstitute/psyphy/blob/main/docs/examples/wppm/quick_start.py).
