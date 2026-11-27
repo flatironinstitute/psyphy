@@ -9,7 +9,7 @@ What these pin:
 2. `WPPMCovarianceField(posterior)` returns the same numbers
    its reductions returned when they routed through `posterior.sample`. Pooling the
    stored draws in order replaces a permutation of the same draws.
-3. That entry point needs no key for every stored draw, and still accepts one when
+3. That entry point doesn't need a key for every stored draw, and still accepts one when
    `n_samples` subsamples.
 """
 

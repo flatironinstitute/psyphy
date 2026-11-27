@@ -6,7 +6,7 @@ Tests for 1 parameter set in WPPMCovarianceField: a MAP fit, a ground truth or
 a published W, held as a field with a sample axis of length 1.
 
 - MAPPosterior stores its 1 sample the way an MCMCPosterior stores its chains,
-  so WPPMCovarianceField(map_post) needs no n_samples and no key
+  so WPPMCovarianceField(map_post) doesn't need n_samples or a key
 - WPPMCovarianceField.from_params(model, params) takes 1 parameter set with no
   leading axis
 - credible_band raises for 1 sample, since a band of zero width reads as certainty
@@ -100,7 +100,7 @@ def test_map_posterior_samples_match_mcmc_layout(model, params, map_post):
 
 
 # ==============================================================================
-# WPPMCovarianceField(map_post) needs no key
+# WPPMCovarianceField(map_post) doesn't need a key
 # ==============================================================================
 
 
