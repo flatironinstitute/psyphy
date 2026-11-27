@@ -29,7 +29,7 @@ run (``--subject``, default 1 = CH), never pooled.
       the same oddity inversion stage 2 runs, and compare the resulting
       *thresholds* to the published ones. This is the whole claim in one line:
       raw data -> our weights -> our contours -> the published figure. Reads
-      the saved weights, so it costs ~20 s on CPU and needs no GPU.
+      the saved weights, so it costs ~20 s on CPU and doesn't need a GPU.
 
   Stage 5 -- the yardstick. "Close enough" needs a criterion, so we use the
       authors' own: they resampled the AEPsych trials 120 times, refit the WPPM
@@ -531,8 +531,8 @@ def stage3_figure_from_fit(
 ) -> None:
     """Redraw stage 3's Sigma_noise figure from saved weights, without refitting.
 
-    The covariance field is a deterministic function of W, so this needs no
-    optimizer, no Monte Carlo and no GPU -- only the fit did. It exists so a
+    The covariance field is a deterministic function of W, so this doesn't need an
+    optimizer, Monte Carlo or a GPU. Only the fit did. It exists so a
     styling or labelling change to the figure does not cost another cluster run.
     """
     print("\n=== Stage 3 (figure only): redrawn from the saved fit ===")

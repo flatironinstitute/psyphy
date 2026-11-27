@@ -22,7 +22,7 @@ class MAPPosterior:
 
     Carries no uncertainty. It stores θ_MAP as 1 chain with 1 sample, the same
     layout an ``MCMCPosterior`` uses for its samples, so
-    ``WPPMCovarianceField(map_posterior)`` needs no ``n_samples`` and no
+    ``WPPMCovarianceField(map_posterior)`` doesn't need ``n_samples`` or a
     key. The chain axis is only a layout: no sampler ran.
 
     Parameters

@@ -112,7 +112,7 @@ def _draws_from(posterior, n_samples: int | None, key) -> tuple[dict, int]:
     if key is None:
         raise ValueError(
             f"n_samples={n_samples} subsamples the draws, so pass key=. "
-            "Omit n_samples to use every stored draw, which needs no key."
+            "Omit n_samples to use every stored draw, which doesn't need a key."
         )
     return posterior.sample(int(n_samples), key=key), int(n_samples)
 

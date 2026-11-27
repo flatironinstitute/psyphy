@@ -99,7 +99,7 @@ _parser.add_argument(
     "--from-fit",
     action="store_true",
     help="skip MAP and NUTS; rebuild every figure and diagnostic from the "
-    "cached fit for this mode (see fit_path). Needs no GPU.",
+    "cached fit for this mode (see fit_path). Doesn't need a GPU.",
 )
 _args = _parser.parse_args()
 MODE = _args.mode
